@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { useUserData } from '../lib/useUserData';
 import { archiveCompletedTasks } from '../repositories/tasksRepo';
+import { BoardView } from './BoardView';
+import { CalendarioView } from './CalendarioView';
 import { EsforcoView } from './EsforcoView';
 import { KanbanView } from './KanbanView';
 import { ListView } from './ListView';
@@ -8,15 +10,25 @@ import { ModoView } from './ModoView';
 import { MoscowView } from './MoscowView';
 import { PrioridadeView } from './PrioridadeView';
 
-type TaskView = 'lista' | 'prioridade' | 'kanban' | 'moscow' | 'modo' | 'esforco';
+type TaskView =
+  | 'lista'
+  | 'board'
+  | 'prioridade'
+  | 'kanban'
+  | 'moscow'
+  | 'modo'
+  | 'esforco'
+  | 'calendario';
 
 const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'lista', label: 'Lista' },
+  { key: 'board', label: 'Board' },
   { key: 'prioridade', label: 'Prioridade' },
   { key: 'kanban', label: 'Kanban' },
   { key: 'moscow', label: 'MoSCoW' },
   { key: 'modo', label: 'Modo' },
   { key: 'esforco', label: 'Esforço' },
+  { key: 'calendario', label: 'Calendário' },
 ];
 
 const STORAGE_KEY = 'app-produtividade:task-view';
@@ -69,6 +81,15 @@ export function TasksRoot({ uid }: { uid: string }) {
       {view === 'lista' && (
         <ListView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
       )}
+      {view === 'board' && (
+        <BoardView
+          uid={uid}
+          tasks={data.tasks}
+          sections={data.sections}
+          sectionMap={data.sectionMap}
+          ctx={data.ctx}
+        />
+      )}
       {view === 'prioridade' && (
         <PrioridadeView
           uid={uid}
@@ -89,6 +110,15 @@ export function TasksRoot({ uid }: { uid: string }) {
       )}
       {view === 'esforco' && (
         <EsforcoView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
+      )}
+      {view === 'calendario' && (
+        <CalendarioView
+          uid={uid}
+          tasks={data.tasks}
+          sections={data.sections}
+          sectionMap={data.sectionMap}
+          ctx={data.ctx}
+        />
       )}
     </>
   );
