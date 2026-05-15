@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   createPinAccount,
   isEmailAlreadyInUse,
@@ -7,6 +7,7 @@ import {
   PIN_LENGTH,
   signInWithPin,
 } from '../lib/auth';
+import { PinPad } from './PinPad';
 
 type Phase = 'enter' | 'confirm';
 
@@ -16,54 +17,53 @@ export function Login() {
   const [phase, setPhase] = useState<Phase>('enter');
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const inputRef = useRef<HTMLInputElement>(null);
 
+  // Limpa erro automaticamente quando o usuário começa a digitar de novo
   useEffect(() => {
-    inputRef.current?.focus();
-  }, [phase]);
-
-  function handlePinChange(value: string, setter: (v: string) => void) {
-    const digits = value.replace(/\D/g, '').slice(0, PIN_LENGTH);
-    setter(digits);
-    setError(null);
-  }
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!isValidPin(pin)) {
-      setError('PIN precisa ter exatamente 6 dígitos');
-      return;
+    if (error && (phase === 'enter' ? pin : confirmPin).length > 0) {
+      setError(null);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pin, confirmPin]);
 
+  async function handleEnterSubmit() {
+    if (!isValidPin(pin)) return;
     setLoading(true);
     try {
-      if (phase === 'enter') {
-        try {
-          await signInWithPin(pin);
-        } catch (err) {
-          if (isInvalidCredential(err)) {
-            setPhase('confirm');
-            setError(null);
-          } else {
-            setError(err instanceof Error ? err.message : String(err));
-          }
-        }
+      await signInWithPin(pin);
+    } catch (err) {
+      if (isInvalidCredential(err)) {
+        // primeiro acesso ou PIN errado — pede confirmação para criar conta
+        setPhase('confirm');
+        setError(null);
       } else {
-        if (pin !== confirmPin) {
-          setError('Os PINs não coincidem');
-          return;
-        }
-        try {
-          await createPinAccount(pin);
-        } catch (err) {
-          if (isEmailAlreadyInUse(err)) {
-            setError('PIN incorreto — tente novamente');
-            setPhase('enter');
-            setConfirmPin('');
-          } else {
-            setError(err instanceof Error ? err.message : String(err));
-          }
-        }
+        setError(err instanceof Error ? err.message : String(err));
+        setPin('');
+      }
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleConfirmSubmit() {
+    if (!isValidPin(confirmPin)) return;
+    if (pin !== confirmPin) {
+      setError('Os PINs não coincidem');
+      setConfirmPin('');
+      return;
+    }
+    setLoading(true);
+    try {
+      await createPinAccount(pin);
+    } catch (err) {
+      if (isEmailAlreadyInUse(err)) {
+        setError('PIN incorreto — tente novamente');
+        setPhase('enter');
+        setPin('');
+        setConfirmPin('');
+      } else {
+        setError(err instanceof Error ? err.message : String(err));
+        setConfirmPin('');
       }
     } finally {
       setLoading(false);
@@ -76,66 +76,39 @@ export function Login() {
     setError(null);
   }
 
-  return (
-    <main className="auth-screen">
-      <h1>Produtividade — Kiê</h1>
+  const activeValue = phase === 'enter' ? pin : confirmPin;
+  const activeSetter = phase === 'enter' ? setPin : setConfirmPin;
+  const activeSubmit = phase === 'enter' ? handleEnterSubmit : handleConfirmSubmit;
 
-      {phase === 'enter' ? (
-        <form onSubmit={handleSubmit} className="pin-form">
-          <label htmlFor="pin-input" className="pin-label">
-            Digite seu PIN
-          </label>
-          <input
-            ref={inputRef}
-            id="pin-input"
-            type="password"
-            inputMode="numeric"
-            autoComplete="off"
-            pattern="\d{6}"
-            maxLength={PIN_LENGTH}
-            value={pin}
-            onChange={(e) => handlePinChange(e.target.value, setPin)}
-            className="pin-input"
-            aria-label="PIN de 6 dígitos"
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading || !isValidPin(pin)}
-          >
-            {loading ? 'Entrando…' : 'Entrar'}
-          </button>
-        </form>
-      ) : (
-        <form onSubmit={handleSubmit} className="pin-form">
-          <p className="muted">
-            Primeiro acesso — confirme o PIN abaixo para criar a conta.
+  const prompt =
+    phase === 'enter' ? 'Insira seu PIN' : 'Confirme o PIN para criar a conta';
+
+  return (
+    <main className="pin-screen">
+      <div className="pin-screen-top">
+        <div className="pin-app-icon" aria-hidden="true">
+          ⚡
+        </div>
+        <h1 className="pin-app-name">Produtividade</h1>
+        <p className="pin-prompt">{prompt}</p>
+      </div>
+
+      <div className="pin-screen-bottom">
+        <PinPad
+          value={activeValue}
+          onChange={activeSetter}
+          onSubmit={activeSubmit}
+          length={PIN_LENGTH}
+          disabled={loading}
+        />
+
+        {error && (
+          <p className="error" role="alert">
+            {error}
           </p>
-          <label htmlFor="pin-confirm" className="pin-label">
-            Confirme o PIN
-          </label>
-          <input
-            ref={inputRef}
-            id="pin-confirm"
-            type="password"
-            inputMode="numeric"
-            autoComplete="off"
-            pattern="\d{6}"
-            maxLength={PIN_LENGTH}
-            value={confirmPin}
-            onChange={(e) => handlePinChange(e.target.value, setConfirmPin)}
-            className="pin-input"
-            aria-label="confirmação do PIN"
-            disabled={loading}
-          />
-          <button
-            type="submit"
-            className="btn-primary"
-            disabled={loading || !isValidPin(confirmPin)}
-          >
-            {loading ? 'Criando…' : 'Criar e entrar'}
-          </button>
+        )}
+
+        {phase === 'confirm' && (
           <button
             type="button"
             onClick={handleBack}
@@ -144,14 +117,8 @@ export function Login() {
           >
             ← voltar
           </button>
-        </form>
-      )}
-
-      {error && (
-        <p className="error" role="alert">
-          {error}
-        </p>
-      )}
+        )}
+      </div>
     </main>
   );
 }
