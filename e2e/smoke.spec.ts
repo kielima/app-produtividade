@@ -38,22 +38,26 @@ test.describe('smoke @smoke', () => {
     await clearAuthEmulator();
   });
 
+  async function tapPin(page: import('@playwright/test').Page, pin: string) {
+    for (const digit of pin) {
+      await page.getByRole('button', { name: `dígito ${digit}` }).click();
+    }
+    await page.getByRole('button', { name: 'confirmar' }).click();
+  }
+
   test('first-time PIN setup → create section → create task → mark complete', async ({ page }) => {
-    // 1. App opens on login screen with PIN input
+    // 1. App opens on login screen with PIN numpad
     await page.goto('/');
-    const pinInput = page.getByLabel(/PIN de 6 dígitos/i);
-    await expect(pinInput).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(/Insira seu PIN/i)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole('button', { name: 'dígito 1' })).toBeVisible();
 
-    // 2. Type the PIN and submit — first attempt fails (user doesn't exist yet),
+    // 2. Tap PIN digits + OK — first attempt fails (user doesn't exist yet),
     //    triggering the "confirm to create" flow
-    await pinInput.fill(TEST_PIN);
-    await page.getByRole('button', { name: /^Entrar$/ }).click();
+    await tapPin(page, TEST_PIN);
 
-    // 3. Confirmation field appears — type the PIN again to create the account
-    const confirmInput = page.getByLabel(/confirmação do PIN/i);
-    await expect(confirmInput).toBeVisible({ timeout: 10_000 });
-    await confirmInput.fill(TEST_PIN);
-    await page.getByRole('button', { name: /Criar e entrar/i }).click();
+    // 3. Confirmation phase — type the PIN again to create the account
+    await expect(page.getByText(/Confirme o PIN/i)).toBeVisible({ timeout: 10_000 });
+    await tapPin(page, TEST_PIN);
 
     // 4. After login the app should render the main interface with tabs
     await expect(page.getByRole('button', { name: 'Tarefas' })).toBeVisible({ timeout: 15_000 });
