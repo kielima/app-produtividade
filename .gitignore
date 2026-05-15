@@ -102,6 +102,10 @@ Minhas_Tarefas.md
 Tarefas_Concluidas.md
 Meus_Projetos.md
 
+# Exceção: pasta de migração one-shot é permitida
+!migration-data/
+!migration-data/**
+
 # Diário, notas e listas pessoais
 agenda*.md
 minha_rotina*.md
@@ -122,3 +126,4 @@ default-clipper.json
 
 # CLAUDE.md local — instruções privadas pro assistente
 CLAUDE.md
+!migration-data/CLAUDE.md
