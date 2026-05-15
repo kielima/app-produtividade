@@ -5,8 +5,8 @@ import { Login } from './components/Login';
 import { isAuthorized } from './lib/access';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
-import { ListView } from './views/ListView';
 import { ProjectsView } from './views/ProjectsView';
+import { TasksRoot } from './views/TasksRoot';
 
 type Tab = 'tasks' | 'projects';
 
@@ -62,7 +62,7 @@ export function App() {
         </div>
       </header>
 
-      {tab === 'tasks' ? <ListView uid={user.uid} /> : <ProjectsView uid={user.uid} />}
+      {tab === 'tasks' ? <TasksRoot uid={user.uid} /> : <ProjectsView uid={user.uid} />}
     </div>
   );
 }
