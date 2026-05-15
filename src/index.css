@@ -766,21 +766,73 @@ a:focus-visible {
 
 /* ===== Prioridade view ===== */
 .prioridade-list { gap: 0.4rem; }
-.prioridade-row {
-  display: grid;
-  grid-template-columns: 3.5rem 1fr;
-  gap: 0.6rem;
-  align-items: flex-start;
-}
-.prioridade-score {
+.badge.score {
+  background: var(--accent);
+  color: white;
   font-family: ui-monospace, SFMono-Regular, monospace;
-  font-size: 0.85rem;
   font-weight: 700;
-  color: var(--accent);
-  text-align: right;
-  padding-top: 0.7rem;
 }
-.prioridade-card-wrap { min-width: 0; }
+
+/* Filters panel (toggle + collapsible) */
+.filters-toggle { font-size: 0.9rem; }
+.filters-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  margin-bottom: 1rem;
+  padding: 0.85rem 1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.filters-panel fieldset {
+  border: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  align-items: center;
+}
+.filters-panel legend {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  margin-bottom: 0.3rem;
+  width: 100%;
+  padding: 0;
+}
+.filter-select {
+  padding: 0.4rem 0.6rem;
+  border-radius: 4px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: inherit;
+  font-size: 0.9rem;
+  min-width: 12rem;
+}
+.chip-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+}
+.chip {
+  padding: 0.3rem 0.7rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+}
+.chip:hover { border-color: var(--accent); }
+.chip.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
 
 /* ===== Board view (colunas horizontais por seção) ===== */
 .board-view { overflow: hidden; }
