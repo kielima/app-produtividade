@@ -145,6 +145,23 @@ Em mobile (<480px):
   <450px, sidebar é colapsável (acordeão).
 - **Matrizes 2x2 (MoSCoW, Modo, etc)**: viram stack 4x1 em <480px.
 
+### 2.8. Bloquear scroll horizontal de página (regra global)
+
+A `html, body` tem `overflow-x: hidden` + `max-width: 100vw` pra
+**garantir** que nenhum elemento filho consiga empurrar a página
+horizontalmente. Isto evita o "bug do swipe diagonal" — quando o
+usuário rola pra baixo com leve inclinação lateral e a página
+inteira se desloca pro lado.
+
+Scrollers internos legítimos (BoardView, subtabs, tabs primárias)
+têm `touch-action: pan-x` + `overscroll-behavior-x: contain` pra:
+- Capturar apenas pan horizontal (gesto vertical passa pro body)
+- Não propagar o scroll horizontal pra fora do scroller
+
+E o `body` tem `touch-action: pan-y` — só responde a pan vertical.
+
+**Não remover essas declarações** mesmo que pareçam redundantes.
+
 ---
 
 ## 3. Tipografia responsiva
