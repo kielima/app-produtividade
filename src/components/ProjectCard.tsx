@@ -1,0 +1,233 @@
+import { useState } from 'react';
+import { deleteProject, patchProject } from '../repositories/projectsRepo';
+import type { Project, ProjectPriority, ProjectStatus } from '../types';
+import { InlineEdit } from './InlineEdit';
+import { Popover } from './Popover';
+
+const STATUS_OPTS: ProjectStatus[] = [
+  'A iniciar',
+  'Em andamento',
+  'Pausado',
+  'Concluído',
+  'Cancelado',
+  '',
+];
+
+const STATUS_LABEL: Record<ProjectStatus, string> = {
+  'A iniciar': 'A iniciar',
+  'Em andamento': 'Em andamento',
+  Pausado: 'Pausado',
+  'Concluído': 'Concluído',
+  Cancelado: 'Cancelado',
+  '': '— sem status —',
+};
+
+const STATUS_SLUG: Record<ProjectStatus, string> = {
+  'A iniciar': 'a-iniciar',
+  'Em andamento': 'em-andamento',
+  Pausado: 'pausado',
+  'Concluído': 'concluido',
+  Cancelado: 'cancelado',
+  '': 'none',
+};
+
+const PRIORITY_OPTS: ProjectPriority[] = ['P1', 'P2', 'P3', ''];
+
+export function ProjectCard({ uid, project }: { uid: string; project: Project }) {
+  const [expanded, setExpanded] = useState(false);
+
+  async function patch(field: keyof Project, value: string) {
+    await patchProject(uid, project.id, { [field]: value } as Partial<Project>);
+  }
+
+  async function handleDelete() {
+    if (!window.confirm(`Apagar o projeto "${project.name}"?`)) return;
+    await deleteProject(uid, project.id);
+  }
+
+  const statusClass = STATUS_SLUG[project.status];
+  const isDone = project.status === 'Concluído' || project.status === 'Cancelado';
+
+  return (
+    <article className={`project-card${isDone ? ' done' : ''}`}>
+      <header className="project-head">
+        <InlineEdit
+          value={project.name}
+          onSave={(v) => patch('name', v)}
+          className="project-name"
+          ariaLabel="editar nome do projeto"
+        />
+
+        <Popover
+          trigger={(open) => (
+            <button type="button" className={`badge status-${statusClass}`} onClick={open}>
+              {STATUS_LABEL[project.status]}
+            </button>
+          )}
+        >
+          {(close) => (
+            <ul className="picker-list">
+              {STATUS_OPTS.map((s) => (
+                <li key={s || 'none'}>
+                  <button
+                    type="button"
+                    className={s === project.status ? 'active' : ''}
+                    onClick={() => {
+                      patch('status', s);
+                      close();
+                    }}
+                  >
+                    {STATUS_LABEL[s]}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Popover>
+
+        <Popover
+          trigger={(open) => (
+            <button type="button" className={`badge prio-${project.priority || 'none'}`} onClick={open}>
+              {project.priority || '— sem prioridade —'}
+            </button>
+          )}
+        >
+          {(close) => (
+            <ul className="picker-list">
+              {PRIORITY_OPTS.map((p) => (
+                <li key={p || 'none'}>
+                  <button
+                    type="button"
+                    className={p === project.priority ? 'active' : ''}
+                    onClick={() => {
+                      patch('priority', p);
+                      close();
+                    }}
+                  >
+                    {p || '— sem prioridade —'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </Popover>
+
+        <button
+          type="button"
+          className="icon-btn project-expand"
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? 'recolher' : 'expandir'}
+        >
+          {expanded ? '▾' : '▸'}
+        </button>
+
+        <button
+          type="button"
+          className="icon-btn danger"
+          onClick={handleDelete}
+          aria-label="apagar projeto"
+          title="apagar projeto"
+        >
+          🗑
+        </button>
+      </header>
+
+      {project.objective && (
+        <p className="project-line">
+          <span className="muted">🎯</span> {project.objective}
+        </p>
+      )}
+
+      {expanded && (
+        <div className="project-body">
+          <Field
+            label="Área"
+            value={project.area}
+            onSave={(v) => patch('area', v)}
+            placeholder="(área temática)"
+          />
+          <Field
+            label="🎯 Objetivo"
+            value={project.objective}
+            onSave={(v) => patch('objective', v)}
+            placeholder="(objetivo do projeto)"
+            multiline
+          />
+          <Field
+            label="📌 Status atual"
+            value={project.currentStatus}
+            onSave={(v) => patch('currentStatus', v)}
+            placeholder="(onde está hoje)"
+            multiline
+          />
+          <Field
+            label="➡️ Próximos passos"
+            value={project.nextSteps}
+            onSave={(v) => patch('nextSteps', v)}
+            placeholder="(o que fazer a seguir)"
+            multiline
+          />
+          <div className="project-row">
+            <label>
+              <span className="muted">📅 Prazo:</span>&nbsp;
+              <input
+                type="date"
+                value={project.deadline}
+                onChange={(e) => patch('deadline', e.target.value)}
+              />
+            </label>
+            <Field
+              label="⏱️ Duração estimada"
+              value={project.estimatedDuration}
+              onSave={(v) => patch('estimatedDuration', v)}
+              placeholder="(ex: 3 meses)"
+              inline
+            />
+          </div>
+          <Field
+            label="🔗 Depende de"
+            value={project.dependsOn}
+            onSave={(v) => patch('dependsOn', v)}
+            placeholder="(outro projeto, opcional)"
+          />
+          <Field
+            label="📝 Notas"
+            value={project.notes}
+            onSave={(v) => patch('notes', v)}
+            placeholder="(notas livres)"
+            multiline
+          />
+        </div>
+      )}
+    </article>
+  );
+}
+
+function Field({
+  label,
+  value,
+  onSave,
+  placeholder,
+  multiline,
+  inline,
+}: {
+  label: string;
+  value: string;
+  onSave: (v: string) => void;
+  placeholder?: string;
+  multiline?: boolean;
+  inline?: boolean;
+}) {
+  return (
+    <div className={`project-field${inline ? ' inline' : ''}`}>
+      <span className="project-field-label">{label}:</span>
+      <InlineEdit
+        value={value}
+        onSave={onSave}
+        placeholder={placeholder}
+        multiline={multiline}
+        className="project-field-value"
+      />
+    </div>
+  );
+}
