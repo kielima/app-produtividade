@@ -7,6 +7,7 @@ on:
 # Required secret: FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE
 # Firebase Console → Project settings → Service accounts → Generate new private key
 # GitHub → Settings → Secrets and variables → Actions → New repository secret
+# O JSON precisa ser válido (começa com { termina com })
 
 jobs:
   deploy:
