@@ -2,23 +2,21 @@ rules_version = '2';
 
 // =============================================================
 // Security rules — app-produtividade
-// Acesso restrito ao UID do dono (Kiê). Default deny em tudo.
 //
-// IMPORTANTE: preencher AUTHORIZED_UID após o primeiro login Google
-// no PWA já deployado. Até lá, todo acesso ao Firestore é negado.
+// App pessoal de um usuário só, autenticado via PIN (email/password
+// fixo internamente). Cada usuário autenticado acessa apenas o próprio
+// caminho /users/{uid}. Default deny em tudo o mais.
 // =============================================================
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    function isOwner(uid) {
-      return request.auth != null
-          && request.auth.uid == uid
-          && request.auth.uid == 'AUTHORIZED_UID_PLACEHOLDER';
+    function isSelf(uid) {
+      return request.auth != null && request.auth.uid == uid;
     }
 
     match /users/{uid}/{document=**} {
-      allow read, write: if isOwner(uid);
+      allow read, write: if isSelf(uid);
     }
 
     // Default deny — qualquer outro path é bloqueado.
