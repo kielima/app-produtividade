@@ -8,17 +8,17 @@ import {
   type DragEndEvent,
   type DragStartEvent,
 } from '@dnd-kit/core';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { DraggableTaskCard } from '../components/DraggableTaskCard';
 import { DroppableSection } from '../components/DroppableSection';
 import { NewTaskInput } from '../components/NewTaskInput';
 import { SectionHeader } from '../components/SectionHeader';
 import { TaskCard } from '../components/TaskCard';
+import { isTaskBlocked } from '../lib/score';
 import { patchTask } from '../lib/taskMutations';
-import { buildDependencyMap, isTaskBlocked } from '../lib/score';
-import { createSection, subscribeToSections } from '../repositories/sectionsRepo';
-import { archiveCompletedTasks, subscribeToTasks } from '../repositories/tasksRepo';
-import type { MoSCoW, Section, Task } from '../types';
+import { createSection } from '../repositories/sectionsRepo';
+import { archiveCompletedTasks } from '../repositories/tasksRepo';
+import type { MoSCoW, ScoreContext, Section, Task } from '../types';
 
 const MOSCOW_FILTERS: Array<{ value: MoSCoW | 'all'; label: string }> = [
   { value: 'all', label: 'Todas' },
@@ -28,10 +28,17 @@ const MOSCOW_FILTERS: Array<{ value: MoSCoW | 'all'; label: string }> = [
   { value: 'wont', label: "Won't" },
 ];
 
-export function ListView({ uid }: { uid: string }) {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
-  const [error, setError] = useState<string | null>(null);
+export function ListView({
+  uid,
+  tasks,
+  sections,
+  ctx,
+}: {
+  uid: string;
+  tasks: Task[];
+  sections: Section[];
+  ctx: ScoreContext;
+}) {
   const [sectionFilter, setSectionFilter] = useState<string>('all');
   const [moscowFilter, setMoscowFilter] = useState<MoSCoW | 'all'>('all');
   const [hideCompleted, setHideCompleted] = useState(true);
@@ -39,43 +46,11 @@ export function ListView({ uid }: { uid: string }) {
   const [newSectionName, setNewSectionName] = useState('');
   const [addingSection, setAddingSection] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const archivedOnLoad = useRef(false);
 
-  // Activation constraint > 6px evita disparar drag em cliques curtos
-  // (checkbox, inline-edit, etc.). TouchSensor com delay ajuda no mobile.
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
   );
-
-  useEffect(() => {
-    const unsubT = subscribeToTasks(uid, setTasks, (e) => setError(e.message));
-    const unsubS = subscribeToSections(uid, setSections, (e) => setError(e.message));
-    return () => {
-      unsubT();
-      unsubS();
-    };
-  }, [uid]);
-
-  // Auto-archive uma vez por sessão.
-  useEffect(() => {
-    if (archivedOnLoad.current) return;
-    archivedOnLoad.current = true;
-    archiveCompletedTasks(uid)
-      .then((n) => {
-        if (n > 0) {
-          setArchiveMsg(`${n} tarefa${n === 1 ? '' : 's'} arquivada${n === 1 ? '' : 's'}.`);
-          setTimeout(() => setArchiveMsg(null), 4000);
-        }
-      })
-      .catch((e: Error) => setError(e.message));
-  }, [uid]);
-
-  const sectionMap = useMemo(() => {
-    const m: Record<string, Section> = {};
-    for (const s of sections) m[s.id] = s;
-    return m;
-  }, [sections]);
 
   const taskMap = useMemo(() => {
     const m: Record<string, Task> = {};
@@ -83,22 +58,16 @@ export function ListView({ uid }: { uid: string }) {
     return m;
   }, [tasks]);
 
-  const ctx = useMemo(
+  const filtered = useMemo(
     () =>
-      buildDependencyMap(
-        tasks.map((task) => ({ task, section: sectionMap[task.section] ?? null })),
-      ),
-    [tasks, sectionMap],
+      tasks.filter((t) => {
+        if (hideCompleted && t.checked) return false;
+        if (sectionFilter !== 'all' && t.section !== sectionFilter) return false;
+        if (moscowFilter !== 'all' && t.moscow !== moscowFilter) return false;
+        return true;
+      }),
+    [tasks, sectionFilter, moscowFilter, hideCompleted],
   );
-
-  const filtered = useMemo(() => {
-    return tasks.filter((t) => {
-      if (hideCompleted && t.checked) return false;
-      if (sectionFilter !== 'all' && t.section !== sectionFilter) return false;
-      if (moscowFilter !== 'all' && t.moscow !== moscowFilter) return false;
-      return true;
-    });
-  }, [tasks, sectionFilter, moscowFilter, hideCompleted]);
 
   const grouped = useMemo(() => {
     const g: Record<string, Task[]> = {};
@@ -126,9 +95,6 @@ export function ListView({ uid }: { uid: string }) {
     const taskId = String(e.active.id);
     const task = taskMap[taskId];
     if (!task || task.section === overId) return;
-
-    // Otimismo via Firestore real-time: o onSnapshot vai atualizar a UI
-    // assim que o write for confirmado (offline-first encadeia local).
     await patchTask(uid, task, { section: overId });
   }
 
@@ -149,8 +115,6 @@ export function ListView({ uid }: { uid: string }) {
     setNewSectionName('');
     setAddingSection(false);
   }
-
-  if (error) return <p className="error">Erro: {error}</p>;
 
   const activeTask = activeDragId ? taskMap[activeDragId] : null;
 
