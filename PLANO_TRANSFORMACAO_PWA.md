@@ -527,7 +527,7 @@ Workflow `.github/workflows/deploy.yml`:
 
 ---
 
-### M5 — Polish (estimativa: 6-8h)
+### M5 — Polish ✅ concluído (2026-05-15)
 
 **Entregáveis:**
 
@@ -546,7 +546,7 @@ Workflow `.github/workflows/deploy.yml`:
 
 ---
 
-### M6 — CI/CD + opcional (estimativa: 2-3h)
+### M6 — CI/CD ✅ concluído (2026-05-15)
 
 **Entregáveis:**
 
