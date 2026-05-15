@@ -1,0 +1,46 @@
+name: Migrate MD data to Firestore
+
+on:
+  workflow_dispatch:
+    inputs:
+      uid:
+        description: 'UID do usuário (Firebase Auth)'
+        required: true
+        type: string
+      dry_run:
+        description: 'Dry run (não escreve no Firestore)'
+        required: false
+        type: boolean
+        default: false
+
+jobs:
+  migrate:
+    name: Migrate
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Decode Firebase service account
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' | base64 -d > /tmp/sa.json
+
+      - name: Run migration
+        run: |
+          npm run migrate -- \
+            --uid="${{ inputs.uid }}" \
+            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            --tasks=migration-data/Minhas_Tarefas.md \
+            --projects=migration-data/Meus_Projetos.md \
+            --memory=migration-data/memory
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
