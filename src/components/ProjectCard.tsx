@@ -58,6 +58,27 @@ export function ProjectCard({ uid, project }: { uid: string; project: Project })
           ariaLabel="editar nome do projeto"
         />
 
+        <button
+          type="button"
+          className="icon-btn project-expand"
+          onClick={() => setExpanded((v) => !v)}
+          aria-label={expanded ? 'recolher' : 'expandir'}
+        >
+          {expanded ? '▾' : '▸'}
+        </button>
+
+        <button
+          type="button"
+          className="icon-btn danger"
+          onClick={handleDelete}
+          aria-label="apagar projeto"
+          title="apagar projeto"
+        >
+          🗑
+        </button>
+      </header>
+
+      <div className="project-badges">
         <Popover
           trigger={(open) => (
             <button type="button" className={`badge status-${statusClass}`} onClick={open}>
@@ -111,26 +132,7 @@ export function ProjectCard({ uid, project }: { uid: string; project: Project })
             </ul>
           )}
         </Popover>
-
-        <button
-          type="button"
-          className="icon-btn project-expand"
-          onClick={() => setExpanded((v) => !v)}
-          aria-label={expanded ? 'recolher' : 'expandir'}
-        >
-          {expanded ? '▾' : '▸'}
-        </button>
-
-        <button
-          type="button"
-          className="icon-btn danger"
-          onClick={handleDelete}
-          aria-label="apagar projeto"
-          title="apagar projeto"
-        >
-          🗑
-        </button>
-      </header>
+      </div>
 
       {project.objective && (
         <p className="project-line">
