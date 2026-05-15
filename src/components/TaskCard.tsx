@@ -41,12 +41,14 @@ export function TaskCard({
   blocked,
   sections,
   allTasks,
+  score,
 }: {
   uid: string;
   task: Task;
   blocked: boolean;
   sections: Section[];
   allTasks: Task[];
+  score?: number;
 }) {
   const display = getDisplayTitle(task.title);
   const [expanded, setExpanded] = useState(false);
@@ -112,6 +114,11 @@ export function TaskCard({
       </div>
 
       <div className="task-badges">
+        {typeof score === 'number' && (
+          <span className="badge score" title="score calculado">
+            ⚡ {score.toFixed(2)}
+          </span>
+        )}
         <Popover
           trigger={(open, isOpen) => (
             <button
