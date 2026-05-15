@@ -23,7 +23,15 @@ export default defineConfig({
     url: 'http://localhost:5173',
     reuseExistingServer: !process.env.CI,
     env: {
+      // Fake credentials — emulators don't validate these, but Firebase SDK
+      // requires non-empty strings at initializeApp() time.
       VITE_USE_FIREBASE_EMULATOR: 'true',
+      VITE_FIREBASE_API_KEY: 'fake-api-key',
+      VITE_FIREBASE_AUTH_DOMAIN: 'app-produtividade-kie.firebaseapp.com',
+      VITE_FIREBASE_PROJECT_ID: 'app-produtividade-kie',
+      VITE_FIREBASE_STORAGE_BUCKET: 'app-produtividade-kie.appspot.com',
+      VITE_FIREBASE_MESSAGING_SENDER_ID: '000000000000',
+      VITE_FIREBASE_APP_ID: '1:000000000000:web:fake',
     },
   },
 });
