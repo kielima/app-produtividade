@@ -12,6 +12,10 @@
   --moscow-should: #e07b00;
   --moscow-could: #4a90e2;
   --moscow-wont: #888;
+  /* Breakpoints — ver docs/responsive.md */
+  --bp-sm: 480px;
+  --bp-md: 720px;
+  --bp-lg: 1024px;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
   line-height: 1.5;
   color-scheme: light dark;
@@ -127,11 +131,12 @@ a:focus-visible {
   color: var(--muted);
 }
 .pin-input {
-  font-size: 2rem;
+  font-size: clamp(1.4rem, 5vw, 2rem);
   text-align: center;
-  letter-spacing: 0.5rem;
+  letter-spacing: 0.4rem;
   padding: 0.75rem 1rem;
-  width: 12rem;
+  width: 100%;
+  max-width: 14rem;
   border: 2px solid var(--border);
   border-radius: 8px;
   background: var(--surface);
@@ -166,22 +171,49 @@ a:focus-visible {
 .app {
   max-width: 1100px;
   margin: 0 auto;
-  padding: 0 1.5rem 4rem;
+  padding: 0 1rem 4rem;
+}
+@media (min-width: 720px) {
+  .app { padding: 0 1.5rem 4rem; }
 }
 
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 1.25rem 0;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  padding: 1rem 0;
   border-bottom: 1px solid var(--border);
-  margin-bottom: 1.5rem;
+  margin-bottom: 1.25rem;
 }
-.topbar h1 { font-size: 1.25rem; margin: 0; color: var(--accent); }
-.topbar-right { display: flex; align-items: center; gap: 0.75rem; }
+.topbar h1 {
+  font-size: clamp(1rem, 4vw, 1.25rem);
+  margin: 0;
+  color: var(--accent);
+  flex-shrink: 0;
+}
+.topbar-right { display: flex; align-items: center; gap: 0.5rem; }
 .user-email { color: var(--muted); font-size: 0.85rem; }
 
-.tabs { display: flex; gap: 0.4rem; margin: 0 1rem; }
+.tabs {
+  display: flex;
+  gap: 0.3rem;
+  margin: 0;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  order: 3;
+  width: 100%;
+}
+@media (min-width: 720px) {
+  .tabs {
+    order: initial;
+    width: auto;
+    margin: 0 1rem;
+    gap: 0.4rem;
+    overflow: visible;
+  }
+}
 .tab {
   background: transparent;
   border: none;
@@ -190,6 +222,8 @@ a:focus-visible {
   border-radius: 4px;
   font-size: 0.9rem;
   font-weight: 500;
+  flex-shrink: 0;
+  white-space: nowrap;
 }
 .tab:hover { background: var(--surface-2); color: var(--fg); }
 .tab.active { background: var(--accent); color: white; }
@@ -366,6 +400,9 @@ a:focus-visible {
   top: calc(100% + 0.25rem);
   z-index: 50;
   min-width: 11rem;
+  max-width: calc(100vw - 2rem);
+  max-height: 60vh;
+  overflow-y: auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 5px;
@@ -683,7 +720,17 @@ a:focus-visible {
   gap: 0.5rem;
   flex-wrap: wrap;
 }
-.project-name { font-weight: 600; font-size: 1rem; flex: 1; min-width: 8rem; }
+.project-name {
+  font-weight: 600;
+  font-size: 1rem;
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+@media (min-width: 480px) {
+  .project-name { min-width: 8rem; }
+}
 .project-expand { color: var(--muted); }
 .project-line {
   margin: 0.4rem 0 0;
@@ -733,8 +780,13 @@ a:focus-visible {
 .columned-view {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  grid-template-columns: 1fr;
   align-items: stretch;
+}
+@media (min-width: 720px) {
+  .columned-view {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  }
 }
 .columned-col {
   background: var(--surface-2);
@@ -829,7 +881,11 @@ a:focus-visible {
   background: var(--bg);
   color: inherit;
   font-size: 0.9rem;
-  min-width: 12rem;
+  width: 100%;
+  max-width: 18rem;
+}
+@media (min-width: 720px) {
+  .filter-select { width: auto; min-width: 12rem; }
 }
 .chip-group {
   display: flex;
@@ -1062,9 +1118,14 @@ a:focus-visible {
   .calendar-view { grid-template-columns: 1fr; }
   .calendar-sidebar {
     position: static;
-    max-height: 16rem;
+    max-height: 12rem;
   }
   .calendar-cell { min-height: 4.2rem; }
+}
+@media (max-width: 450px) {
+  .calendar-sidebar { max-height: 8rem; }
+  .calendar-cell { min-height: 3.4rem; padding: 0.2rem; }
+  .calendar-title { font-size: 1rem; }
 }
 
 @media (prefers-color-scheme: dark) {
