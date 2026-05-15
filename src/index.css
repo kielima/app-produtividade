@@ -105,6 +105,19 @@ button { cursor: pointer; font: inherit; }
 .topbar-right { display: flex; align-items: center; gap: 0.75rem; }
 .user-email { color: var(--muted); font-size: 0.85rem; }
 
+.tabs { display: flex; gap: 0.4rem; margin: 0 1rem; }
+.tab {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0.45rem 0.9rem;
+  border-radius: 4px;
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+.tab:hover { background: var(--surface-2); color: var(--fg); }
+.tab.active { background: var(--accent); color: white; }
+
 /* ===== Filters ===== */
 .filters {
   display: flex;
@@ -395,6 +408,118 @@ button { cursor: pointer; font: inherit; }
 }
 
 .muted { color: var(--muted); }
+
+/* ===== Drag & drop ===== */
+.draggable-task {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+.draggable-content { flex: 1; min-width: 0; }
+.drag-handle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0 0.3rem;
+  cursor: grab;
+  font-size: 1rem;
+  letter-spacing: -3px;
+  border-radius: 3px;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  touch-action: none;
+}
+.drag-handle:hover { background: var(--surface-2); color: var(--fg); }
+.drag-handle:active { cursor: grabbing; }
+
+.droppable-section {
+  border-radius: 6px;
+  padding: 0.3rem;
+  margin: -0.3rem;
+  transition: background-color 120ms ease;
+}
+.droppable-section.is-over {
+  background: rgba(224, 123, 0, 0.08);
+  outline: 2px dashed var(--accent);
+  outline-offset: -2px;
+}
+.drop-hint {
+  font-size: 0.85rem;
+  font-style: italic;
+  padding: 0.5rem 0.8rem;
+  text-align: center;
+  border: 1px dashed var(--border);
+  border-radius: 4px;
+}
+.drag-overlay {
+  cursor: grabbing;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
+  border-radius: 6px;
+  pointer-events: none;
+}
+
+/* ===== Projects view ===== */
+.project-list { display: flex; flex-direction: column; gap: 0.6rem; }
+
+.project-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.8rem 1rem;
+}
+.project-card.done { opacity: 0.55; }
+.project-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.project-name { font-weight: 600; font-size: 1rem; flex: 1; min-width: 8rem; }
+.project-expand { color: var(--muted); }
+.project-line {
+  margin: 0.4rem 0 0;
+  font-size: 0.9rem;
+  color: var(--fg);
+}
+.project-body {
+  margin-top: 0.7rem;
+  padding-top: 0.6rem;
+  border-top: 1px dashed var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.project-field { display: flex; flex-direction: column; font-size: 0.9rem; gap: 0.15rem; }
+.project-field.inline { flex-direction: row; align-items: baseline; gap: 0.4rem; }
+.project-field-label {
+  font-size: 0.75rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.project-field-value { font-size: 0.9rem; }
+.project-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: baseline; }
+.project-row input[type='date'] {
+  font: inherit;
+  color: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0.1rem 0.3rem;
+}
+
+.badge.status-a-iniciar { background: #6c7a89; color: white; }
+.badge.status-em-andamento { background: var(--accent); color: white; }
+.badge.status-pausado { background: #b08020; color: white; }
+.badge.status-concluido { background: #2e8b57; color: white; }
+.badge.status-cancelado { background: var(--moscow-wont); color: white; }
+.badge.status-none { background: rgba(0, 0, 0, 0.06); color: var(--muted); }
+
+.badge.prio-P1 { background: var(--moscow-must); color: white; }
+.badge.prio-P2 { background: var(--moscow-should); color: white; }
+.badge.prio-P3 { background: var(--moscow-could); color: white; }
+.badge.prio-none { background: rgba(0, 0, 0, 0.06); color: var(--muted); }
 
 @media (prefers-color-scheme: dark) {
   :root {
