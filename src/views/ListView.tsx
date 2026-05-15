@@ -1,7 +1,20 @@
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { DraggableTaskCard } from '../components/DraggableTaskCard';
+import { DroppableSection } from '../components/DroppableSection';
 import { NewTaskInput } from '../components/NewTaskInput';
 import { SectionHeader } from '../components/SectionHeader';
 import { TaskCard } from '../components/TaskCard';
+import { patchTask } from '../lib/taskMutations';
 import { buildDependencyMap, isTaskBlocked } from '../lib/score';
 import { createSection, subscribeToSections } from '../repositories/sectionsRepo';
 import { archiveCompletedTasks, subscribeToTasks } from '../repositories/tasksRepo';
@@ -25,7 +38,15 @@ export function ListView({ uid }: { uid: string }) {
   const [archiveMsg, setArchiveMsg] = useState<string | null>(null);
   const [newSectionName, setNewSectionName] = useState('');
   const [addingSection, setAddingSection] = useState(false);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const archivedOnLoad = useRef(false);
+
+  // Activation constraint > 6px evita disparar drag em cliques curtos
+  // (checkbox, inline-edit, etc.). TouchSensor com delay ajuda no mobile.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+  );
 
   useEffect(() => {
     const unsubT = subscribeToTasks(uid, setTasks, (e) => setError(e.message));
@@ -36,7 +57,7 @@ export function ListView({ uid }: { uid: string }) {
     };
   }, [uid]);
 
-  // Auto-archive uma vez por sessão: move tarefas marcadas pra completedTasks/.
+  // Auto-archive uma vez por sessão.
   useEffect(() => {
     if (archivedOnLoad.current) return;
     archivedOnLoad.current = true;
@@ -55,6 +76,12 @@ export function ListView({ uid }: { uid: string }) {
     for (const s of sections) m[s.id] = s;
     return m;
   }, [sections]);
+
+  const taskMap = useMemo(() => {
+    const m: Record<string, Task> = {};
+    for (const t of tasks) m[t.id] = t;
+    return m;
+  }, [tasks]);
 
   const ctx = useMemo(
     () =>
@@ -82,11 +109,28 @@ export function ListView({ uid }: { uid: string }) {
     return g;
   }, [filtered]);
 
-  // Seções visíveis: filtradas mas mantendo ordem do array `sections`
   const visibleSections = useMemo(() => {
     if (sectionFilter !== 'all') return sections.filter((s) => s.id === sectionFilter);
     return sections;
   }, [sections, sectionFilter]);
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveDragId(String(e.active.id));
+  }
+
+  async function handleDragEnd(e: DragEndEvent) {
+    setActiveDragId(null);
+    const overId = e.over?.id ? String(e.over.id) : null;
+    if (!overId) return;
+
+    const taskId = String(e.active.id);
+    const task = taskMap[taskId];
+    if (!task || task.section === overId) return;
+
+    // Otimismo via Firestore real-time: o onSnapshot vai atualizar a UI
+    // assim que o write for confirmado (offline-first encadeia local).
+    await patchTask(uid, task, { section: overId });
+  }
 
   async function handleArchiveNow() {
     const n = await archiveCompletedTasks(uid);
@@ -107,6 +151,8 @@ export function ListView({ uid }: { uid: string }) {
   }
 
   if (error) return <p className="error">Erro: {error}</p>;
+
+  const activeTask = activeDragId ? taskMap[activeDragId] : null;
 
   return (
     <section className="list-view">
@@ -159,28 +205,49 @@ export function ListView({ uid }: { uid: string }) {
         </p>
       )}
 
-      {visibleSections.map((sec) => {
-        const list = grouped[sec.id] ?? [];
-        const totalInSection = tasks.filter((t) => t.section === sec.id).length;
-        return (
-          <div key={sec.id} className="section-group">
-            <SectionHeader uid={uid} section={sec} taskCount={totalInSection} />
-            <div className="task-list">
-              {list.map((t) => (
-                <TaskCard
-                  key={t.id}
-                  uid={uid}
-                  task={t}
-                  blocked={isTaskBlocked(t, ctx)}
-                  sections={sections}
-                  allTasks={tasks}
-                />
-              ))}
-              <NewTaskInput uid={uid} sectionId={sec.id} />
+      <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+        {visibleSections.map((sec) => {
+          const list = grouped[sec.id] ?? [];
+          const totalInSection = tasks.filter((t) => t.section === sec.id).length;
+          return (
+            <div key={sec.id} className="section-group">
+              <SectionHeader uid={uid} section={sec} taskCount={totalInSection} />
+              <DroppableSection id={sec.id}>
+                <div className="task-list">
+                  {list.map((t) => (
+                    <DraggableTaskCard
+                      key={t.id}
+                      uid={uid}
+                      task={t}
+                      blocked={isTaskBlocked(t, ctx)}
+                      sections={sections}
+                      allTasks={tasks}
+                    />
+                  ))}
+                  {list.length === 0 && (
+                    <p className="drop-hint muted">solte aqui para mover</p>
+                  )}
+                  <NewTaskInput uid={uid} sectionId={sec.id} />
+                </div>
+              </DroppableSection>
             </div>
-          </div>
-        );
-      })}
+          );
+        })}
+
+        <DragOverlay dropAnimation={null}>
+          {activeTask && (
+            <div className="drag-overlay">
+              <TaskCard
+                uid={uid}
+                task={activeTask}
+                blocked={isTaskBlocked(activeTask, ctx)}
+                sections={sections}
+                allTasks={tasks}
+              />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       <div className="add-section-row">
         {addingSection ? (

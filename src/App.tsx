@@ -1,13 +1,18 @@
+import { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { auth } from './lib/firebase';
+import { AccessDenied } from './components/AccessDenied';
+import { Login } from './components/Login';
 import { isAuthorized } from './lib/access';
 import { signOutCurrent } from './lib/auth';
-import { Login } from './components/Login';
-import { AccessDenied } from './components/AccessDenied';
+import { auth } from './lib/firebase';
 import { ListView } from './views/ListView';
+import { ProjectsView } from './views/ProjectsView';
+
+type Tab = 'tasks' | 'projects';
 
 export function App() {
   const [user, loading, error] = useAuthState(auth);
+  const [tab, setTab] = useState<Tab>('tasks');
 
   if (loading) {
     return (
@@ -27,15 +32,28 @@ export function App() {
   }
 
   if (!user) return <Login />;
-
-  if (!isAuthorized(user.uid)) {
-    return <AccessDenied email={user.email} />;
-  }
+  if (!isAuthorized(user.uid)) return <AccessDenied email={user.email} />;
 
   return (
     <div className="app">
       <header className="topbar">
         <h1>Produtividade</h1>
+        <nav className="tabs">
+          <button
+            type="button"
+            className={tab === 'tasks' ? 'tab active' : 'tab'}
+            onClick={() => setTab('tasks')}
+          >
+            Tarefas
+          </button>
+          <button
+            type="button"
+            className={tab === 'projects' ? 'tab active' : 'tab'}
+            onClick={() => setTab('projects')}
+          >
+            Projetos
+          </button>
+        </nav>
         <div className="topbar-right">
           <span className="user-email">{user.email}</span>
           <button onClick={signOutCurrent} className="btn-secondary">
@@ -43,7 +61,8 @@ export function App() {
           </button>
         </div>
       </header>
-      <ListView uid={user.uid} />
+
+      {tab === 'tasks' ? <ListView uid={user.uid} /> : <ProjectsView uid={user.uid} />}
     </div>
   );
 }
