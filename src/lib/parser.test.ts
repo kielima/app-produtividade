@@ -4,6 +4,7 @@ import {
   getDisplayTitle,
   parseProjectMarkdown,
   parseTaskMarkdown,
+  serializeTitle,
   taskSectionId,
 } from './parser';
 
@@ -133,6 +134,65 @@ describe('assignTaskIds', () => {
     const t = parsed.tasks['sec']![0]!;
     expect(t.addedDate).toBe('2025-01-01');
     expect(t.title.match(/\(adicionado:/g)).toHaveLength(1);
+  });
+});
+
+describe('serializeTitle', () => {
+  it('reconstructs raw title with all tags in canonical order', () => {
+    const out = serializeTitle('Atualizar CV', {
+      taskId: 42,
+      modo: 'manual',
+      moscow: 'should',
+      esforco: 'rapido',
+      deadline: '2026-05-20',
+      addedDate: '2026-04-01',
+      dependsOn: ['#0017'],
+    });
+    expect(out).toBe(
+      'Atualizar CV [#0042] [Manual] [Should] [Rápido] [prazo: 2026-05-20] (adicionado: 2026-04-01) 🔗 #0017',
+    );
+  });
+
+  it('omits absent fields cleanly', () => {
+    expect(
+      serializeTitle('Sem nada', {
+        taskId: null,
+        modo: '',
+        moscow: '',
+        esforco: '',
+        deadline: '',
+        addedDate: '',
+        dependsOn: [],
+      }),
+    ).toBe('Sem nada');
+  });
+
+  it('roundtrips: getDisplayTitle(serializeTitle(d, t)) === d', () => {
+    const display = 'Mudar nome no Itaú';
+    const meta = {
+      taskId: 55,
+      modo: 'manual' as const,
+      moscow: 'must' as const,
+      esforco: 'longo' as const,
+      deadline: '2026-08-10',
+      addedDate: '2026-05-01',
+      dependsOn: ['#0042', '#0017'],
+    };
+    const raw = serializeTitle(display, meta);
+    expect(getDisplayTitle(raw)).toBe(display);
+  });
+
+  it("uses Won't with apostrophe for wont MoSCoW", () => {
+    const out = serializeTitle('X', {
+      taskId: null,
+      modo: '',
+      moscow: 'wont',
+      esforco: '',
+      deadline: '',
+      addedDate: '',
+      dependsOn: [],
+    });
+    expect(out).toBe("X [Won't]");
   });
 });
 
