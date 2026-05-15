@@ -1,17 +1,27 @@
 name: Migrate MD data to Firestore
 
+# Dispara automaticamente quando o arquivo trigger migration-data/.run-migration
+# muda no main. Também aceita disparo manual via Actions UI (workflow_dispatch).
 on:
+  push:
+    branches: [main]
+    paths:
+      - 'migration-data/.run-migration'
   workflow_dispatch:
     inputs:
       uid:
         description: 'UID do usuário (Firebase Auth)'
         required: true
         type: string
+        default: 'X186iUM2Mph3Or5rYMOB5FHhINq2'
       dry_run:
         description: 'Dry run (não escreve no Firestore)'
         required: false
         type: boolean
         default: false
+
+env:
+  DEFAULT_UID: X186iUM2Mph3Or5rYMOB5FHhINq2
 
 jobs:
   migrate:
@@ -34,11 +44,24 @@ jobs:
       - name: Decode Firebase service account
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' | base64 -d > /tmp/sa.json
 
+      - name: Resolve UID & dry-run flag
+        id: vars
+        run: |
+          UID="${{ inputs.uid }}"
+          if [ -z "$UID" ]; then UID="${DEFAULT_UID}"; fi
+          echo "uid=$UID" >> $GITHUB_OUTPUT
+
+          if [ "${{ inputs.dry_run }}" = "true" ]; then
+            echo "dry_flag=--dry-run" >> $GITHUB_OUTPUT
+          else
+            echo "dry_flag=" >> $GITHUB_OUTPUT
+          fi
+
       - name: Run migration
         run: |
           npm run migrate -- \
-            --uid="${{ inputs.uid }}" \
-            ${{ inputs.dry_run && '--dry-run' || '' }} \
+            --uid="${{ steps.vars.outputs.uid }}" \
+            ${{ steps.vars.outputs.dry_flag }} \
             --tasks=migration-data/Minhas_Tarefas.md \
             --projects=migration-data/Meus_Projetos.md \
             --memory=migration-data/memory
