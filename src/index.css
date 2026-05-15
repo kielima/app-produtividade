@@ -434,6 +434,32 @@ button { cursor: pointer; font: inherit; }
 
 .muted { color: var(--muted); }
 
+/* ===== PWA update toast ===== */
+.pwa-toast {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  z-index: 200;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 5px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.15);
+  padding: 0.75rem 0.9rem;
+  max-width: 22rem;
+  font-size: 0.9rem;
+}
+.pwa-toast-msg { margin-bottom: 0.5rem; }
+.pwa-toast-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
+.pwa-toast-actions .btn-primary,
+.pwa-toast-actions .btn-secondary {
+  padding: 0.35rem 0.7rem;
+  font-size: 0.85rem;
+}
+@media (max-width: 480px) {
+  .pwa-toast { left: 1rem; right: 1rem; max-width: none; }
+}
+
 /* ===== Drag & drop ===== */
 .draggable-task {
   display: flex;
