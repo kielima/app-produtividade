@@ -7,7 +7,7 @@ import {
   PIN_LENGTH,
   signInWithPin,
 } from '../lib/auth';
-import { PinPad } from './PinPad';
+import { PinDots, PinPad } from './PinPad';
 
 type Phase = 'enter' | 'confirm';
 
@@ -91,6 +91,7 @@ export function Login() {
         </div>
         <h1 className="pin-app-name">Produtividade</h1>
         <p className="pin-prompt">{prompt}</p>
+        <PinDots value={activeValue} length={PIN_LENGTH} />
       </div>
 
       <div className="pin-screen-bottom">
