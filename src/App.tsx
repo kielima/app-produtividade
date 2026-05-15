@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { AccessDenied } from './components/AccessDenied';
 import { Login } from './components/Login';
+import { UpdatePrompt } from './components/UpdatePrompt';
 import { isAuthorized } from './lib/access';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
@@ -18,6 +19,7 @@ export function App() {
     return (
       <main className="auth-screen">
         <p>Carregando…</p>
+        <UpdatePrompt />
       </main>
     );
   }
@@ -27,12 +29,27 @@ export function App() {
       <main className="auth-screen">
         <h1>Erro de autenticação</h1>
         <p className="error">{error.message}</p>
+        <UpdatePrompt />
       </main>
     );
   }
 
-  if (!user) return <Login />;
-  if (!isAuthorized(user.uid)) return <AccessDenied email={user.email} />;
+  if (!user) {
+    return (
+      <>
+        <Login />
+        <UpdatePrompt />
+      </>
+    );
+  }
+  if (!isAuthorized(user.uid)) {
+    return (
+      <>
+        <AccessDenied email={user.email} />
+        <UpdatePrompt />
+      </>
+    );
+  }
 
   return (
     <div className="app">
@@ -63,6 +80,7 @@ export function App() {
       </header>
 
       {tab === 'tasks' ? <TasksRoot uid={user.uid} /> : <ProjectsView uid={user.uid} />}
+      <UpdatePrompt />
     </div>
   );
 }
