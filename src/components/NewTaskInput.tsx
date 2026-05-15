@@ -58,6 +58,7 @@ export function NewTaskInput({
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         placeholder="+ nova tarefa nesta seção…"
+        aria-label="nova tarefa"
         onKeyDown={(e) => {
           if (e.key === 'Enter') submit();
           if (e.key === 'Escape') setDraft('');
