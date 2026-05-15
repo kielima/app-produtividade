@@ -40,7 +40,7 @@ jobs:
       - name: Authenticate to Google Cloud
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' | base64 -d > /tmp/sa.json
 
-      - name: Deploy to Firebase Hosting
-        run: npx firebase-tools@latest deploy --only hosting --project app-produtividade-3ec9d --non-interactive
+      - name: Deploy to Firebase (hosting + firestore rules)
+        run: npx firebase-tools@latest deploy --only hosting,firestore --project app-produtividade-3ec9d --non-interactive
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
