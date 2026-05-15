@@ -42,12 +42,74 @@ Ou simplesmente dar dois cliques em `Abrir Dashboard.bat`.
 - **Deploy:** `https://app-produtividade.web.app`
 - **Acesso:** restrito ao UID Google do Kiê via Firestore Security Rules
 
-**Como rodar em dev** (depois que M0 estiver pronto):
+**Como rodar em dev:**
 
 ```bash
 npm install
-npm run dev
+cp .env.example .env.local   # preencher VITE_FIREBASE_*
+npm run dev                  # localhost:5173
 ```
+
+**Comandos úteis:**
+
+| Comando | O que faz |
+|---|---|
+| `npm run dev` | dev server Vite em `localhost:5173` (SW desligado em dev) |
+| `npm run build` | gera bundle de produção em `dist/` + SW + manifest |
+| `npm run preview` | serve `dist/` localmente pra testar o build (SW ativo) |
+| `npm test` | roda testes Vitest (parser, score, calendário) |
+| `npm run typecheck` | TypeScript em `--noEmit` |
+| `npm run migrate -- --uid <UID> --dry-run` | importa `.md` locais → Firestore (vide `scripts/migrate/`) |
+| `npm run pwa:assets` | regenera ícones PNG a partir de `public/logo.svg` |
+| `npm run deploy` | build + `firebase deploy` (hosting + rules) |
+
+### Como fazer o primeiro deploy
+
+Pré-requisitos: conta Google + `firebase-tools` global (`npm i -g firebase-tools`).
+
+1. **Criar projeto no console Firebase**
+   - Console > Add project > Nome: `app-produtividade-kie` (ou similar; ajustar `.firebaserc` se diferente)
+   - Ativar **Authentication > Google provider**
+   - Ativar **Firestore Database** (modo produção; nearest region)
+   - Ativar **Hosting**
+2. **Login local**
+   ```bash
+   firebase login
+   firebase use app-produtividade-kie
+   ```
+3. **Configurar `.env.local` (client SDK)**
+   - Console > Project settings > General > Your apps > Web app > SDK setup
+   - Copiar os 6 valores pra `.env.local` (vide `.env.example`)
+4. **Primeiro login + capturar UID**
+   ```bash
+   npm run dev
+   ```
+   - Abrir `localhost:5173`, clicar "Entrar com Google" — qualquer conta passa (`AUTHORIZED_UIDS` vazia destrava dev)
+   - Console Firebase > Authentication > Users → copiar o UID que apareceu
+5. **Travar acesso ao seu UID**
+   - Substituir `AUTHORIZED_UID_PLACEHOLDER` em `firestore.rules` pelo UID real
+   - Opcionalmente, adicionar o UID em `src/lib/access.ts > AUTHORIZED_UIDS` (só pra UX da tela "Acesso negado"; a Rule é a verdade)
+6. **Migrar dados (Admin SDK)**
+   - Console > Project settings > Service accounts > Generate new private key
+   - Salvar o JSON localmente (NÃO commitar; já está no `.gitignore`)
+   - Setar env vars:
+     ```bash
+     export GOOGLE_APPLICATION_CREDENTIALS=/caminho/local/serviceAccount.json
+     export MIGRATE_UID=seu-uid-aqui
+     ```
+   - Dry-run:
+     ```bash
+     npm run migrate -- --tasks /caminho/Minhas_Tarefas.md --projects /caminho/Meus_Projetos.md --memory /caminho/memory --dry-run
+     ```
+   - Se a contagem bater, rodar sem `--dry-run`
+7. **Deploy final**
+   ```bash
+   npm run deploy
+   ```
+   App vai para `https://app-produtividade-kie.web.app` (ou domínio escolhido).
+8. **Instalar como PWA no celular**
+   - Abrir a URL no Chrome/Safari
+   - "Adicionar à tela inicial" / "Instalar app"
 
 ---
 
