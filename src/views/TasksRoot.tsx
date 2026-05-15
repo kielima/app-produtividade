@@ -21,9 +21,9 @@ type TaskView =
   | 'calendario';
 
 const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
+  { key: 'prioridade', label: 'Prioridade' },
   { key: 'lista', label: 'Lista' },
   { key: 'board', label: 'Board' },
-  { key: 'prioridade', label: 'Prioridade' },
   { key: 'kanban', label: 'Kanban' },
   { key: 'moscow', label: 'MoSCoW' },
   { key: 'modo', label: 'Modo' },
@@ -34,9 +34,9 @@ const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
 const STORAGE_KEY = 'app-produtividade:task-view';
 
 function loadView(): TaskView {
-  if (typeof window === 'undefined') return 'lista';
+  if (typeof window === 'undefined') return 'prioridade';
   const stored = window.localStorage.getItem(STORAGE_KEY);
-  return (VIEW_TABS.find((v) => v.key === stored)?.key ?? 'lista') as TaskView;
+  return (VIEW_TABS.find((v) => v.key === stored)?.key ?? 'prioridade') as TaskView;
 }
 
 /**
