@@ -102,8 +102,7 @@ export function SettingsView({ uid }: { uid: string }) {
           >
             github.com/kielima/app-produtividade
           </a>
-          . Sistema local em paralelo continua em{' '}
-          <code>C:\Users\ttibu\Documents\06_PRODUTIVIDADE\</code>.
+          .
         </p>
       </article>
     </section>
