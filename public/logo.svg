@@ -1,0 +1,23 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Fundo laranja com cantos arredondados. Safe zone (maskable) ~80%
+       centralizada: o "P" ocupa o centro, deixando 10% de borda. -->
+  <rect width="512" height="512" rx="96" fill="#e07b00"/>
+  <!-- Letra P em SF Pro / Inter style. Path geométrico pra não depender
+       de fonte instalada no gerador. -->
+  <path fill="#ffffff" d="
+    M 168 128
+    L 168 384
+    L 220 384
+    L 220 280
+    L 296 280
+    C 348 280 388 246 388 200
+    C 388 158 354 128 296 128
+    Z
+    M 220 172
+    L 290 172
+    C 320 172 336 184 336 204
+    C 336 224 320 236 290 236
+    L 220 236
+    Z
+  "/>
+</svg>
