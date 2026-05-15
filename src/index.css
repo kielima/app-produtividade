@@ -454,11 +454,19 @@ a:focus-visible {
 .modal-header {
   display: flex;
   justify-content: space-between;
-  align-items: center;
+  align-items: flex-start;
+  gap: 0.5rem;
   padding: 0.8rem 1rem;
   border-bottom: 1px solid var(--border);
 }
-.modal-header h3 { margin: 0; font-size: 1rem; }
+.modal-header h3 {
+  margin: 0;
+  font-size: 1rem;
+  min-width: 0;
+  flex: 1;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
 .modal .cur-deps, .modal .add-dep {
   padding: 0.6rem 1rem;
   border-bottom: 1px solid var(--border);
@@ -476,10 +484,17 @@ a:focus-visible {
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 0.5rem;
   padding: 0.2rem 0.4rem;
   background: var(--surface-2);
   border-radius: 3px;
   font-size: 0.85rem;
+}
+.modal .cur-deps li > span {
+  flex: 1;
+  min-width: 0;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 .candidate-list {
   list-style: none;
@@ -500,7 +515,10 @@ a:focus-visible {
   border-radius: 3px;
   font-size: 0.85rem;
   color: inherit;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
+.dep-candidate > span:not(.dep-tag) { flex: 1; min-width: 0; }
 .dep-candidate:hover:not(:disabled) { background: var(--surface-2); }
 .dep-candidate:disabled { opacity: 0.5; cursor: not-allowed; }
 .dep-tag {
