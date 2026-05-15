@@ -1,9 +1,7 @@
 import { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { AccessDenied } from './components/AccessDenied';
 import { Login } from './components/Login';
 import { UpdatePrompt } from './components/UpdatePrompt';
-import { isAuthorized } from './lib/access';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
 import { ProjectsView } from './views/ProjectsView';
@@ -49,14 +47,6 @@ export function App() {
       </>
     );
   }
-  if (!isAuthorized(user.uid)) {
-    return (
-      <>
-        <AccessDenied email={user.email} />
-        <UpdatePrompt />
-      </>
-    );
-  }
 
   return (
     <div className="app">
@@ -76,9 +66,6 @@ export function App() {
           ))}
         </nav>
         <div className="topbar-right">
-          <span className="user-email" aria-label="usuário logado">
-            {user.email}
-          </span>
           <button onClick={signOutCurrent} className="btn-secondary">
             Sair
           </button>
