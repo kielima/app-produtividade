@@ -30,6 +30,53 @@ export function getDisplayTitle(title: string): string {
     .trim();
 }
 
+const MOSCOW_TAG: Record<Exclude<MoSCoW, ''>, string> = {
+  must: 'Must',
+  should: 'Should',
+  could: 'Could',
+  wont: "Won't",
+};
+
+const MODO_TAG: Record<Exclude<Modo, ''>, string> = {
+  manual: 'Manual',
+  colaborar: 'Colaborar',
+  delegar: 'Delegar',
+  automatizar: 'Automatizar',
+};
+
+const ESFORCO_TAG: Record<Exclude<Esforco, ''>, string> = {
+  rapido: 'Rápido',
+  medio: 'Médio',
+  longo: 'Longo',
+};
+
+/**
+ * Inverso de getDisplayTitle: a partir do título "limpo" e dos campos
+ * estruturados, reconstrói o título raw com todas as tags na ordem
+ * usada pelo dashboard.html. Ordem:
+ *   <display> [#NNNN] [Modo] [MoSCoW] [Esforço] [prazo: YYYY-MM-DD]
+ *             (adicionado: YYYY-MM-DD) 🔗 #NNNN ...
+ */
+export function serializeTitle(
+  displayTitle: string,
+  task: Pick<
+    Task,
+    'taskId' | 'modo' | 'moscow' | 'esforco' | 'deadline' | 'addedDate' | 'dependsOn'
+  >,
+): string {
+  const parts: string[] = [displayTitle.trim()];
+  if (task.taskId != null) parts.push(`[#${String(task.taskId).padStart(4, '0')}]`);
+  if (task.modo) parts.push(`[${MODO_TAG[task.modo]}]`);
+  if (task.moscow) parts.push(`[${MOSCOW_TAG[task.moscow]}]`);
+  if (task.esforco) parts.push(`[${ESFORCO_TAG[task.esforco]}]`);
+  if (task.deadline) parts.push(`[prazo: ${task.deadline}]`);
+  if (task.addedDate) parts.push(`(adicionado: ${task.addedDate})`);
+  if (task.dependsOn && task.dependsOn.length > 0) {
+    for (const dep of task.dependsOn) parts.push(`🔗 ${dep}`);
+  }
+  return parts.join(' ');
+}
+
 function normalizeMoscow(raw: string): MoSCoW {
   const v = raw.toLowerCase().replace("'", '');
   if (v === 'must' || v === 'should' || v === 'could' || v === 'wont') return v;
