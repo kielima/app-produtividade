@@ -65,7 +65,8 @@ test.describe('smoke @smoke', () => {
     await expect(page.getByRole('button', { name: 'Configurações' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Lista' })).toBeVisible({ timeout: 10_000 });
 
-    // 5. Create a section
+    // 5. Switch to Lista view (Prioridade is the default landing tab) and create a section
+    await page.getByRole('button', { name: 'Lista' }).click();
     const addSectionBtn = page.getByRole('button', { name: /adicionar seção/i });
     await expect(addSectionBtn).toBeVisible({ timeout: 10_000 });
     await addSectionBtn.click();
