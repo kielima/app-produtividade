@@ -17,7 +17,7 @@ import { expect, test } from '@playwright/test';
 
 const AUTH_EMULATOR = 'http://localhost:9099';
 const FIRESTORE_EMULATOR = 'http://localhost:8081';
-const PROJECT_ID = 'app-produtividade-kie';
+const PROJECT_ID = 'app-produtividade';
 const TEST_EMAIL = 'smoke-test@example.com';
 const TEST_PASSWORD = 'password123';
 
