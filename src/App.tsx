@@ -7,9 +7,16 @@ import { isAuthorized } from './lib/access';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
 import { ProjectsView } from './views/ProjectsView';
+import { SettingsView } from './views/SettingsView';
 import { TasksRoot } from './views/TasksRoot';
 
-type Tab = 'tasks' | 'projects';
+type Tab = 'tasks' | 'projects' | 'settings';
+
+const TABS: Array<{ key: Tab; label: string }> = [
+  { key: 'tasks', label: 'Tarefas' },
+  { key: 'projects', label: 'Projetos' },
+  { key: 'settings', label: 'Configurações' },
+];
 
 export function App() {
   const [user, loading, error] = useAuthState(auth);
@@ -17,7 +24,7 @@ export function App() {
 
   if (loading) {
     return (
-      <main className="auth-screen">
+      <main className="auth-screen" aria-busy="true">
         <p>Carregando…</p>
         <UpdatePrompt />
       </main>
@@ -26,7 +33,7 @@ export function App() {
 
   if (error) {
     return (
-      <main className="auth-screen">
+      <main className="auth-screen" role="alert">
         <h1>Erro de autenticação</h1>
         <p className="error">{error.message}</p>
         <UpdatePrompt />
@@ -53,33 +60,37 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="topbar">
+      <header className="topbar" role="banner">
         <h1>Produtividade</h1>
-        <nav className="tabs">
-          <button
-            type="button"
-            className={tab === 'tasks' ? 'tab active' : 'tab'}
-            onClick={() => setTab('tasks')}
-          >
-            Tarefas
-          </button>
-          <button
-            type="button"
-            className={tab === 'projects' ? 'tab active' : 'tab'}
-            onClick={() => setTab('projects')}
-          >
-            Projetos
-          </button>
+        <nav className="tabs" aria-label="seções principais">
+          {TABS.map((t) => (
+            <button
+              key={t.key}
+              type="button"
+              className={tab === t.key ? 'tab active' : 'tab'}
+              onClick={() => setTab(t.key)}
+              aria-current={tab === t.key ? 'page' : undefined}
+            >
+              {t.label}
+            </button>
+          ))}
         </nav>
         <div className="topbar-right">
-          <span className="user-email">{user.email}</span>
+          <span className="user-email" aria-label="usuário logado">
+            {user.email}
+          </span>
           <button onClick={signOutCurrent} className="btn-secondary">
             Sair
           </button>
         </div>
       </header>
 
-      {tab === 'tasks' ? <TasksRoot uid={user.uid} /> : <ProjectsView uid={user.uid} />}
+      <main role="main">
+        {tab === 'tasks' && <TasksRoot uid={user.uid} />}
+        {tab === 'projects' && <ProjectsView uid={user.uid} />}
+        {tab === 'settings' && <SettingsView uid={user.uid} />}
+      </main>
+
       <UpdatePrompt />
     </div>
   );
