@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
+import { SidebarMenu } from './components/SidebarMenu';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
@@ -19,6 +20,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
 export function App() {
   const [user, loading, error] = useAuthState(auth);
   const [tab, setTab] = useState<Tab>('tasks');
+  const [menuOpen, setMenuOpen] = useState(false);
 
   if (loading) {
     return (
@@ -51,26 +53,32 @@ export function App() {
   return (
     <div className="app">
       <header className="topbar" role="banner">
-        <h1>Produtividade</h1>
-        <nav className="tabs" aria-label="seções principais">
-          {TABS.map((t) => (
-            <button
-              key={t.key}
-              type="button"
-              className={tab === t.key ? 'tab active' : 'tab'}
-              onClick={() => setTab(t.key)}
-              aria-current={tab === t.key ? 'page' : undefined}
-            >
-              {t.label}
-            </button>
-          ))}
-        </nav>
-        <div className="topbar-right">
-          <button onClick={signOutCurrent} className="btn-secondary">
-            Sair
-          </button>
-        </div>
+        <button
+          type="button"
+          className="menu-toggle"
+          onClick={() => setMenuOpen(true)}
+          aria-label="Abrir menu"
+          aria-expanded={menuOpen}
+        >
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M4 6h16M4 12h16M4 18h16"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+        </button>
       </header>
+
+      <SidebarMenu
+        open={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        items={TABS}
+        activeKey={tab}
+        onSelect={(key) => setTab(key as Tab)}
+        onSignOut={signOutCurrent}
+      />
 
       <main role="main">
         {tab === 'tasks' && <TasksRoot uid={user.uid} />}
