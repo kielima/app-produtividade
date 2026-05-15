@@ -28,6 +28,13 @@ jobs:
 
       - name: Build
         run: npm run build
+        env:
+          VITE_FIREBASE_API_KEY: AIzaSyBQ8FmHCzAN5IVL0ybdU0Y_MkmQiAVJ5cA
+          VITE_FIREBASE_AUTH_DOMAIN: app-produtividade-3ec9d.firebaseapp.com
+          VITE_FIREBASE_PROJECT_ID: app-produtividade-3ec9d
+          VITE_FIREBASE_STORAGE_BUCKET: app-produtividade-3ec9d.firebasestorage.app
+          VITE_FIREBASE_MESSAGING_SENDER_ID: "739803156090"
+          VITE_FIREBASE_APP_ID: 1:739803156090:web:c132479563bf01163135c3
 
       - name: Deploy to Firebase Hosting
         run: |
