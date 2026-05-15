@@ -23,10 +23,23 @@
 
 * { box-sizing: border-box; }
 
-body {
+html, body {
   margin: 0;
+  /* Nunca permitir scroll horizontal no nível da página — se algum
+     filho tentar overflow lateral, ele é clipado em vez de empurrar a
+     página pro lado (o "bug do swipe diagonal"). Scrollers internos
+     (BoardView, subtabs) seguem funcionando porque têm overflow:auto
+     próprio. Ver docs/responsive.md §2.7. */
+  overflow-x: hidden;
+  max-width: 100vw;
+}
+body {
   background: var(--bg);
   color: var(--fg);
+  /* Só responde a pan vertical — gestos diagonais não bleed pra scroll
+     horizontal */
+  touch-action: pan-y;
+  overscroll-behavior-y: none;
 }
 
 button { cursor: pointer; font: inherit; }
@@ -204,6 +217,8 @@ a:focus-visible {
   scrollbar-width: thin;
   order: 3;
   width: 100%;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 @media (min-width: 720px) {
   .tabs {
@@ -236,6 +251,9 @@ a:focus-visible {
   border-bottom: 1px solid var(--border);
   padding-bottom: 0;
   scrollbar-width: thin;
+  /* só pan horizontal (não bleed pra vertical) */
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
   /* fade gradient à direita pra sinalizar scroll horizontal */
   mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
   -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
@@ -947,6 +965,8 @@ a:focus-visible {
   align-items: flex-start;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 .board-column {
   flex: 0 0 min(85vw, 320px);
@@ -1188,6 +1208,8 @@ a:focus-visible {
   overflow-x: auto;
   scroll-snap-type: x mandatory;
   scrollbar-width: thin;
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 .scroll-snap-x > * { scroll-snap-align: start; flex-shrink: 0; }
 
