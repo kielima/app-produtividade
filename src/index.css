@@ -118,6 +118,31 @@ button { cursor: pointer; font: inherit; }
 .tab:hover { background: var(--surface-2); color: var(--fg); }
 .tab.active { background: var(--accent); color: white; }
 
+.subtabs {
+  display: flex;
+  gap: 0.3rem;
+  margin: 0 0 1rem;
+  overflow-x: auto;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0;
+}
+.subtab {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0.5rem 0.9rem;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.subtab:hover { color: var(--fg); }
+.subtab.active {
+  color: var(--accent);
+  border-bottom-color: var(--accent);
+}
+
 /* ===== Filters ===== */
 .filters {
   display: flex;
@@ -520,6 +545,77 @@ button { cursor: pointer; font: inherit; }
 .badge.prio-P2 { background: var(--moscow-should); color: white; }
 .badge.prio-P3 { background: var(--moscow-could); color: white; }
 .badge.prio-none { background: rgba(0, 0, 0, 0.06); color: var(--muted); }
+
+/* ===== Columned views (Kanban / MoSCoW / Modo / Esforço) ===== */
+.columned-view {
+  display: grid;
+  gap: 0.75rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  align-items: stretch;
+}
+.columned-col {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  min-height: 14rem;
+}
+.columned-col-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.3rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+.columned-col-label { flex: 1; }
+.columned-col-body { flex: 1; }
+.columned-col .task-card { background: var(--surface); }
+
+/* Header colors per column */
+.col-todo { background: rgba(108, 122, 137, 0.15); color: #4a5563; }
+.col-doing { background: rgba(74, 144, 226, 0.18); color: #2a5a8a; }
+.col-done { background: rgba(46, 139, 87, 0.18); color: #1f6b3f; }
+
+.col-must { background: rgba(211, 63, 63, 0.18); color: #8a2020; }
+.col-should { background: rgba(224, 123, 0, 0.18); color: #8a4500; }
+.col-could { background: rgba(74, 144, 226, 0.18); color: #2a5a8a; }
+.col-wont { background: rgba(136, 136, 136, 0.18); color: #555; }
+
+.col-modo-manual { background: rgba(108, 122, 137, 0.15); color: #4a5563; }
+.col-modo-colaborar { background: rgba(74, 144, 226, 0.18); color: #2a5a8a; }
+.col-modo-delegar { background: rgba(224, 123, 0, 0.18); color: #8a4500; }
+.col-modo-automatizar { background: rgba(46, 139, 87, 0.18); color: #1f6b3f; }
+
+.col-esforco-rapido { background: rgba(46, 139, 87, 0.18); color: #1f6b3f; }
+.col-esforco-medio { background: rgba(224, 123, 0, 0.18); color: #8a4500; }
+.col-esforco-longo { background: rgba(211, 63, 63, 0.18); color: #8a2020; }
+
+.col-none { background: rgba(0, 0, 0, 0.05); color: var(--muted); }
+
+/* ===== Prioridade view ===== */
+.prioridade-list { gap: 0.4rem; }
+.prioridade-row {
+  display: grid;
+  grid-template-columns: 3.5rem 1fr;
+  gap: 0.6rem;
+  align-items: flex-start;
+}
+.prioridade-score {
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: right;
+  padding-top: 0.7rem;
+}
+.prioridade-card-wrap { min-width: 0; }
 
 @media (prefers-color-scheme: dark) {
   :root {
