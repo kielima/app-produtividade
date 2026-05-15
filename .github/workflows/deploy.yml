@@ -5,9 +5,8 @@ on:
     branches: [main]
 
 # Required secret: FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE
-# Add it under Settings → Secrets and variables → Actions in the GitHub repo.
-# Generate the JSON key via `firebase init hosting:github` (recommended) or
-# Firebase Console → Project settings → Service accounts → Generate new private key.
+# Firebase Console → Project settings → Service accounts → Generate new private key
+# GitHub → Settings → Secrets and variables → Actions → New repository secret
 
 jobs:
   deploy:
@@ -31,9 +30,11 @@ jobs:
         run: npm run build
 
       - name: Deploy to Firebase Hosting
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          repoToken: '${{ secrets.GITHUB_TOKEN }}'
-          firebaseServiceAccount: '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}'
-          channelId: live
-          projectId: app-produtividade-kie
+        run: |
+          echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' > /tmp/sa.json
+          npx firebase-tools@latest deploy --only hosting \
+            --project app-produtividade-kie \
+            --non-interactive
+          rm /tmp/sa.json
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
