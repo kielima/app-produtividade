@@ -47,9 +47,9 @@ jobs:
       - name: Resolve UID & dry-run flag
         id: vars
         run: |
-          UID="${{ inputs.uid }}"
-          if [ -z "$UID" ]; then UID="${DEFAULT_UID}"; fi
-          echo "uid=$UID" >> $GITHUB_OUTPUT
+          TARGET_UID="${{ inputs.uid }}"
+          if [ -z "$TARGET_UID" ]; then TARGET_UID="${DEFAULT_UID}"; fi
+          echo "uid=$TARGET_UID" >> $GITHUB_OUTPUT
 
           if [ "${{ inputs.dry_run }}" = "true" ]; then
             echo "dry_flag=--dry-run" >> $GITHUB_OUTPUT
