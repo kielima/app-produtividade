@@ -235,6 +235,13 @@ a:focus-visible {
   overflow-x: auto;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0;
+  scrollbar-width: thin;
+  /* fade gradient à direita pra sinalizar scroll horizontal */
+  mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+  -webkit-mask-image: linear-gradient(to right, black calc(100% - 24px), transparent);
+}
+@media (min-width: 720px) {
+  .subtabs { mask-image: none; -webkit-mask-image: none; }
 }
 .subtab {
   background: transparent;
@@ -256,22 +263,38 @@ a:focus-visible {
 /* ===== Filters ===== */
 .filters {
   display: flex;
-  flex-wrap: wrap;
-  gap: 1rem;
-  align-items: center;
+  flex-direction: column;
+  gap: 0.6rem;
+  align-items: stretch;
   margin-bottom: 1rem;
   padding: 0.75rem 1rem;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
 }
-.filters .counter { margin-left: auto; color: var(--muted); font-size: 0.85rem; }
+@media (min-width: 480px) {
+  .filters {
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 1rem;
+    align-items: center;
+  }
+}
+.filters .counter { color: var(--muted); font-size: 0.85rem; }
+@media (min-width: 480px) {
+  .filters .counter { margin-left: auto; }
+}
 .filters select {
-  padding: 0.3rem 0.5rem;
+  padding: 0.4rem 0.5rem;
   border-radius: 4px;
   border: 1px solid var(--border);
   background: var(--surface);
   color: inherit;
+  width: 100%;
+  max-width: 18rem;
+}
+@media (min-width: 480px) {
+  .filters select { width: auto; }
 }
 .filters label.checkbox { display: inline-flex; align-items: center; font-size: 0.9rem; }
 
@@ -623,9 +646,14 @@ a:focus-visible {
   padding-left: 0;
   margin: 0.4rem 0 0;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: 1fr;
   gap: 0.3rem;
   font-size: 0.9rem;
+}
+@media (min-width: 480px) {
+  .settings-preview ul {
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  }
 }
 
 /* ===== PWA update toast ===== */
@@ -702,6 +730,7 @@ a:focus-visible {
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.25);
   border-radius: 6px;
   pointer-events: none;
+  max-width: calc(100vw - 2rem);
 }
 
 /* ===== Projects view ===== */
@@ -916,10 +945,11 @@ a:focus-visible {
   overflow-x: auto;
   padding-bottom: 0.5rem;
   align-items: flex-start;
-  scroll-snap-type: x proximity;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
 }
 .board-column {
-  flex: 0 0 320px;
+  flex: 0 0 min(85vw, 320px);
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -929,6 +959,9 @@ a:focus-visible {
   gap: 0.4rem;
   min-height: 14rem;
   scroll-snap-align: start;
+}
+@media (min-width: 720px) {
+  .board-column { flex: 0 0 320px; }
 }
 .board-column-body { flex: 1; }
 .board-column .task-card { background: var(--surface); }
@@ -1140,3 +1173,36 @@ a:focus-visible {
   }
   .badge { background: rgba(255, 255, 255, 0.08); }
 }
+
+/* ===== Utility classes (responsive) ====================================
+   Ver docs/responsive.md §7. Use estes em vez de re-implementar padrões. */
+
+/* Empilha verticalmente em mobile, fileira em ≥480px */
+.stack-mobile { display: flex; flex-direction: column; gap: 0.6rem; }
+@media (min-width: 480px) { .stack-mobile { flex-direction: row; align-items: center; } }
+
+/* Scroll horizontal com snap (use em board-like containers) */
+.scroll-snap-x {
+  display: flex;
+  gap: 0.75rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scrollbar-width: thin;
+}
+.scroll-snap-x > * { scroll-snap-align: start; flex-shrink: 0; }
+
+/* Truncate single line com ellipsis */
+.truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+/* Quebra de palavras longas (URLs, IDs, etc) */
+.break-words {
+  word-break: break-word;
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+
