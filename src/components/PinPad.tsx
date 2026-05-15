@@ -10,9 +10,10 @@ export interface PinPadProps {
 
 /**
  * Numpad customizado pra entrada de PIN.
- * Renderiza dots indicadores + grade 3x3 + linha OK/0/⌫.
- * Sem input nativo → não dispara teclado do celular.
- * Suporta teclado físico via keydown listener (números, Enter, Backspace).
+ * Renderiza apenas a grade 3x3 + linha OK/0/⌫.
+ * Os dots indicadores ficam por conta de quem consome — geralmente
+ * próximos ao prompt, não ao pad (ver Login.tsx).
+ * Suporta teclado físico via keydown listener.
  */
 export function PinPad({
   value,
@@ -60,54 +61,64 @@ export function PinPad({
   const canSubmit = value.length === length && !disabled;
 
   return (
-    <div className="pin-pad-wrap">
-      <div className="pin-dots" role="status" aria-label={`${value.length} de ${length} dígitos`}>
-        {Array.from({ length }).map((_, i) => (
-          <span key={i} className={`pin-dot${i < value.length ? ' filled' : ''}`} />
-        ))}
-      </div>
-
-      <div className="pin-pad" role="group" aria-label="teclado numérico">
-        {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
-          <button
-            key={n}
-            type="button"
-            className="pin-key"
-            onClick={() => appendDigit(String(n))}
-            disabled={disabled || value.length >= length}
-            aria-label={`dígito ${n}`}
-          >
-            {n}
-          </button>
-        ))}
+    <div className="pin-pad" role="group" aria-label="teclado numérico">
+      {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
         <button
-          type="button"
-          className="pin-key pin-key-ok"
-          onClick={trySubmit}
-          disabled={!canSubmit}
-          aria-label="confirmar"
-        >
-          OK
-        </button>
-        <button
+          key={n}
           type="button"
           className="pin-key"
-          onClick={() => appendDigit('0')}
+          onClick={() => appendDigit(String(n))}
           disabled={disabled || value.length >= length}
-          aria-label="dígito 0"
+          aria-label={`dígito ${n}`}
         >
-          0
+          {n}
         </button>
-        <button
-          type="button"
-          className="pin-key pin-key-back"
-          onClick={removeDigit}
-          disabled={disabled || value.length === 0}
-          aria-label="apagar último dígito"
-        >
-          ⌫
-        </button>
-      </div>
+      ))}
+      <button
+        type="button"
+        className="pin-key pin-key-ok"
+        onClick={trySubmit}
+        disabled={!canSubmit}
+        aria-label="confirmar"
+      >
+        OK
+      </button>
+      <button
+        type="button"
+        className="pin-key"
+        onClick={() => appendDigit('0')}
+        disabled={disabled || value.length >= length}
+        aria-label="dígito 0"
+      >
+        0
+      </button>
+      <button
+        type="button"
+        className="pin-key pin-key-back"
+        onClick={removeDigit}
+        disabled={disabled || value.length === 0}
+        aria-label="apagar último dígito"
+      >
+        ⌫
+      </button>
+    </div>
+  );
+}
+
+/**
+ * Componente companheiro: dots indicadores. Separado do PinPad pra
+ * permitir layouts onde os dots ficam perto do prompt e o pad embaixo.
+ */
+export function PinDots({ value, length = 6 }: { value: string; length?: number }) {
+  return (
+    <div
+      className="pin-dots"
+      role="status"
+      aria-label={`${value.length} de ${length} dígitos`}
+    >
+      {Array.from({ length }).map((_, i) => (
+        <span key={i} className={`pin-dot${i < value.length ? ' filled' : ''}`} />
+      ))}
     </div>
   );
 }
