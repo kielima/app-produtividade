@@ -1,5 +1,7 @@
 # app-produtividade
 
+[![CI](https://github.com/kielima/app-produtividade/actions/workflows/ci.yml/badge.svg)](https://github.com/kielima/app-produtividade/actions/workflows/ci.yml)
+
 Sistema pessoal de produtividade do Kiê — **em transição** de um dashboard local single-file para um **Progressive Web App (PWA)** hospedado no Firebase.
 
 > ⚠️ **Status:** transição em andamento. Os dois sistemas (dashboard local + PWA) convivem em paralelo de forma permanente. O PWA é uma adição, **não uma substituição** do dashboard local.
