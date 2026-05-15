@@ -114,6 +114,43 @@ a:focus-visible {
   text-align: center;
 }
 .auth-screen h1 { color: var(--accent); }
+
+.pin-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  align-items: center;
+  margin-top: 2rem;
+}
+.pin-label {
+  font-size: 0.95rem;
+  color: var(--muted);
+}
+.pin-input {
+  font-size: 2rem;
+  text-align: center;
+  letter-spacing: 0.5rem;
+  padding: 0.75rem 1rem;
+  width: 12rem;
+  border: 2px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+.pin-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.btn-link {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  padding: 0.25rem;
+}
+.btn-link:hover { color: var(--accent); }
 .error { color: var(--danger); font-size: 0.9rem; }
 .toast {
   background: var(--surface);
