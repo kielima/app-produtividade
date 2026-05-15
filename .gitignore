@@ -3,12 +3,14 @@
 #  Cobre: Node + Vite + Firebase + ignores específicos do projeto
 # =============================================================
 
-# -------- Node / Vite --------
+# -------- Node / Vite / PWA --------
 node_modules/
 dist/
 build/
 .vite/
 *.tsbuildinfo
+# vite-plugin-pwa generates a dev SW in dev mode
+dev-dist/
 
 # -------- Variáveis de ambiente (NUNCA commitar) --------
 .env
@@ -104,10 +106,10 @@ Prompt_Processamento_Log.md
 automations.md
 listas/
 
-# Imagens de preview soltas na raiz
-*.png
-*.jpg
-*.jpeg
+# Imagens de preview soltas na raiz (não bloquear PWA icons em public/)
+/*.png
+/*.jpg
+/*.jpeg
 
 # Configs do Obsidian Web Clipper
 default-clipper.json
