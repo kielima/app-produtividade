@@ -38,9 +38,9 @@ jobs:
           VITE_FIREBASE_APP_ID: 1:739803156090:web:c132479563bf01163135c3
 
       - name: Authenticate to Google Cloud
-        uses: google-github-actions/auth@v2
-        with:
-          credentials_json: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}
+        run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' | base64 -d > /tmp/sa.json
 
       - name: Deploy to Firebase Hosting
         run: npx firebase-tools@latest deploy --only hosting --project app-produtividade-3ec9d --non-interactive
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
