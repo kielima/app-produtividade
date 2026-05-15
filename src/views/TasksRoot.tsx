@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import { useUserData } from '../lib/useUserData';
 import { archiveCompletedTasks } from '../repositories/tasksRepo';
 import { BoardView } from './BoardView';
@@ -10,7 +10,7 @@ import { ModoView } from './ModoView';
 import { MoscowView } from './MoscowView';
 import { PrioridadeView } from './PrioridadeView';
 
-type TaskView =
+export type TaskView =
   | 'lista'
   | 'board'
   | 'prioridade'
@@ -20,7 +20,7 @@ type TaskView =
   | 'esforco'
   | 'calendario';
 
-const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
+export const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'prioridade', label: 'Prioridade' },
   { key: 'lista', label: 'Lista' },
   { key: 'board', label: 'Board' },
@@ -31,27 +31,15 @@ const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'calendario', label: 'Calendário' },
 ];
 
-const STORAGE_KEY = 'app-produtividade:task-view';
-
-function loadView(): TaskView {
-  if (typeof window === 'undefined') return 'prioridade';
-  const stored = window.localStorage.getItem(STORAGE_KEY);
-  return (VIEW_TABS.find((v) => v.key === stored)?.key ?? 'prioridade') as TaskView;
-}
-
-/**
- * Container das views de Tarefas. Assina tasks+sections uma única vez
- * via useUserData e roteia entre as views. Roda o auto-archive uma vez
- * por sessão. Persiste a view escolhida em localStorage.
- */
-export function TasksRoot({ uid }: { uid: string }) {
+export function TasksRoot({
+  uid,
+  view,
+}: {
+  uid: string;
+  view: TaskView;
+}) {
   const data = useUserData(uid);
-  const [view, setView] = useState<TaskView>(() => loadView());
   const archivedOnLoad = useRef(false);
-
-  useEffect(() => {
-    window.localStorage.setItem(STORAGE_KEY, view);
-  }, [view]);
 
   useEffect(() => {
     if (archivedOnLoad.current) return;
@@ -65,19 +53,6 @@ export function TasksRoot({ uid }: { uid: string }) {
 
   return (
     <>
-      <nav className="subtabs">
-        {VIEW_TABS.map((v) => (
-          <button
-            key={v.key}
-            type="button"
-            className={view === v.key ? 'subtab active' : 'subtab'}
-            onClick={() => setView(v.key)}
-          >
-            {v.label}
-          </button>
-        ))}
-      </nav>
-
       {view === 'lista' && (
         <ListView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
       )}

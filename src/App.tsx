@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
 import { SidebarMenu } from './components/SidebarMenu';
@@ -7,7 +7,9 @@ import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
-import { TasksRoot } from './views/TasksRoot';
+import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
+
+const TASK_VIEW_KEY = 'app-produtividade:task-view';
 
 type Tab = 'tasks' | 'projects' | 'settings';
 
@@ -21,6 +23,14 @@ export function App() {
   const [user, loading, error] = useAuthState(auth);
   const [tab, setTab] = useState<Tab>('tasks');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [taskView, setTaskView] = useState<TaskView>(() => {
+    const stored = localStorage.getItem(TASK_VIEW_KEY);
+    return (VIEW_TABS.find((v) => v.key === stored)?.key ?? 'prioridade') as TaskView;
+  });
+
+  useEffect(() => {
+    localStorage.setItem(TASK_VIEW_KEY, taskView);
+  }, [taskView]);
 
   if (loading) {
     return (
@@ -52,7 +62,7 @@ export function App() {
 
   return (
     <div className="app">
-      <header className="topbar" role="banner">
+      <header className={`topbar${tab === 'tasks' ? ' topbar--with-subtabs' : ''}`} role="banner">
         <button
           type="button"
           className="menu-toggle"
@@ -69,6 +79,20 @@ export function App() {
             />
           </svg>
         </button>
+        {tab === 'tasks' && (
+          <nav className="subtabs" aria-label="Visualizações de tarefas">
+            {VIEW_TABS.map((v) => (
+              <button
+                key={v.key}
+                type="button"
+                className={taskView === v.key ? 'subtab active' : 'subtab'}
+                onClick={() => setTaskView(v.key)}
+              >
+                {v.label}
+              </button>
+            ))}
+          </nav>
+        )}
       </header>
 
       <SidebarMenu
@@ -81,7 +105,7 @@ export function App() {
       />
 
       <main role="main">
-        {tab === 'tasks' && <TasksRoot uid={user.uid} />}
+        {tab === 'tasks' && <TasksRoot uid={user.uid} view={taskView} />}
         {tab === 'projects' && <ProjectsView uid={user.uid} />}
         {tab === 'settings' && <SettingsView uid={user.uid} />}
       </main>
