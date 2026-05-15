@@ -33,7 +33,7 @@ jobs:
         run: |
           echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' > /tmp/sa.json
           npx firebase-tools@latest deploy --only hosting \
-            --project app-produtividade \
+            --project app-produtividade-3ec9d \
             --non-interactive
           rm /tmp/sa.json
         env:
