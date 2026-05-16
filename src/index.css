@@ -985,6 +985,11 @@ a:focus-visible {
   gap: 0.4rem;
   margin-top: 0.4rem;
 }
+.project-task-count {
+  font-size: 0.8rem;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
 .project-expand { color: var(--muted); }
 .project-line {
   margin: 0.4rem 0 0;
