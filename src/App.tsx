@@ -2,9 +2,15 @@ import { useEffect, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
 import { SidebarMenu } from './components/SidebarMenu';
+import {
+  defaultFiltersState,
+  TaskFiltersBar,
+  type TaskFiltersState,
+} from './components/TaskFiltersBar';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
+import { useUserData } from './lib/useUserData';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
@@ -27,6 +33,9 @@ export function App() {
     const stored = localStorage.getItem(TASK_VIEW_KEY);
     return (VIEW_TABS.find((v) => v.key === stored)?.key ?? 'prioridade') as TaskView;
   });
+  const [filters, setFilters] = useState<TaskFiltersState>(() =>
+    defaultFiltersState(),
+  );
 
   useEffect(() => {
     localStorage.setItem(TASK_VIEW_KEY, taskView);
@@ -60,9 +69,48 @@ export function App() {
     );
   }
 
+  return <AppShell
+    uid={user.uid}
+    tab={tab}
+    setTab={setTab}
+    menuOpen={menuOpen}
+    setMenuOpen={setMenuOpen}
+    taskView={taskView}
+    setTaskView={setTaskView}
+    filters={filters}
+    setFilters={setFilters}
+  />;
+}
+
+function AppShell({
+  uid,
+  tab,
+  setTab,
+  menuOpen,
+  setMenuOpen,
+  taskView,
+  setTaskView,
+  filters,
+  setFilters,
+}: {
+  uid: string;
+  tab: Tab;
+  setTab: (t: Tab) => void;
+  menuOpen: boolean;
+  setMenuOpen: (v: boolean) => void;
+  taskView: TaskView;
+  setTaskView: (v: TaskView) => void;
+  filters: TaskFiltersState;
+  setFilters: (f: TaskFiltersState) => void;
+}) {
+  const data = useUserData(uid);
+
   return (
     <div className="app">
-      <header className={`topbar${tab === 'tasks' ? ' topbar--with-subtabs' : ''}`} role="banner">
+      <header
+        className={`topbar${tab === 'tasks' ? ' topbar--with-subtabs' : ''}`}
+        role="banner"
+      >
         <button
           type="button"
           className="menu-toggle"
@@ -80,18 +128,26 @@ export function App() {
           </svg>
         </button>
         {tab === 'tasks' && (
-          <nav className="subtabs" aria-label="Visualizações de tarefas">
-            {VIEW_TABS.map((v) => (
-              <button
-                key={v.key}
-                type="button"
-                className={taskView === v.key ? 'subtab active' : 'subtab'}
-                onClick={() => setTaskView(v.key)}
-              >
-                {v.label}
-              </button>
-            ))}
-          </nav>
+          <>
+            <nav className="subtabs" aria-label="Visualizações de tarefas">
+              {VIEW_TABS.map((v) => (
+                <button
+                  key={v.key}
+                  type="button"
+                  className={taskView === v.key ? 'subtab active' : 'subtab'}
+                  onClick={() => setTaskView(v.key)}
+                >
+                  {v.label}
+                </button>
+              ))}
+            </nav>
+            <TaskFiltersBar
+              state={filters}
+              setState={setFilters}
+              projects={data.projects}
+              showHideZero={taskView === 'prioridade'}
+            />
+          </>
         )}
       </header>
 
@@ -105,9 +161,11 @@ export function App() {
       />
 
       <main role="main">
-        {tab === 'tasks' && <TasksRoot uid={user.uid} view={taskView} />}
-        {tab === 'projects' && <ProjectsView uid={user.uid} />}
-        {tab === 'settings' && <SettingsView uid={user.uid} />}
+        {tab === 'tasks' && (
+          <TasksRoot uid={uid} view={taskView} data={data} filters={filters} />
+        )}
+        {tab === 'projects' && <ProjectsView uid={uid} />}
+        {tab === 'settings' && <SettingsView uid={uid} />}
       </main>
 
       <UpdatePrompt />

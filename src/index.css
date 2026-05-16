@@ -325,6 +325,31 @@ a:focus-visible {
   margin-bottom: 0;
 }
 
+/* Botão de filtro fixo no canto direito do topbar */
+.topbar-filter {
+  position: relative;
+  flex-shrink: 0;
+  margin-left: 0.5rem;
+  padding-left: 0.5rem;
+  align-self: center;
+}
+.topbar-filter .filters-toggle {
+  white-space: nowrap;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.65rem;
+}
+.filters-panel-pop {
+  position: absolute;
+  top: calc(100% + 0.35rem);
+  right: 0;
+  z-index: 60;
+  width: min(22rem, calc(100vw - 1rem));
+  max-height: 70vh;
+  overflow-y: auto;
+  margin-bottom: 0;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.18);
+}
+
 /* ===== Sidebar menu (drawer) ===== */
 .sidebar-backdrop {
   position: fixed;

@@ -1,0 +1,183 @@
+import { useEffect, useRef, useState } from 'react';
+import type { Modo, Project } from '../types';
+
+const MODO_LABEL: Record<Modo, string> = {
+  manual: 'Manual',
+  colaborar: 'Colaborar',
+  delegar: 'Delegar',
+  automatizar: 'Automatizar',
+  '': '—',
+};
+
+export const MODO_VALUES: Modo[] = [
+  'manual',
+  'colaborar',
+  'delegar',
+  'automatizar',
+  '',
+];
+
+export interface TaskFiltersState {
+  hideZero: boolean;
+  hideCompleted: boolean;
+  projectFilter: string;
+  modoFilter: Set<Modo>;
+}
+
+export function defaultFiltersState(): TaskFiltersState {
+  return {
+    hideZero: true,
+    hideCompleted: true,
+    projectFilter: '',
+    modoFilter: new Set<Modo>(MODO_VALUES),
+  };
+}
+
+export function activeFilterCount(
+  state: TaskFiltersState,
+  showHideZero: boolean,
+): number {
+  return (
+    (showHideZero && !state.hideZero ? 1 : 0) +
+    (state.hideCompleted ? 0 : 1) +
+    (state.projectFilter ? 1 : 0) +
+    (state.modoFilter.size === MODO_VALUES.length ? 0 : 1)
+  );
+}
+
+export function TaskFiltersBar({
+  state,
+  setState,
+  projects,
+  showHideZero,
+}: {
+  state: TaskFiltersState;
+  setState: (next: TaskFiltersState) => void;
+  projects: Project[];
+  showHideZero: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  function toggleModo(m: Modo) {
+    const next = new Set(state.modoFilter);
+    if (next.has(m)) next.delete(m);
+    else next.add(m);
+    setState({ ...state, modoFilter: next });
+  }
+
+  function clearFilters() {
+    setState(defaultFiltersState());
+  }
+
+  const count = activeFilterCount(state, showHideZero);
+
+  return (
+    <div className="topbar-filter" ref={wrapRef}>
+      <button
+        type="button"
+        className="btn-secondary filters-toggle"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+      >
+        🔽 Filtros{count > 0 ? ` (${count})` : ''}
+      </button>
+      {open && (
+        <div
+          className="filters-panel filters-panel-pop"
+          role="dialog"
+          aria-label="filtros"
+        >
+          <fieldset>
+            <legend>Ocultar</legend>
+            {showHideZero && (
+              <label className="checkbox">
+                <input
+                  type="checkbox"
+                  checked={state.hideZero}
+                  onChange={(e) =>
+                    setState({ ...state, hideZero: e.target.checked })
+                  }
+                />
+                &nbsp;score 0
+              </label>
+            )}
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={state.hideCompleted}
+                onChange={(e) =>
+                  setState({ ...state, hideCompleted: e.target.checked })
+                }
+              />
+              &nbsp;concluídas
+            </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Projeto</legend>
+            <select
+              value={state.projectFilter}
+              onChange={(e) =>
+                setState({ ...state, projectFilter: e.target.value })
+              }
+              className="filter-select"
+            >
+              <option value="">Todos</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+          </fieldset>
+
+          <fieldset>
+            <legend>Modo</legend>
+            <div className="chip-group">
+              {MODO_VALUES.map((m) => (
+                <button
+                  key={m || 'empty'}
+                  type="button"
+                  className={`chip${state.modoFilter.has(m) ? ' active' : ''}`}
+                  onClick={() => toggleModo(m)}
+                  aria-pressed={state.modoFilter.has(m)}
+                >
+                  {MODO_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <button
+            type="button"
+            className="btn-link"
+            onClick={clearFilters}
+            disabled={count === 0}
+          >
+            limpar filtros
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
