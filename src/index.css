@@ -306,23 +306,23 @@ a:focus-visible {
 
 /* Topbar com subtabs inline: menu fixo à esquerda, abas rolando à direita */
 .topbar--with-subtabs {
-  align-items: stretch;
-  padding: 0;
+  align-items: center;
+  padding: 0.25rem 0;
   margin-bottom: 0;
   border-bottom: 1px solid var(--border);
   gap: 0;
 }
 .topbar--with-subtabs .menu-toggle {
-  align-self: center;
   flex-shrink: 0;
-  margin: 0.25rem 0.25rem;
 }
 .topbar--with-subtabs .subtabs {
   flex: 1;
   min-width: 0;
-  align-items: flex-end;
   margin: 0;
   border-bottom: none;
+}
+.topbar--with-subtabs .subtab {
+  margin-bottom: 0;
 }
 
 /* ===== Sidebar menu (drawer) ===== */
