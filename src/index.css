@@ -538,8 +538,6 @@ a:focus-visible {
 .filters label.checkbox { display: inline-flex; align-items: center; font-size: 0.9rem; }
 
 /* ===== Sections ===== */
-.section-group { margin-bottom: 2rem; }
-
 .section-header {
   display: flex;
   align-items: center;
