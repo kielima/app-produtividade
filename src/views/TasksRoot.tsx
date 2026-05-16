@@ -12,13 +12,11 @@ import type { Task } from '../types';
 import { BoardView } from './BoardView';
 import { EsforcoView } from './EsforcoView';
 import { KanbanView } from './KanbanView';
-import { ListView } from './ListView';
 import { ModoView } from './ModoView';
 import { MoscowView } from './MoscowView';
 import { PrioridadeView } from './PrioridadeView';
 
 export type TaskView =
-  | 'lista'
   | 'board'
   | 'prioridade'
   | 'kanban'
@@ -28,7 +26,6 @@ export type TaskView =
 
 export const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'prioridade', label: 'Prioridade' },
-  { key: 'lista', label: 'Lista' },
   { key: 'board', label: 'Board' },
   { key: 'kanban', label: 'Kanban' },
   { key: 'moscow', label: 'MoSCoW' },
@@ -111,16 +108,6 @@ export function TasksRoot({
 
   return (
     <>
-      {view === 'lista' && (
-        <ListView
-          uid={uid}
-          tasks={filteredTasks}
-          totalCount={data.tasks.length}
-          projects={data.projects}
-          projectFilter={filters.projectFilter}
-          ctx={data.ctx}
-        />
-      )}
       {view === 'board' && (
         <BoardView
           uid={uid}

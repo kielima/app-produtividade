@@ -63,17 +63,17 @@ test.describe('smoke @smoke', () => {
     await expect(page.getByRole('button', { name: 'Tarefas' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('button', { name: 'Projetos' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Configurações' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Lista' })).toBeVisible({ timeout: 10_000 });
+    await expect(page.getByRole('button', { name: 'Board' })).toBeVisible({ timeout: 10_000 });
 
-    // 5. Switch to Lista view (Prioridade is the default landing tab) and create a section
-    await page.getByRole('button', { name: 'Lista' }).click();
-    const addSectionBtn = page.getByRole('button', { name: /adicionar seção/i });
-    await expect(addSectionBtn).toBeVisible({ timeout: 10_000 });
-    await addSectionBtn.click();
-    const sectionInput = page.getByPlaceholder(/nome da nova seção/i);
-    await expect(sectionInput).toBeVisible();
-    await sectionInput.fill('Teste E2E');
-    await sectionInput.press('Enter');
+    // 5. Switch to Board view (Prioridade is the default landing tab) and create a project
+    await page.getByRole('button', { name: 'Board' }).click();
+    const addProjectBtn = page.getByRole('button', { name: /adicionar projeto/i });
+    await expect(addProjectBtn).toBeVisible({ timeout: 10_000 });
+    await addProjectBtn.click();
+    const projectInput = page.getByPlaceholder(/nome do projeto/i);
+    await expect(projectInput).toBeVisible();
+    await projectInput.fill('Teste E2E');
+    await projectInput.press('Enter');
     await expect(page.getByText('Teste E2E')).toBeVisible({ timeout: 10_000 });
 
     // 6. Create a task
@@ -87,6 +87,6 @@ test.describe('smoke @smoke', () => {
     const taskCheckbox = page.getByLabel('alternar concluída').first();
     await expect(taskCheckbox).toBeVisible();
     await taskCheckbox.check();
-    await expect(page.getByText(/^0 de 1$/)).toBeVisible({ timeout: 5_000 });
+    await expect(taskCheckbox).toBeChecked();
   });
 });
