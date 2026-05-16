@@ -165,8 +165,25 @@ export function TaskFiltersBar({
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
+        aria-label={`Filtros${count > 0 ? ` (${count} ativos)` : ''}`}
+        title={`Filtros${count > 0 ? ` (${count})` : ''}`}
       >
-        🔽 Filtros{count > 0 ? ` (${count})` : ''}
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+          width="18"
+          height="18"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="36"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <path d="M16 18h480L320 240v206l-128 48V240L16 18z" />
+        </svg>
+        {count > 0 ? <span className="filters-count">{count}</span> : null}
       </button>
       {open && (
         <div
