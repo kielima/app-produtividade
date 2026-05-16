@@ -336,7 +336,19 @@ a:focus-visible {
 .topbar-filter .filters-toggle {
   white-space: nowrap;
   font-size: 0.85rem;
-  padding: 0.4rem 0.65rem;
+  padding: 0.4rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1;
+}
+.topbar-filter .filters-toggle svg {
+  display: block;
+}
+.topbar-filter .filters-toggle .filters-count {
+  font-size: 0.75rem;
+  font-weight: 600;
+  line-height: 1;
 }
 .filters-panel-pop {
   position: absolute;
