@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import { migrateSectionsToProjects } from './migrateSectionsToProjects';
+import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
 import type { Project, ScoreContext, Task } from '../types';
 
@@ -53,13 +54,13 @@ export function useUserData(uid: string): UserData {
     return m;
   }, [projects]);
 
-  const ctx = useMemo(
-    () =>
-      buildDependencyMap(
-        tasks.map((task) => ({ task, section: projectMap[task.section] ?? null })),
-      ),
-    [tasks, projectMap],
-  );
+  const ctx = useMemo(() => {
+    const projectScoreMap = buildProjectScoreMap(projects);
+    return buildDependencyMap(
+      tasks.map((task) => ({ task, section: projectMap[task.section] ?? null })),
+      projectScoreMap,
+    );
+  }, [tasks, projects, projectMap]);
 
   return { tasks, projects, projectMap, ctx, error };
 }
