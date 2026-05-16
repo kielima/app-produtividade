@@ -33,16 +33,17 @@ export function BoardView({
   tasks,
   projects,
   projectMap,
+  projectFilter,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
   projects: Project[];
   projectMap: Record<string, Project>;
+  projectFilter: string;
   ctx: ScoreContext;
 }) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
-  const [hideCompleted, setHideCompleted] = useState(true);
   const [newProjectName, setNewProjectName] = useState('');
   const [addingProject, setAddingProject] = useState(false);
 
@@ -57,15 +58,16 @@ export function BoardView({
     return m;
   }, [tasks]);
 
-  const activeProjects = useMemo(
-    () => projects.filter((p) => !isHiddenProject(p)),
-    [projects],
-  );
+  // Se o filtro global selecionou um projeto específico, mostra só ele
+  // (mesmo Concluído/Cancelado). Senão, oculta os encerrados.
+  const activeProjects = useMemo(() => {
+    if (projectFilter) return projects.filter((p) => p.id === projectFilter);
+    return projects.filter((p) => !isHiddenProject(p));
+  }, [projects, projectFilter]);
 
   const tasksByProject = useMemo(() => {
     const g: Record<string, Task[]> = {};
     for (const t of tasks) {
-      if (hideCompleted && t.checked) continue;
       (g[t.section] ??= []).push(t);
     }
     // Ordena cada coluna: bloqueadas no fim, depois por score desc.
@@ -83,7 +85,7 @@ export function BoardView({
       g[proj.id] = list;
     }
     return g;
-  }, [tasks, activeProjects, projectMap, ctx, hideCompleted]);
+  }, [tasks, activeProjects, projectMap, ctx]);
 
   function handleDragStart(e: DragStartEvent) {
     setActiveDragId(String(e.active.id));
@@ -116,14 +118,6 @@ export function BoardView({
   return (
     <section className="board-view">
       <header className="filters">
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={hideCompleted}
-            onChange={(e) => setHideCompleted(e.target.checked)}
-          />
-          &nbsp;ocultar concluídas
-        </label>
         <span className="counter">
           {activeProjects.length} projeto{activeProjects.length === 1 ? '' : 's'}
         </span>
