@@ -1,7 +1,10 @@
 import { getDisplayTitle } from './parser';
-import type { DependencyEntry, ScoreContext, Section, Task } from '../types';
+import type { DependencyEntry, ScoreContext, Task } from '../types';
 
-const MOSCOW_PTS: Record<string, number> = {
+// Aceita tanto Project quanto a Section legada — só o id é usado pelo cálculo.
+type ScoreSection = { id: string };
+
+const TASK_MOSCOW_PTS: Record<string, number> = {
   must: 3,
   should: 2,
   could: 1,
@@ -55,7 +58,8 @@ function depWordMatch(title: string, needle: string): boolean {
  * do dashboard.html, mas puro (não usa globais).
  */
 export function buildDependencyMap(
-  allTasks: Array<{ task: Task; section: Section | null }>,
+  allTasks: Array<{ task: Task; section: ScoreSection | null }>,
+  projectScoreMap: Record<string, number>,
   today: Date = new Date(),
 ): ScoreContext {
   const depMap: Record<string, DependencyEntry> = {};
@@ -98,12 +102,12 @@ export function buildDependencyMap(
   const t0 = startOfDay(today);
   for (const { task: t, section: s } of allTasks) {
     const taskM = t.moscow || '';
-    const catM = s ? s.moscow || '' : '';
     if (taskM === 'wont') {
       potentialScoreMap[t.id] = 0;
       continue;
     }
-    const base = (MOSCOW_PTS[catM] ?? 1) * (MOSCOW_PTS[taskM] ?? 1);
+    const projectScore = s ? projectScoreMap[s.id] ?? 0 : 0;
+    const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
     const inProgressBonus = t.inProgress ? 1 : 0;
     let deadlineBonus = 0;
     if (t.deadline) {
@@ -125,7 +129,7 @@ export function buildDependencyMap(
     potentialScoreMap[t.id] = (base + inProgressBonus + deadlineBonus + ageBonus) / effort;
   }
 
-  return { depMap, potentialScoreMap, taskFlatMap };
+  return { depMap, potentialScoreMap, taskFlatMap, projectScoreMap };
 }
 
 /**
@@ -134,7 +138,7 @@ export function buildDependencyMap(
  */
 export function calcScore(
   task: Task,
-  section: Section | null,
+  section: ScoreSection | null,
   ctx: ScoreContext,
   today: Date = new Date(),
 ): number {
@@ -145,10 +149,10 @@ export function calcScore(
   if (activeBlockers.length > 0) return 0;
 
   const taskM = task.moscow || '';
-  const catM = section ? section.moscow || '' : '';
   if (taskM === 'wont') return 0;
 
-  const base = (MOSCOW_PTS[catM] ?? 1) * (MOSCOW_PTS[taskM] ?? 1);
+  const projectScore = section ? ctx.projectScoreMap[section.id] ?? 0 : 0;
+  const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
   const depBonus = dep.unlocksIds.reduce((sum, id) => sum + (ctx.potentialScoreMap[id] ?? 0), 0);
   const deadlineBonus = calcDeadlinePoints(task.deadline, today);
   const inProgressBonus = task.inProgress ? 1 : 0;
