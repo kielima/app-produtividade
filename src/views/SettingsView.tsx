@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { auth } from '../lib/firebase';
 import {
@@ -8,12 +8,39 @@ import {
   type ExportPayload,
 } from '../lib/exportData';
 import { exportAllData } from '../lib/exportFetcher';
+import {
+  ImportParseError,
+  parseImportPayload,
+  type ImportMode,
+} from '../lib/importData';
+import { importAllData, type ImportStats } from '../lib/importWriter';
+
+const IMPORT_STAT_LABELS: Record<keyof ImportStats, string> = {
+  sections: 'sections',
+  tasks: 'tasks',
+  completedTasks: 'completedTasks',
+  projects: 'projects',
+  memoryProjects: 'memoryProjects',
+  memoryAutomations: 'memoryAutomations',
+  memoryContext: 'memoryContext',
+  glossary: 'glossary',
+  claude: 'claude',
+  deleted: 'docs apagados',
+};
 
 export function SettingsView({ uid }: { uid: string }) {
   const [user] = useAuthState(auth);
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ExportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const [importPayload, setImportPayload] = useState<ExportPayload | null>(null);
+  const [importFileName, setImportFileName] = useState<string | null>(null);
+  const [importMode, setImportMode] = useState<ImportMode>('merge');
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [importResult, setImportResult] = useState<ImportStats | null>(null);
 
   async function handleGenerate() {
     setLoading(true);
@@ -31,6 +58,62 @@ export function SettingsView({ uid }: { uid: string }) {
   function handleDownload() {
     if (preview) downloadJson(preview);
   }
+
+  async function handleFileChange(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setImportError(null);
+    setImportResult(null);
+    setImportPayload(null);
+    setImportFileName(file.name);
+    try {
+      const text = await file.text();
+      const payload = parseImportPayload(text);
+      setImportPayload(payload);
+    } catch (err) {
+      const msg =
+        err instanceof ImportParseError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : String(err);
+      setImportError(msg);
+    }
+  }
+
+  async function handleImport() {
+    if (!importPayload) return;
+    if (importMode === 'replace') {
+      const ok = window.confirm(
+        'Tem certeza? "Substituir tudo" apaga todas as suas tarefas, ' +
+          'projetos e memória no Firestore antes de escrever o backup. ' +
+          'Não dá pra desfazer.',
+      );
+      if (!ok) return;
+    }
+    setImporting(true);
+    setImportError(null);
+    setImportResult(null);
+    try {
+      const stats = await importAllData(uid, importPayload, importMode);
+      setImportResult(stats);
+    } catch (err) {
+      setImportError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  function resetImport() {
+    setImportPayload(null);
+    setImportFileName(null);
+    setImportError(null);
+    setImportResult(null);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  const importSummary = importPayload ? summarize(importPayload) : null;
+  const uidMismatch = importPayload != null && importPayload.uid !== uid;
 
   return (
     <section className="settings-view">
@@ -86,6 +169,137 @@ export function SettingsView({ uid }: { uid: string }) {
                   <strong>{v}</strong> {k}
                 </li>
               ))}
+            </ul>
+          </div>
+        )}
+      </article>
+
+      <article className="settings-card">
+        <h3>Importar dados</h3>
+        <p className="muted">
+          Restaura um arquivo JSON exportado por este app. Escolha entre
+          mesclar com os dados atuais ou substituir tudo — leia com atenção
+          antes de confirmar.
+        </p>
+
+        <div className="settings-actions">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="application/json,.json"
+            onChange={handleFileChange}
+            style={{ display: 'none' }}
+          />
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={() => fileInputRef.current?.click()}
+            disabled={importing}
+          >
+            {importFileName ? 'Trocar arquivo' : 'Selecionar arquivo JSON'}
+          </button>
+          {importPayload && (
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={resetImport}
+              disabled={importing}
+            >
+              Cancelar
+            </button>
+          )}
+        </div>
+
+        {importFileName && (
+          <p className="muted" style={{ marginTop: '0.5rem' }}>
+            Arquivo: <code>{importFileName}</code>
+          </p>
+        )}
+
+        {importError && <p className="error">{importError}</p>}
+
+        {importSummary && (
+          <div className="settings-preview">
+            <p className="muted">Conteúdo do arquivo:</p>
+            <ul>
+              {Object.entries(importSummary).map(([k, v]) => (
+                <li key={k}>
+                  <strong>{v}</strong> {k}
+                </li>
+              ))}
+            </ul>
+
+            {uidMismatch && (
+              <p className="muted" style={{ marginTop: '0.5rem' }}>
+                Atenção: o UID do arquivo (<code>{importPayload!.uid}</code>)
+                não bate com o seu. Os documentos serão escritos no seu
+                espaço mesmo assim.
+              </p>
+            )}
+
+            <fieldset
+              style={{
+                border: 'none',
+                padding: 0,
+                margin: '0.7rem 0 0',
+                display: 'flex',
+                flexDirection: 'column',
+                gap: '0.3rem',
+                fontSize: '0.9rem',
+              }}
+              disabled={importing}
+            >
+              <label>
+                <input
+                  type="radio"
+                  name="import-mode"
+                  value="merge"
+                  checked={importMode === 'merge'}
+                  onChange={() => setImportMode('merge')}
+                />{' '}
+                Mesclar — sobrescreve docs com mesmo ID, preserva o resto.
+              </label>
+              <label>
+                <input
+                  type="radio"
+                  name="import-mode"
+                  value="replace"
+                  checked={importMode === 'replace'}
+                  onChange={() => setImportMode('replace')}
+                />{' '}
+                Substituir tudo — apaga as coleções atuais antes de escrever.
+              </label>
+            </fieldset>
+
+            <div className="settings-actions">
+              <button
+                type="button"
+                className="btn-primary"
+                onClick={handleImport}
+                disabled={importing}
+              >
+                {importing ? 'Escrevendo no Firestore…' : 'Importar'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {importResult && (
+          <div className="settings-preview">
+            <p className="muted">Pronto. Resultado:</p>
+            <ul>
+              {(Object.keys(IMPORT_STAT_LABELS) as Array<keyof ImportStats>).map(
+                (k) => {
+                  const value = importResult[k];
+                  const display =
+                    typeof value === 'boolean' ? (value ? 'sim' : 'não') : value;
+                  return (
+                    <li key={k}>
+                      <strong>{display}</strong> {IMPORT_STAT_LABELS[k]}
+                    </li>
+                  );
+                },
+              )}
             </ul>
           </div>
         )}
