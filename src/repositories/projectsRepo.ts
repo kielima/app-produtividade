@@ -10,7 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { taskSectionId } from '../lib/parser';
-import type { MoSCoW, Project, Task } from '../types';
+import type { Project, Task } from '../types';
 
 function projectsCol(uid: string) {
   return collection(db, 'users', uid, 'projects');
@@ -38,7 +38,6 @@ export function subscribeToProjects(
           estimatedDuration: '',
           dependsOn: '',
           notes: '',
-          moscow: '',
           ...data,
           id: d.id,
         } as Project;
@@ -62,14 +61,6 @@ export async function patchProject(
   patch: Partial<Project>,
 ): Promise<void> {
   await setDoc(doc(db, 'users', uid, 'projects', projectId), patch, { merge: true });
-}
-
-export async function setProjectMoscow(
-  uid: string,
-  projectId: string,
-  moscow: MoSCoW,
-): Promise<void> {
-  await patchProject(uid, projectId, { moscow });
 }
 
 export async function deleteProject(uid: string, projectId: string): Promise<void> {
@@ -158,7 +149,6 @@ export async function createProject(
     estimatedDuration: '',
     dependsOn: '',
     notes: '',
-    moscow: '',
     order,
   };
   await upsertProject(uid, project);

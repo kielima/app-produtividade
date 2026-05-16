@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { deleteProjectWithTasks, patchProject } from '../repositories/projectsRepo';
-import type { MoSCoW, Project, ProjectPriority, ProjectStatus } from '../types';
+import type { Project, ProjectPriority, ProjectStatus } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { Popover } from './Popover';
 
@@ -32,16 +32,6 @@ const STATUS_SLUG: Record<ProjectStatus, string> = {
 };
 
 const PRIORITY_OPTS: ProjectPriority[] = ['P1', 'P2', 'P3', ''];
-
-const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
-
-const MOSCOW_LABEL: Record<MoSCoW, string> = {
-  must: 'Must',
-  should: 'Should',
-  could: 'Could',
-  wont: "Won't",
-  '': '— sem MoSCoW —',
-};
 
 export function ProjectCard({
   uid,
@@ -157,32 +147,6 @@ export function ProjectCard({
           )}
         </Popover>
 
-        <Popover
-          trigger={(open) => (
-            <button type="button" className={`badge moscow-${project.moscow}`} onClick={open}>
-              {MOSCOW_LABEL[project.moscow]}
-            </button>
-          )}
-        >
-          {(close) => (
-            <ul className="picker-list">
-              {MOSCOW_OPTS.map((m) => (
-                <li key={m || 'none'}>
-                  <button
-                    type="button"
-                    className={m === project.moscow ? 'active' : ''}
-                    onClick={() => {
-                      patch('moscow', m);
-                      close();
-                    }}
-                  >
-                    {MOSCOW_LABEL[m]}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Popover>
       </div>
 
       {project.objective && (
