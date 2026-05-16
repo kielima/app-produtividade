@@ -13,7 +13,7 @@ Sistema pessoal de produtividade do Kiê — **em transição** de um dashboard 
 Um sistema único pra gerenciar tarefas, projetos, memória de contexto e diário, com:
 
 - **Sistema de tarefas** com IDs persistentes, dependências entre tarefas, MoSCoW (Must/Should/Could/Won't), modo de execução (Manual/Colaborar/Delegar), esforço (Rápido/Médio/Longo), prazo e idade — tudo combinado num **score engine** que ordena as tarefas por prioridade automática.
-- **8 views** diferentes: Projetos (board), Kanban, MoSCoW, Modo Claude, Esforço, Prioridade (lista), Lista (ordem de inserção), Calendário.
+- **7 views** diferentes: Projetos (board), Kanban, MoSCoW, Modo Claude, Esforço, Prioridade (lista), Lista (ordem de inserção).
 - **Portfólio de projetos** com status (A iniciar / Em andamento / Pausado / Concluído / Cancelado) e prioridade (P1/P2/P3).
 - **Memória de contexto** (glossário, perfis de projetos, automações) que ajuda IAs assistentes a decodificar o jargão pessoal.
 
@@ -59,7 +59,7 @@ npm run dev                  # localhost:5173
 | `npm run dev` | dev server Vite em `localhost:5173` (SW desligado em dev) |
 | `npm run build` | gera bundle de produção em `dist/` + SW + manifest |
 | `npm run preview` | serve `dist/` localmente pra testar o build (SW ativo) |
-| `npm test` | roda testes Vitest (parser, score, calendário) |
+| `npm test` | roda testes Vitest (parser, score) |
 | `npm run typecheck` | TypeScript em `--noEmit` |
 | `npm run migrate -- --uid <UID> --dry-run` | importa `.md` locais → Firestore (vide `scripts/migrate/`) |
 | `npm run pwa:assets` | regenera ícones PNG a partir de `public/logo.svg` |
