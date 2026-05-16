@@ -36,10 +36,6 @@ export function PrioridadeView({
 
   return (
     <section className="prioridade-view">
-      <header className="filters">
-        <span className="counter">{scored.length} tarefas</span>
-      </header>
-
       <div className="task-list prioridade-list">
         {scored.map(({ task, score }) => (
           <TaskCard
