@@ -1,49 +1,65 @@
 import { useEffect, useMemo, useState } from 'react';
-import { subscribeToSections } from '../repositories/sectionsRepo';
+import { subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
+import { migrateSectionsToProjects } from './migrateSectionsToProjects';
 import { buildDependencyMap } from './score';
-import type { ScoreContext, Section, Task } from '../types';
+import type { Project, ScoreContext, Task } from '../types';
 
 export interface UserData {
   tasks: Task[];
-  sections: Section[];
-  sectionMap: Record<string, Section>;
+  projects: Project[];
+  projectMap: Record<string, Project>;
   ctx: ScoreContext;
   error: Error | null;
 }
 
 /**
- * Assina tasks + sections em real-time e computa o contexto de score
- * (depMap + potentialScoreMap). Compartilhado por todas as views do
- * grupo Tarefas — evita re-subscribe ao trocar de view.
+ * Assina tasks + projects em real-time e computa o contexto de score
+ * (depMap + potentialScoreMap). Antes de assinar, garante que a migração
+ * one-shot de sections → projects rodou (idempotente). Compartilhado por
+ * todas as views do grupo Tarefas — evita re-subscribe ao trocar de view.
  */
 export function useUserData(uid: string): UserData {
   const [tasks, setTasks] = useState<Task[]>([]);
-  const [sections, setSections] = useState<Section[]>([]);
+  const [projects, setProjects] = useState<Project[]>([]);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const u1 = subscribeToTasks(uid, setTasks, setError);
-    const u2 = subscribeToSections(uid, setSections, setError);
+    let cancelled = false;
+    let unsubTasks: (() => void) | undefined;
+    let unsubProjects: (() => void) | undefined;
+
+    (async () => {
+      try {
+        await migrateSectionsToProjects(uid);
+      } catch {
+        // segue mesmo se a migração falhar (próximo load tenta de novo)
+      }
+      if (cancelled) return;
+      unsubTasks = subscribeToTasks(uid, setTasks, setError);
+      unsubProjects = subscribeToProjects(uid, setProjects, setError);
+    })();
+
     return () => {
-      u1();
-      u2();
+      cancelled = true;
+      unsubTasks?.();
+      unsubProjects?.();
     };
   }, [uid]);
 
-  const sectionMap = useMemo(() => {
-    const m: Record<string, Section> = {};
-    for (const s of sections) m[s.id] = s;
+  const projectMap = useMemo(() => {
+    const m: Record<string, Project> = {};
+    for (const p of projects) m[p.id] = p;
     return m;
-  }, [sections]);
+  }, [projects]);
 
   const ctx = useMemo(
     () =>
       buildDependencyMap(
-        tasks.map((task) => ({ task, section: sectionMap[task.section] ?? null })),
+        tasks.map((task) => ({ task, section: projectMap[task.section] ?? null })),
       ),
-    [tasks, sectionMap],
+    [tasks, projectMap],
   );
 
-  return { tasks, sections, sectionMap, ctx, error };
+  return { tasks, projects, projectMap, ctx, error };
 }

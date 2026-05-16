@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { useMemo, useState } from 'react';
 import { patchTask } from '../lib/taskMutations';
-import type { Section, Task } from '../types';
+import type { Project, Task } from '../types';
 import { DraggableTaskCard } from './DraggableTaskCard';
 import { DroppableSection } from './DroppableSection';
 import { TaskCard } from './TaskCard';
@@ -35,7 +35,7 @@ const COL_PREFIX = 'col:';
 export function ColumnedTaskView({
   uid,
   tasks,
-  sections,
+  projects,
   allTasks,
   blocked,
   columns,
@@ -45,7 +45,7 @@ export function ColumnedTaskView({
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
+  projects: Project[];
   allTasks: Task[];
   blocked: (task: Task) => boolean;
   columns: ColumnSpec[];
@@ -114,7 +114,7 @@ export function ColumnedTaskView({
                       uid={uid}
                       task={t}
                       blocked={blocked(t)}
-                      sections={sections}
+                      projects={projects}
                       allTasks={allTasks}
                     />
                   ))}
@@ -135,7 +135,7 @@ export function ColumnedTaskView({
               uid={uid}
               task={activeTask}
               blocked={blocked(activeTask)}
-              sections={sections}
+              projects={projects}
               allTasks={allTasks}
             />
           </div>

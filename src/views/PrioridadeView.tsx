@@ -1,7 +1,7 @@
 import { useMemo, useState } from 'react';
 import { TaskCard } from '../components/TaskCard';
 import { calcScore, isTaskBlocked } from '../lib/score';
-import type { Modo, ScoreContext, Section, Task } from '../types';
+import type { Modo, Project, ScoreContext, Task } from '../types';
 
 const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
@@ -22,20 +22,20 @@ const MODO_VALUES: Modo[] = ['manual', 'colaborar', 'delegar', 'automatizar', ''
 export function PrioridadeView({
   uid,
   tasks,
-  sections,
-  sectionMap,
+  projects,
+  projectMap,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
-  sectionMap: Record<string, Section>;
+  projects: Project[];
+  projectMap: Record<string, Project>;
   ctx: ScoreContext;
 }) {
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [hideZero, setHideZero] = useState(true);
   const [hideCompleted, setHideCompleted] = useState(true);
-  const [sectionFilter, setSectionFilter] = useState<string>(''); // '' = todas
+  const [projectFilter, setProjectFilter] = useState<string>(''); // '' = todos
   const [modoFilter, setModoFilter] = useState<Set<Modo>>(
     () => new Set<Modo>(MODO_VALUES),
   );
@@ -52,28 +52,28 @@ export function PrioridadeView({
   function clearFilters() {
     setHideZero(true);
     setHideCompleted(true);
-    setSectionFilter('');
+    setProjectFilter('');
     setModoFilter(new Set(MODO_VALUES));
   }
 
   const activeFilterCount =
     (hideZero ? 0 : 1) +
     (hideCompleted ? 0 : 1) +
-    (sectionFilter ? 1 : 0) +
+    (projectFilter ? 1 : 0) +
     (modoFilter.size === MODO_VALUES.length ? 0 : 1);
 
   const scored = useMemo(() => {
     return tasks
       .filter((t) => (hideCompleted ? !t.checked : true))
-      .filter((t) => (sectionFilter ? t.section === sectionFilter : true))
+      .filter((t) => (projectFilter ? t.section === projectFilter : true))
       .filter((t) => modoFilter.has(t.modo))
       .map((t) => ({
         task: t,
-        score: calcScore(t, sectionMap[t.section] ?? null, ctx),
+        score: calcScore(t, projectMap[t.section] ?? null, ctx),
       }))
       .filter((x) => (hideZero ? x.score > 0 : true))
       .sort((a, b) => b.score - a.score);
-  }, [tasks, sectionMap, ctx, hideZero, hideCompleted, sectionFilter, modoFilter]);
+  }, [tasks, projectMap, ctx, hideZero, hideCompleted, projectFilter, modoFilter]);
 
   return (
     <section className="prioridade-view">
@@ -112,16 +112,16 @@ export function PrioridadeView({
           </fieldset>
 
           <fieldset>
-            <legend>Projeto / Seção</legend>
+            <legend>Projeto</legend>
             <select
-              value={sectionFilter}
-              onChange={(e) => setSectionFilter(e.target.value)}
+              value={projectFilter}
+              onChange={(e) => setProjectFilter(e.target.value)}
               className="filter-select"
             >
               <option value="">Todos</option>
-              {sections.map((s) => (
-                <option key={s.id} value={s.id}>
-                  {s.name}
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
                 </option>
               ))}
             </select>
@@ -162,7 +162,7 @@ export function PrioridadeView({
             uid={uid}
             task={task}
             blocked={isTaskBlocked(task, ctx)}
-            sections={sections}
+            projects={projects}
             allTasks={tasks}
             score={score}
           />

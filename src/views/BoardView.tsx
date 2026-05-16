@@ -16,31 +16,35 @@ import { SectionHeader } from '../components/SectionHeader';
 import { TaskCard } from '../components/TaskCard';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import { patchTask } from '../lib/taskMutations';
-import { createSection } from '../repositories/sectionsRepo';
-import type { ScoreContext, Section, Task } from '../types';
+import { createProject } from '../repositories/projectsRepo';
+import type { Project, ScoreContext, Task } from '../types';
+
+function isHiddenProject(p: Project): boolean {
+  return p.status === 'Concluído' || p.status === 'Cancelado';
+}
 
 /**
- * Visão Board: colunas horizontais lado a lado, uma por seção.
+ * Visão Board: colunas horizontais lado a lado, uma por projeto ativo.
  * Tasks ordenadas por score descendente, bloqueadas empurradas pro fim
  * (mesma regra do renderBoard() do dashboard).
  */
 export function BoardView({
   uid,
   tasks,
-  sections,
-  sectionMap,
+  projects,
+  projectMap,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
-  sectionMap: Record<string, Section>;
+  projects: Project[];
+  projectMap: Record<string, Project>;
   ctx: ScoreContext;
 }) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
   const [hideCompleted, setHideCompleted] = useState(true);
-  const [newSectionName, setNewSectionName] = useState('');
-  const [addingSection, setAddingSection] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [addingProject, setAddingProject] = useState(false);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
@@ -53,28 +57,33 @@ export function BoardView({
     return m;
   }, [tasks]);
 
-  const tasksBySection = useMemo(() => {
+  const activeProjects = useMemo(
+    () => projects.filter((p) => !isHiddenProject(p)),
+    [projects],
+  );
+
+  const tasksByProject = useMemo(() => {
     const g: Record<string, Task[]> = {};
     for (const t of tasks) {
       if (hideCompleted && t.checked) continue;
       (g[t.section] ??= []).push(t);
     }
     // Ordena cada coluna: bloqueadas no fim, depois por score desc.
-    for (const sec of sections) {
-      const list = g[sec.id] ?? [];
+    for (const proj of activeProjects) {
+      const list = g[proj.id] ?? [];
       list.sort((a, b) => {
         const aBlk = isTaskBlocked(a, ctx) ? 1 : 0;
         const bBlk = isTaskBlocked(b, ctx) ? 1 : 0;
         if (aBlk !== bBlk) return aBlk - bBlk;
         return (
-          calcScore(b, sectionMap[b.section] ?? null, ctx) -
-          calcScore(a, sectionMap[a.section] ?? null, ctx)
+          calcScore(b, projectMap[b.section] ?? null, ctx) -
+          calcScore(a, projectMap[a.section] ?? null, ctx)
         );
       });
-      g[sec.id] = list;
+      g[proj.id] = list;
     }
     return g;
-  }, [tasks, sections, sectionMap, ctx, hideCompleted]);
+  }, [tasks, activeProjects, projectMap, ctx, hideCompleted]);
 
   function handleDragStart(e: DragStartEvent) {
     setActiveDragId(String(e.active.id));
@@ -90,16 +99,16 @@ export function BoardView({
     await patchTask(uid, task, { section: overId });
   }
 
-  async function handleAddSection() {
-    const name = newSectionName.trim();
+  async function handleAddProject() {
+    const name = newProjectName.trim();
     if (!name) {
-      setAddingSection(false);
-      setNewSectionName('');
+      setAddingProject(false);
+      setNewProjectName('');
       return;
     }
-    await createSection(uid, name, '', sections.length);
-    setNewSectionName('');
-    setAddingSection(false);
+    await createProject(uid, name, projects.length);
+    setNewProjectName('');
+    setAddingProject(false);
   }
 
   const activeTask = activeDragId ? taskMap[activeDragId] : null;
@@ -116,19 +125,19 @@ export function BoardView({
           &nbsp;ocultar concluídas
         </label>
         <span className="counter">
-          {sections.length} seç{sections.length === 1 ? 'ão' : 'ões'}
+          {activeProjects.length} projeto{activeProjects.length === 1 ? '' : 's'}
         </span>
       </header>
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="board-columns">
-          {sections.map((sec) => {
-            const list = tasksBySection[sec.id] ?? [];
-            const totalInSection = tasks.filter((t) => t.section === sec.id).length;
+          {activeProjects.map((proj) => {
+            const list = tasksByProject[proj.id] ?? [];
+            const totalInProject = tasks.filter((t) => t.section === proj.id).length;
             return (
-              <div key={sec.id} className="board-column">
-                <SectionHeader uid={uid} section={sec} taskCount={totalInSection} />
-                <DroppableSection id={sec.id}>
+              <div key={proj.id} className="board-column">
+                <SectionHeader uid={uid} project={proj} taskCount={totalInProject} />
+                <DroppableSection id={proj.id}>
                   <div className="task-list board-column-body">
                     {list.map((t) => (
                       <DraggableTaskCard
@@ -136,14 +145,14 @@ export function BoardView({
                         uid={uid}
                         task={t}
                         blocked={isTaskBlocked(t, ctx)}
-                        sections={sections}
+                        projects={projects}
                         allTasks={tasks}
                       />
                     ))}
                     {list.length === 0 && (
                       <p className="drop-hint muted">solte aqui</p>
                     )}
-                    <NewTaskInput uid={uid} sectionId={sec.id} />
+                    <NewTaskInput uid={uid} sectionId={proj.id} />
                   </div>
                 </DroppableSection>
               </div>
@@ -151,20 +160,20 @@ export function BoardView({
           })}
 
           <div className="board-column board-add-column">
-            {addingSection ? (
+            {addingProject ? (
               <input
                 type="text"
-                value={newSectionName}
-                onChange={(e) => setNewSectionName(e.target.value)}
-                onBlur={handleAddSection}
+                value={newProjectName}
+                onChange={(e) => setNewProjectName(e.target.value)}
+                onBlur={handleAddProject}
                 onKeyDown={(e) => {
-                  if (e.key === 'Enter') handleAddSection();
+                  if (e.key === 'Enter') handleAddProject();
                   if (e.key === 'Escape') {
-                    setNewSectionName('');
-                    setAddingSection(false);
+                    setNewProjectName('');
+                    setAddingProject(false);
                   }
                 }}
-                placeholder="Nome da seção…"
+                placeholder="Nome do projeto…"
                 autoFocus
                 className="inline-edit-input"
               />
@@ -172,9 +181,9 @@ export function BoardView({
               <button
                 type="button"
                 className="board-add-btn"
-                onClick={() => setAddingSection(true)}
+                onClick={() => setAddingProject(true)}
               >
-                + adicionar seção
+                + adicionar projeto
               </button>
             )}
           </div>
@@ -187,7 +196,7 @@ export function BoardView({
                 uid={uid}
                 task={activeTask}
                 blocked={isTaskBlocked(activeTask, ctx)}
-                sections={sections}
+                projects={projects}
                 allTasks={tasks}
               />
             </div>

@@ -1,6 +1,6 @@
 import { ColumnedTaskView, type ColumnSpec } from '../components/ColumnedTaskView';
 import { isTaskBlocked } from '../lib/score';
-import type { MoSCoW, ScoreContext, Section, Task } from '../types';
+import type { MoSCoW, Project, ScoreContext, Task } from '../types';
 
 const COLUMNS: ColumnSpec[] = [
   { key: 'must', label: 'Must', badgeClass: 'col-must' },
@@ -21,12 +21,12 @@ function applyChange(_task: Task, newKey: string): Partial<Task> {
 export function MoscowView({
   uid,
   tasks,
-  sections,
+  projects,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
+  projects: Project[];
   ctx: ScoreContext;
 }) {
   const visible = tasks.filter((t) => !t.checked);
@@ -34,7 +34,7 @@ export function MoscowView({
     <ColumnedTaskView
       uid={uid}
       tasks={visible}
-      sections={sections}
+      projects={projects}
       allTasks={tasks}
       blocked={(t) => isTaskBlocked(t, ctx)}
       columns={COLUMNS}

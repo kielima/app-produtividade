@@ -19,7 +19,7 @@ import {
 } from '../lib/calendar';
 import { calcScore } from '../lib/score';
 import { patchTask } from '../lib/taskMutations';
-import type { ScoreContext, Section, Task } from '../types';
+import type { Project, ScoreContext, Task } from '../types';
 
 const SIDEBAR_DROP_ID = 'sidebar';
 const DAY_DROP_PREFIX = 'day:';
@@ -32,13 +32,13 @@ const DAY_DROP_PREFIX = 'day:';
 export function CalendarioView({
   uid,
   tasks,
-  sectionMap,
+  projectMap,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
-  sectionMap: Record<string, Section>;
+  projects: Project[];
+  projectMap: Record<string, Project>;
   ctx: ScoreContext;
 }) {
   const [reference, setReference] = useState<Date>(() => new Date());
@@ -70,12 +70,12 @@ export function CalendarioView({
     for (const date of Object.keys(m)) {
       m[date]!.sort(
         (a, b) =>
-          calcScore(b, sectionMap[b.section] ?? null, ctx) -
-          calcScore(a, sectionMap[a.section] ?? null, ctx),
+          calcScore(b, projectMap[b.section] ?? null, ctx) -
+          calcScore(a, projectMap[a.section] ?? null, ctx),
       );
     }
     return m;
-  }, [tasks, sectionMap, ctx]);
+  }, [tasks, projectMap, ctx]);
 
   // Sidebar: tarefas sem prazo, sorted by score.
   const sidebar = useMemo(() => {
@@ -83,10 +83,10 @@ export function CalendarioView({
       .filter((t) => !t.deadline && !t.checked)
       .map((t) => ({
         task: t,
-        score: calcScore(t, sectionMap[t.section] ?? null, ctx),
+        score: calcScore(t, projectMap[t.section] ?? null, ctx),
       }))
       .sort((a, b) => b.score - a.score);
-  }, [tasks, sectionMap, ctx]);
+  }, [tasks, projectMap, ctx]);
 
   function handleDragStart(e: DragStartEvent) {
     setActiveDragId(String(e.active.id));
