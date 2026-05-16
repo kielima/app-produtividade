@@ -50,11 +50,13 @@ export function TaskFiltersBar({
   setState,
   projects,
   showHideZero,
+  onCreateProject,
 }: {
   state: TaskFiltersState;
   setState: (next: TaskFiltersState) => void;
   projects: Project[];
   showHideZero: boolean;
+  onCreateProject?: (name: string) => Promise<string>;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -141,6 +143,7 @@ export function TaskFiltersBar({
                 setState({ ...state, projectFilter: next })
               }
               projects={projects}
+              onCreateProject={onCreateProject}
             />
           </fieldset>
 
@@ -175,20 +178,25 @@ export function TaskFiltersBar({
   );
 }
 
-type ComboOption = { id: string; name: string };
+type ComboOption =
+  | { kind: 'select'; id: string; name: string }
+  | { kind: 'create'; name: string };
 
 function ProjectCombobox({
   value,
   onChange,
   projects,
+  onCreateProject,
 }: {
   value: string;
   onChange: (next: string) => void;
   projects: Project[];
+  onCreateProject?: (name: string) => Promise<string>;
 }) {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [activeIdx, setActiveIdx] = useState(0);
+  const [creating, setCreating] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLUListElement | null>(null);
 
@@ -199,13 +207,20 @@ function ProjectCombobox({
 
   const options = useMemo<ComboOption[]>(() => {
     const q = query.toLowerCase().trim();
-    const todos: ComboOption = { id: '', name: 'Todos' };
-    const matched = projects
+    const todos: ComboOption = { kind: 'select', id: '', name: 'Todos' };
+    const matched: ComboOption[] = projects
       .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
-      .map((p) => ({ id: p.id, name: p.name }));
-    if (!q || 'todos'.includes(q)) return [todos, ...matched];
-    return matched;
-  }, [projects, query]);
+      .map((p) => ({ kind: 'select' as const, id: p.id, name: p.name }));
+    const list: ComboOption[] = !q || 'todos'.includes(q) ? [todos, ...matched] : matched;
+    const trimmed = query.trim();
+    const hasExact =
+      trimmed.length > 0 &&
+      projects.some((p) => p.name.toLowerCase() === q);
+    if (onCreateProject && trimmed.length > 0 && !hasExact) {
+      list.push({ kind: 'create', name: trimmed });
+    }
+    return list;
+  }, [projects, query, onCreateProject]);
 
   useEffect(() => {
     if (!open) return;
@@ -237,6 +252,24 @@ function ProjectCombobox({
     setQuery('');
   }
 
+  async function createAndSelect(name: string) {
+    if (!onCreateProject || creating) return;
+    try {
+      setCreating(true);
+      const newId = await onCreateProject(name);
+      onChange(newId);
+      setOpen(false);
+      setQuery('');
+    } finally {
+      setCreating(false);
+    }
+  }
+
+  function pickOption(opt: ComboOption) {
+    if (opt.kind === 'create') void createAndSelect(opt.name);
+    else selectOption(opt.id);
+  }
+
   function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
     if (e.key === 'ArrowDown') {
       e.preventDefault();
@@ -251,7 +284,7 @@ function ProjectCombobox({
     } else if (e.key === 'Enter') {
       if (open && options[activeIdx]) {
         e.preventDefault();
-        selectOption(options[activeIdx].id);
+        pickOption(options[activeIdx]);
       }
     } else if (e.key === 'Escape') {
       if (open) {
@@ -315,24 +348,38 @@ function ProjectCombobox({
           {options.length === 0 && (
             <li className="combobox-empty muted">Nada encontrado.</li>
           )}
-          {options.map((opt, i) => (
-            <li
-              key={opt.id || '__all__'}
-              role="option"
-              data-idx={i}
-              aria-selected={value === opt.id}
-              className={`combobox-option${i === activeIdx ? ' active' : ''}${
-                value === opt.id ? ' selected' : ''
-              }`}
-              onMouseDown={(e) => {
-                e.preventDefault();
-                selectOption(opt.id);
-              }}
-              onMouseEnter={() => setActiveIdx(i)}
-            >
-              {opt.name}
-            </li>
-          ))}
+          {options.map((opt, i) => {
+            const isCreate = opt.kind === 'create';
+            const isSelected = !isCreate && value === opt.id;
+            const key = isCreate ? `__create__:${opt.name}` : opt.id || '__all__';
+            return (
+              <li
+                key={key}
+                role="option"
+                data-idx={i}
+                aria-selected={isSelected}
+                className={`combobox-option${i === activeIdx ? ' active' : ''}${
+                  isSelected ? ' selected' : ''
+                }${isCreate ? ' combobox-option-create' : ''}`}
+                onMouseDown={(e) => {
+                  e.preventDefault();
+                  pickOption(opt);
+                }}
+                onMouseEnter={() => setActiveIdx(i)}
+              >
+                {isCreate ? (
+                  <>
+                    <span className="combobox-create-icon" aria-hidden="true">
+                      +
+                    </span>
+                    Criar projeto “{opt.name}”
+                  </>
+                ) : (
+                  opt.name
+                )}
+              </li>
+            );
+          })}
         </ul>
       )}
     </div>
