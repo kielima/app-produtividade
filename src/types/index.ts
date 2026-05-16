@@ -54,7 +54,6 @@ export interface Project {
   estimatedDuration: string;
   dependsOn: string;
   notes: string;
-  moscow: MoSCoW;
   order?: number;
 }
 
@@ -67,4 +66,5 @@ export interface ScoreContext {
   depMap: Record<string, DependencyEntry>;
   potentialScoreMap: Record<string, number>;
   taskFlatMap: Record<string, Task>;
+  projectScoreMap: Record<string, number>;
 }
