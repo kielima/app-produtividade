@@ -330,6 +330,7 @@ export function parseProjectMarkdown(content: string): Project[] {
         estimatedDuration: '',
         dependsOn: '',
         notes: '',
+        moscow: '',
       };
       continue;
     }

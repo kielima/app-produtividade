@@ -54,14 +54,14 @@ export function TasksRoot({
   return (
     <>
       {view === 'lista' && (
-        <ListView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
+        <ListView uid={uid} tasks={data.tasks} projects={data.projects} ctx={data.ctx} />
       )}
       {view === 'board' && (
         <BoardView
           uid={uid}
           tasks={data.tasks}
-          sections={data.sections}
-          sectionMap={data.sectionMap}
+          projects={data.projects}
+          projectMap={data.projectMap}
           ctx={data.ctx}
         />
       )}
@@ -69,29 +69,29 @@ export function TasksRoot({
         <PrioridadeView
           uid={uid}
           tasks={data.tasks}
-          sections={data.sections}
-          sectionMap={data.sectionMap}
+          projects={data.projects}
+          projectMap={data.projectMap}
           ctx={data.ctx}
         />
       )}
       {view === 'kanban' && (
-        <KanbanView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
+        <KanbanView uid={uid} tasks={data.tasks} projects={data.projects} ctx={data.ctx} />
       )}
       {view === 'moscow' && (
-        <MoscowView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
+        <MoscowView uid={uid} tasks={data.tasks} projects={data.projects} ctx={data.ctx} />
       )}
       {view === 'modo' && (
-        <ModoView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
+        <ModoView uid={uid} tasks={data.tasks} projects={data.projects} ctx={data.ctx} />
       )}
       {view === 'esforco' && (
-        <EsforcoView uid={uid} tasks={data.tasks} sections={data.sections} ctx={data.ctx} />
+        <EsforcoView uid={uid} tasks={data.tasks} projects={data.projects} ctx={data.ctx} />
       )}
       {view === 'calendario' && (
         <CalendarioView
           uid={uid}
           tasks={data.tasks}
-          sections={data.sections}
-          sectionMap={data.sectionMap}
+          projects={data.projects}
+          projectMap={data.projectMap}
           ctx={data.ctx}
         />
       )}

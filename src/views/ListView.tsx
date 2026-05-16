@@ -16,9 +16,9 @@ import { SectionHeader } from '../components/SectionHeader';
 import { TaskCard } from '../components/TaskCard';
 import { isTaskBlocked } from '../lib/score';
 import { patchTask } from '../lib/taskMutations';
-import { createSection } from '../repositories/sectionsRepo';
+import { createProject } from '../repositories/projectsRepo';
 import { archiveCompletedTasks } from '../repositories/tasksRepo';
-import type { MoSCoW, ScoreContext, Section, Task } from '../types';
+import type { MoSCoW, Project, ScoreContext, Task } from '../types';
 
 const MOSCOW_FILTERS: Array<{ value: MoSCoW | 'all'; label: string }> = [
   { value: 'all', label: 'Todas' },
@@ -28,23 +28,27 @@ const MOSCOW_FILTERS: Array<{ value: MoSCoW | 'all'; label: string }> = [
   { value: 'wont', label: "Won't" },
 ];
 
+function isHiddenProject(p: Project): boolean {
+  return p.status === 'Concluído' || p.status === 'Cancelado';
+}
+
 export function ListView({
   uid,
   tasks,
-  sections,
+  projects,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
+  projects: Project[];
   ctx: ScoreContext;
 }) {
-  const [sectionFilter, setSectionFilter] = useState<string>('all');
+  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [moscowFilter, setMoscowFilter] = useState<MoSCoW | 'all'>('all');
   const [hideCompleted, setHideCompleted] = useState(true);
   const [archiveMsg, setArchiveMsg] = useState<string | null>(null);
-  const [newSectionName, setNewSectionName] = useState('');
-  const [addingSection, setAddingSection] = useState(false);
+  const [newProjectName, setNewProjectName] = useState('');
+  const [addingProject, setAddingProject] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
   const sensors = useSensors(
@@ -58,16 +62,22 @@ export function ListView({
     return m;
   }, [tasks]);
 
-  const filtered = useMemo(
-    () =>
-      tasks.filter((t) => {
-        if (hideCompleted && t.checked) return false;
-        if (sectionFilter !== 'all' && t.section !== sectionFilter) return false;
-        if (moscowFilter !== 'all' && t.moscow !== moscowFilter) return false;
-        return true;
-      }),
-    [tasks, sectionFilter, moscowFilter, hideCompleted],
-  );
+  // Por padrão esconde projetos Concluído/Cancelado. Se o usuário filtrar
+  // por um projeto específico, mostra mesmo que esteja concluído.
+  const activeProjects = useMemo(() => {
+    if (projectFilter !== 'all') return projects.filter((p) => p.id === projectFilter);
+    return projects.filter((p) => !isHiddenProject(p));
+  }, [projects, projectFilter]);
+
+  const filtered = useMemo(() => {
+    const allowedIds = new Set(activeProjects.map((p) => p.id));
+    return tasks.filter((t) => {
+      if (hideCompleted && t.checked) return false;
+      if (!allowedIds.has(t.section)) return false;
+      if (moscowFilter !== 'all' && t.moscow !== moscowFilter) return false;
+      return true;
+    });
+  }, [tasks, activeProjects, moscowFilter, hideCompleted]);
 
   const grouped = useMemo(() => {
     const g: Record<string, Task[]> = {};
@@ -77,11 +87,6 @@ export function ListView({
     }
     return g;
   }, [filtered]);
-
-  const visibleSections = useMemo(() => {
-    if (sectionFilter !== 'all') return sections.filter((s) => s.id === sectionFilter);
-    return sections;
-  }, [sections, sectionFilter]);
 
   function handleDragStart(e: DragStartEvent) {
     setActiveDragId(String(e.active.id));
@@ -104,16 +109,16 @@ export function ListView({
     setTimeout(() => setArchiveMsg(null), 4000);
   }
 
-  async function handleAddSection() {
-    const name = newSectionName.trim();
+  async function handleAddProject() {
+    const name = newProjectName.trim();
     if (!name) {
-      setAddingSection(false);
-      setNewSectionName('');
+      setAddingProject(false);
+      setNewProjectName('');
       return;
     }
-    await createSection(uid, name, '', sections.length);
-    setNewSectionName('');
-    setAddingSection(false);
+    await createProject(uid, name, projects.length);
+    setNewProjectName('');
+    setAddingProject(false);
   }
 
   const activeTask = activeDragId ? taskMap[activeDragId] : null;
@@ -122,12 +127,13 @@ export function ListView({
     <section className="list-view">
       <header className="filters">
         <label>
-          Seção:&nbsp;
-          <select value={sectionFilter} onChange={(e) => setSectionFilter(e.target.value)}>
-            <option value="all">Todas</option>
-            {sections.map((s) => (
-              <option key={s.id} value={s.id}>
-                {s.name}
+          Projeto:&nbsp;
+          <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
+            <option value="all">Todos (ativos)</option>
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+                {isHiddenProject(p) ? ` — ${p.status}` : ''}
               </option>
             ))}
           </select>
@@ -163,20 +169,20 @@ export function ListView({
 
       {archiveMsg && <p className="toast">{archiveMsg}</p>}
 
-      {visibleSections.length === 0 && tasks.length === 0 && (
+      {activeProjects.length === 0 && tasks.length === 0 && (
         <p className="muted">
-          Nada por aqui. Crie a primeira seção abaixo ou rode o script de migração.
+          Nada por aqui. Crie o primeiro projeto abaixo ou rode o script de migração.
         </p>
       )}
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        {visibleSections.map((sec) => {
-          const list = grouped[sec.id] ?? [];
-          const totalInSection = tasks.filter((t) => t.section === sec.id).length;
+        {activeProjects.map((proj) => {
+          const list = grouped[proj.id] ?? [];
+          const totalInProject = tasks.filter((t) => t.section === proj.id).length;
           return (
-            <div key={sec.id} className="section-group">
-              <SectionHeader uid={uid} section={sec} taskCount={totalInSection} />
-              <DroppableSection id={sec.id}>
+            <div key={proj.id} className="section-group">
+              <SectionHeader uid={uid} project={proj} taskCount={totalInProject} />
+              <DroppableSection id={proj.id}>
                 <div className="task-list">
                   {list.map((t) => (
                     <DraggableTaskCard
@@ -184,14 +190,14 @@ export function ListView({
                       uid={uid}
                       task={t}
                       blocked={isTaskBlocked(t, ctx)}
-                      sections={sections}
+                      projects={projects}
                       allTasks={tasks}
                     />
                   ))}
                   {list.length === 0 && (
                     <p className="drop-hint muted">solte aqui para mover</p>
                   )}
-                  <NewTaskInput uid={uid} sectionId={sec.id} />
+                  <NewTaskInput uid={uid} sectionId={proj.id} />
                 </div>
               </DroppableSection>
             </div>
@@ -205,7 +211,7 @@ export function ListView({
                 uid={uid}
                 task={activeTask}
                 blocked={isTaskBlocked(activeTask, ctx)}
-                sections={sections}
+                projects={projects}
                 allTasks={tasks}
               />
             </div>
@@ -214,26 +220,26 @@ export function ListView({
       </DndContext>
 
       <div className="add-section-row">
-        {addingSection ? (
+        {addingProject ? (
           <input
             type="text"
-            value={newSectionName}
-            onChange={(e) => setNewSectionName(e.target.value)}
-            onBlur={handleAddSection}
+            value={newProjectName}
+            onChange={(e) => setNewProjectName(e.target.value)}
+            onBlur={handleAddProject}
             onKeyDown={(e) => {
-              if (e.key === 'Enter') handleAddSection();
+              if (e.key === 'Enter') handleAddProject();
               if (e.key === 'Escape') {
-                setNewSectionName('');
-                setAddingSection(false);
+                setNewProjectName('');
+                setAddingProject(false);
               }
             }}
-            placeholder="Nome da nova seção…"
+            placeholder="Nome do novo projeto…"
             autoFocus
             className="inline-edit-input"
           />
         ) : (
-          <button type="button" className="link-btn" onClick={() => setAddingSection(true)}>
-            + adicionar seção
+          <button type="button" className="link-btn" onClick={() => setAddingProject(true)}>
+            + adicionar projeto
           </button>
         )}
       </div>
