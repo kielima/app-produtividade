@@ -31,6 +31,28 @@ const ESFORCO_LABEL: Record<Esforco, string> = {
   '': '—',
 };
 
+type KanbanStatus = 'todo' | 'doing' | 'done';
+
+const STATUS_LABEL: Record<KanbanStatus, string> = {
+  todo: 'A fazer',
+  doing: 'Em andamento',
+  done: 'Concluída',
+};
+
+const STATUS_OPTS: KanbanStatus[] = ['todo', 'doing', 'done'];
+
+function taskStatus(task: Task): KanbanStatus {
+  if (task.checked) return 'done';
+  if (task.inProgress) return 'doing';
+  return 'todo';
+}
+
+function statusPatch(status: KanbanStatus): Partial<Task> {
+  if (status === 'todo') return { checked: false, inProgress: false };
+  if (status === 'doing') return { checked: false, inProgress: true };
+  return { checked: true, inProgress: false };
+}
+
 const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
 const MODO_OPTS: Modo[] = ['manual', 'colaborar', 'delegar', 'automatizar', ''];
 const ESFORCO_OPTS: Esforco[] = ['rapido', 'medio', 'longo', ''];
@@ -68,6 +90,10 @@ export function TaskCard({
 
   async function setField<K extends keyof Task>(field: K, value: Task[K]) {
     await patchTask(uid, task, { [field]: value } as Partial<Task>);
+  }
+
+  async function setStatus(next: KanbanStatus) {
+    await patchTask(uid, task, statusPatch(next));
   }
 
   async function setSubtasks(next: Subtask[]) {
@@ -119,6 +145,42 @@ export function TaskCard({
             ⚡ {score.toFixed(2)}
           </span>
         )}
+        <Popover
+          trigger={(open, isOpen) => {
+            const status = taskStatus(task);
+            return (
+              <button
+                type="button"
+                className={`badge status-${status}${isOpen ? ' open' : ''}`}
+                onClick={open}
+              >
+                {STATUS_LABEL[status]}
+              </button>
+            );
+          }}
+        >
+          {(close) => {
+            const current = taskStatus(task);
+            return (
+              <ul className="picker-list">
+                {STATUS_OPTS.map((v) => (
+                  <li key={v}>
+                    <button
+                      type="button"
+                      className={v === current ? 'active' : ''}
+                      onClick={() => {
+                        setStatus(v);
+                        close();
+                      }}
+                    >
+                      {STATUS_LABEL[v]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            );
+          }}
+        </Popover>
         <Popover
           trigger={(open, isOpen) => (
             <button
