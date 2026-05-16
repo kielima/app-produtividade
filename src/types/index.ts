@@ -54,6 +54,7 @@ export interface Project {
   estimatedDuration: string;
   dependsOn: string;
   notes: string;
+  moscow: MoSCoW;
   order?: number;
 }
 
