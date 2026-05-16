@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Modo, Project } from '../types';
 
 const MODO_LABEL: Record<Modo, string> = {
@@ -135,20 +135,13 @@ export function TaskFiltersBar({
 
           <fieldset>
             <legend>Projeto</legend>
-            <select
+            <ProjectCombobox
               value={state.projectFilter}
-              onChange={(e) =>
-                setState({ ...state, projectFilter: e.target.value })
+              onChange={(next) =>
+                setState({ ...state, projectFilter: next })
               }
-              className="filter-select"
-            >
-              <option value="">Todos</option>
-              {projects.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
+              projects={projects}
+            />
           </fieldset>
 
           <fieldset>
@@ -177,6 +170,170 @@ export function TaskFiltersBar({
             limpar filtros
           </button>
         </div>
+      )}
+    </div>
+  );
+}
+
+type ComboOption = { id: string; name: string };
+
+function ProjectCombobox({
+  value,
+  onChange,
+  projects,
+}: {
+  value: string;
+  onChange: (next: string) => void;
+  projects: Project[];
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const [activeIdx, setActiveIdx] = useState(0);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+  const listRef = useRef<HTMLUListElement | null>(null);
+
+  const selectedName = useMemo(() => {
+    if (!value) return '';
+    return projects.find((p) => p.id === value)?.name ?? '';
+  }, [value, projects]);
+
+  const options = useMemo<ComboOption[]>(() => {
+    const q = query.toLowerCase().trim();
+    const todos: ComboOption = { id: '', name: 'Todos' };
+    const matched = projects
+      .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
+      .map((p) => ({ id: p.id, name: p.name }));
+    if (!q || 'todos'.includes(q)) return [todos, ...matched];
+    return matched;
+  }, [projects, query]);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    return () => document.removeEventListener('mousedown', onPointerDown);
+  }, [open]);
+
+  useEffect(() => {
+    setActiveIdx(0);
+  }, [query, open]);
+
+  useEffect(() => {
+    if (!open) return;
+    const el = listRef.current?.querySelector<HTMLLIElement>(
+      `[data-idx="${activeIdx}"]`,
+    );
+    el?.scrollIntoView({ block: 'nearest' });
+  }, [activeIdx, open]);
+
+  function selectOption(id: string) {
+    onChange(id);
+    setOpen(false);
+    setQuery('');
+  }
+
+  function onKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      if (!open) {
+        setOpen(true);
+        return;
+      }
+      setActiveIdx((i) => Math.min(i + 1, Math.max(options.length - 1, 0)));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setActiveIdx((i) => Math.max(i - 1, 0));
+    } else if (e.key === 'Enter') {
+      if (open && options[activeIdx]) {
+        e.preventDefault();
+        selectOption(options[activeIdx].id);
+      }
+    } else if (e.key === 'Escape') {
+      if (open) {
+        e.preventDefault();
+        setOpen(false);
+        setQuery('');
+      }
+    } else if (e.key === 'Tab') {
+      if (open) {
+        setOpen(false);
+        setQuery('');
+      }
+    }
+  }
+
+  const displayValue = open ? query : selectedName;
+
+  return (
+    <div className="combobox" ref={wrapRef}>
+      <input
+        type="text"
+        className="filter-select combobox-input"
+        role="combobox"
+        aria-expanded={open}
+        aria-controls="project-combobox-list"
+        aria-autocomplete="list"
+        value={displayValue}
+        placeholder="Todos"
+        onChange={(e) => {
+          setQuery(e.target.value);
+          if (!open) setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onKeyDown={onKeyDown}
+      />
+      {value && !open && (
+        <button
+          type="button"
+          className="combobox-clear"
+          onMouseDown={(e) => {
+            e.preventDefault();
+            onChange('');
+            setQuery('');
+          }}
+          aria-label="limpar projeto"
+        >
+          ×
+        </button>
+      )}
+      <span className="combobox-chevron" aria-hidden="true">
+        ▾
+      </span>
+      {open && (
+        <ul
+          id="project-combobox-list"
+          role="listbox"
+          className="combobox-list"
+          ref={listRef}
+        >
+          {options.length === 0 && (
+            <li className="combobox-empty muted">Nada encontrado.</li>
+          )}
+          {options.map((opt, i) => (
+            <li
+              key={opt.id || '__all__'}
+              role="option"
+              data-idx={i}
+              aria-selected={value === opt.id}
+              className={`combobox-option${i === activeIdx ? ' active' : ''}${
+                value === opt.id ? ' selected' : ''
+              }`}
+              onMouseDown={(e) => {
+                e.preventDefault();
+                selectOption(opt.id);
+              }}
+              onMouseEnter={() => setActiveIdx(i)}
+            >
+              {opt.name}
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
