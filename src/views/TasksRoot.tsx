@@ -2,7 +2,6 @@ import { useEffect, useRef } from 'react';
 import { useUserData } from '../lib/useUserData';
 import { archiveCompletedTasks } from '../repositories/tasksRepo';
 import { BoardView } from './BoardView';
-import { CalendarioView } from './CalendarioView';
 import { EsforcoView } from './EsforcoView';
 import { KanbanView } from './KanbanView';
 import { ListView } from './ListView';
@@ -17,8 +16,7 @@ export type TaskView =
   | 'kanban'
   | 'moscow'
   | 'modo'
-  | 'esforco'
-  | 'calendario';
+  | 'esforco';
 
 export const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'prioridade', label: 'Prioridade' },
@@ -28,7 +26,6 @@ export const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'moscow', label: 'MoSCoW' },
   { key: 'modo', label: 'Modo' },
   { key: 'esforco', label: 'Esforço' },
-  { key: 'calendario', label: 'Calendário' },
 ];
 
 export function TasksRoot({
@@ -85,15 +82,6 @@ export function TasksRoot({
       )}
       {view === 'esforco' && (
         <EsforcoView uid={uid} tasks={data.tasks} projects={data.projects} ctx={data.ctx} />
-      )}
-      {view === 'calendario' && (
-        <CalendarioView
-          uid={uid}
-          tasks={data.tasks}
-          projects={data.projects}
-          projectMap={data.projectMap}
-          ctx={data.ctx}
-        />
       )}
     </>
   );
