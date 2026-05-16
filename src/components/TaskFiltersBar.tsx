@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import type { Modo, Project } from '../types';
+import type { Esforco, Modo, MoSCoW, Project } from '../types';
 
 const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
@@ -17,11 +17,49 @@ export const MODO_VALUES: Modo[] = [
   '',
 ];
 
+const MOSCOW_LABEL: Record<MoSCoW, string> = {
+  must: 'Must',
+  should: 'Should',
+  could: 'Could',
+  wont: "Won't",
+  '': '—',
+};
+
+export const MOSCOW_VALUES: MoSCoW[] = [
+  'must',
+  'should',
+  'could',
+  'wont',
+  '',
+];
+
+const ESFORCO_LABEL: Record<Esforco, string> = {
+  rapido: 'Rápido',
+  medio: 'Médio',
+  longo: 'Longo',
+  '': '—',
+};
+
+export const ESFORCO_VALUES: Esforco[] = ['rapido', 'medio', 'longo', ''];
+
+export type StatusKey = 'todo' | 'doing' | 'done';
+
+const STATUS_LABEL: Record<StatusKey, string> = {
+  todo: 'A fazer',
+  doing: 'Em andamento',
+  done: 'Concluída',
+};
+
+export const STATUS_VALUES: StatusKey[] = ['todo', 'doing', 'done'];
+
 export interface TaskFiltersState {
   hideZero: boolean;
   hideCompleted: boolean;
   projectFilter: string;
   modoFilter: Set<Modo>;
+  moscowFilter: Set<MoSCoW>;
+  esforcoFilter: Set<Esforco>;
+  statusFilter: Set<StatusKey>;
 }
 
 export function defaultFiltersState(): TaskFiltersState {
@@ -30,6 +68,9 @@ export function defaultFiltersState(): TaskFiltersState {
     hideCompleted: true,
     projectFilter: '',
     modoFilter: new Set<Modo>(MODO_VALUES),
+    moscowFilter: new Set<MoSCoW>(MOSCOW_VALUES),
+    esforcoFilter: new Set<Esforco>(ESFORCO_VALUES),
+    statusFilter: new Set<StatusKey>(STATUS_VALUES),
   };
 }
 
@@ -41,7 +82,10 @@ export function activeFilterCount(
     (showHideZero && !state.hideZero ? 1 : 0) +
     (state.hideCompleted ? 0 : 1) +
     (state.projectFilter ? 1 : 0) +
-    (state.modoFilter.size === MODO_VALUES.length ? 0 : 1)
+    (state.modoFilter.size === MODO_VALUES.length ? 0 : 1) +
+    (state.moscowFilter.size === MOSCOW_VALUES.length ? 0 : 1) +
+    (state.esforcoFilter.size === ESFORCO_VALUES.length ? 0 : 1) +
+    (state.statusFilter.size === STATUS_VALUES.length ? 0 : 1)
   );
 }
 
@@ -82,6 +126,27 @@ export function TaskFiltersBar({
     if (next.has(m)) next.delete(m);
     else next.add(m);
     setState({ ...state, modoFilter: next });
+  }
+
+  function toggleMoscow(m: MoSCoW) {
+    const next = new Set(state.moscowFilter);
+    if (next.has(m)) next.delete(m);
+    else next.add(m);
+    setState({ ...state, moscowFilter: next });
+  }
+
+  function toggleEsforco(e: Esforco) {
+    const next = new Set(state.esforcoFilter);
+    if (next.has(e)) next.delete(e);
+    else next.add(e);
+    setState({ ...state, esforcoFilter: next });
+  }
+
+  function toggleStatus(s: StatusKey) {
+    const next = new Set(state.statusFilter);
+    if (next.has(s)) next.delete(s);
+    else next.add(s);
+    setState({ ...state, statusFilter: next });
   }
 
   function clearFilters() {
@@ -156,6 +221,57 @@ export function TaskFiltersBar({
                   aria-pressed={state.modoFilter.has(m)}
                 >
                   {MODO_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>MoSCoW</legend>
+            <div className="chip-group">
+              {MOSCOW_VALUES.map((m) => (
+                <button
+                  key={m || 'empty'}
+                  type="button"
+                  className={`chip${state.moscowFilter.has(m) ? ' active' : ''}`}
+                  onClick={() => toggleMoscow(m)}
+                  aria-pressed={state.moscowFilter.has(m)}
+                >
+                  {MOSCOW_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Esforço</legend>
+            <div className="chip-group">
+              {ESFORCO_VALUES.map((e) => (
+                <button
+                  key={e || 'empty'}
+                  type="button"
+                  className={`chip${state.esforcoFilter.has(e) ? ' active' : ''}`}
+                  onClick={() => toggleEsforco(e)}
+                  aria-pressed={state.esforcoFilter.has(e)}
+                >
+                  {ESFORCO_LABEL[e]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Kanban</legend>
+            <div className="chip-group">
+              {STATUS_VALUES.map((s) => (
+                <button
+                  key={s}
+                  type="button"
+                  className={`chip${state.statusFilter.has(s) ? ' active' : ''}`}
+                  onClick={() => toggleStatus(s)}
+                  aria-pressed={state.statusFilter.has(s)}
+                >
+                  {STATUS_LABEL[s]}
                 </button>
               ))}
             </div>
