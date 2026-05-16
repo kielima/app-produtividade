@@ -77,6 +77,21 @@ export async function deleteProject(uid: string, projectId: string): Promise<voi
 }
 
 /**
+ * Reescreve o campo `order` dos projetos na sequência informada.
+ * Usa um batch só (até 500 ops cabem tranquilamente no limite do Firestore).
+ */
+export async function reorderProjects(
+  uid: string,
+  orderedIds: string[],
+): Promise<void> {
+  const batch = writeBatch(db);
+  orderedIds.forEach((id, idx) => {
+    batch.set(doc(db, 'users', uid, 'projects', id), { order: idx }, { merge: true });
+  });
+  await batch.commit();
+}
+
+/**
  * Apaga o projeto e todas as tarefas pertencentes a ele
  * (task.section === projectId). Substitui o antigo deleteSection.
  */
