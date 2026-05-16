@@ -43,7 +43,15 @@ const MOSCOW_LABEL: Record<MoSCoW, string> = {
   '': '— sem MoSCoW —',
 };
 
-export function ProjectCard({ uid, project }: { uid: string; project: Project }) {
+export function ProjectCard({
+  uid,
+  project,
+  taskCount,
+}: {
+  uid: string;
+  project: Project;
+  taskCount: number;
+}) {
   const [expanded, setExpanded] = useState(false);
 
   async function patch(field: keyof Project, value: string) {
@@ -69,6 +77,10 @@ export function ProjectCard({ uid, project }: { uid: string; project: Project })
           className="project-name"
           ariaLabel="editar nome do projeto"
         />
+
+        <span className="muted project-task-count">
+          {taskCount} tarefa{taskCount === 1 ? '' : 's'}
+        </span>
 
         <button
           type="button"
