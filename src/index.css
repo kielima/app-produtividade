@@ -979,6 +979,22 @@ a:focus-visible {
 /* ===== Projects view ===== */
 .project-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
+.sortable-project {
+  display: flex;
+  align-items: stretch;
+  gap: 0.3rem;
+}
+.sortable-project-content { flex: 1; min-width: 0; }
+.project-drag-handle {
+  font-size: 1.1rem;
+  padding: 0 0.4rem;
+}
+
+.reorder-hint {
+  font-size: 0.85rem;
+  margin: 0 0 0.4rem;
+}
+
 .project-card {
   background: var(--surface);
   border: 1px solid var(--border);
