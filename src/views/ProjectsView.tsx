@@ -1,6 +1,26 @@
+import {
+  DndContext,
+  DragOverlay,
+  PointerSensor,
+  TouchSensor,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+  type DragStartEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
 import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
-import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
+import { SortableProjectCard } from '../components/SortableProjectCard';
+import {
+  createProject,
+  reorderProjects,
+  subscribeToProjects,
+} from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import type { Project, ProjectStatus, Task } from '../types';
 
@@ -22,10 +42,21 @@ export function ProjectsView({ uid }: { uid: string }) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
+  const [activeDragId, setActiveDragId] = useState<string | null>(null);
+  // Ordem otimista local enquanto o batch persiste e o snapshot volta.
+  const [localOrder, setLocalOrder] = useState<string[] | null>(null);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+  );
 
   useEffect(() => {
     const onErr = (e: Error) => setError(e.message);
-    const unsubProjects = subscribeToProjects(uid, setProjects, onErr);
+    const unsubProjects = subscribeToProjects(uid, (next) => {
+      setProjects(next);
+      setLocalOrder(null);
+    }, onErr);
     const unsubTasks = subscribeToTasks(uid, setTasks, onErr);
     return () => {
       unsubProjects();
@@ -39,13 +70,62 @@ export function ProjectsView({ uid }: { uid: string }) {
     return counts;
   }, [tasks]);
 
+  // Lista base já reordenada otimisticamente caso o usuário tenha arrastado.
+  const orderedProjects = useMemo(() => {
+    if (!localOrder) return projects;
+    const byId: Record<string, Project> = {};
+    for (const p of projects) byId[p.id] = p;
+    const seen = new Set<string>();
+    const ordered: Project[] = [];
+    for (const id of localOrder) {
+      const p = byId[id];
+      if (p) {
+        ordered.push(p);
+        seen.add(id);
+      }
+    }
+    // Anexa qualquer projeto novo que ainda não estava na ordem otimista.
+    for (const p of projects) if (!seen.has(p.id)) ordered.push(p);
+    return ordered;
+  }, [projects, localOrder]);
+
   const filtered = useMemo(
     () =>
       statusFilter === 'all'
-        ? projects
-        : projects.filter((p) => p.status === statusFilter),
-    [projects, statusFilter],
+        ? orderedProjects
+        : orderedProjects.filter((p) => p.status === statusFilter),
+    [orderedProjects, statusFilter],
   );
+
+  const reorderEnabled = statusFilter === 'all';
+  const filteredIds = useMemo(() => filtered.map((p) => p.id), [filtered]);
+  const activeProject = useMemo(
+    () => (activeDragId ? projects.find((p) => p.id === activeDragId) ?? null : null),
+    [activeDragId, projects],
+  );
+
+  function handleDragStart(e: DragStartEvent) {
+    setActiveDragId(String(e.active.id));
+  }
+
+  async function handleDragEnd(e: DragEndEvent) {
+    setActiveDragId(null);
+    const overId = e.over?.id ? String(e.over.id) : null;
+    const activeId = String(e.active.id);
+    if (!overId || overId === activeId) return;
+    const oldIndex = orderedProjects.findIndex((p) => p.id === activeId);
+    const newIndex = orderedProjects.findIndex((p) => p.id === overId);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const next = arrayMove(orderedProjects, oldIndex, newIndex);
+    const nextIds = next.map((p) => p.id);
+    setLocalOrder(nextIds);
+    try {
+      await reorderProjects(uid, nextIds);
+    } catch (err) {
+      setError((err as Error).message);
+      setLocalOrder(null);
+    }
+  }
 
   async function handleAdd() {
     const name = newName.trim();
@@ -90,16 +170,43 @@ export function ProjectsView({ uid }: { uid: string }) {
         </p>
       )}
 
-      <div className="project-list">
-        {filtered.map((p) => (
-          <ProjectCard
-            key={p.id}
-            uid={uid}
-            project={p}
-            taskCount={taskCountByProject[p.id] ?? 0}
-          />
-        ))}
-      </div>
+      {!reorderEnabled && filtered.length > 0 && (
+        <p className="muted reorder-hint">
+          Para reordenar, selecione <strong>Todos</strong> em Status.
+        </p>
+      )}
+
+      <DndContext
+        sensors={sensors}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+      >
+        <SortableContext items={filteredIds} strategy={verticalListSortingStrategy}>
+          <div className="project-list">
+            {filtered.map((p) => (
+              <SortableProjectCard
+                key={p.id}
+                uid={uid}
+                project={p}
+                taskCount={taskCountByProject[p.id] ?? 0}
+                disabled={!reorderEnabled}
+              />
+            ))}
+          </div>
+        </SortableContext>
+
+        <DragOverlay dropAnimation={null}>
+          {activeProject && (
+            <div className="drag-overlay">
+              <ProjectCard
+                uid={uid}
+                project={activeProject}
+                taskCount={taskCountByProject[activeProject.id] ?? 0}
+              />
+            </div>
+          )}
+        </DragOverlay>
+      </DndContext>
 
       <div className="add-section-row">
         {adding ? (
