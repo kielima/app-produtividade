@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useRef } from 'react';
 import type { TaskFiltersState } from '../components/TaskFiltersBar';
-import { MODO_VALUES } from '../components/TaskFiltersBar';
+import {
+  ESFORCO_VALUES,
+  MODO_VALUES,
+  MOSCOW_VALUES,
+  STATUS_VALUES,
+} from '../components/TaskFiltersBar';
 import type { UserData } from '../lib/useUserData';
 import { archiveCompletedTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
@@ -31,8 +36,8 @@ export const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'esforco', label: 'Esforço' },
 ];
 
-// Kanban usa "Concluída" como coluna; ocultar completas esconderia a coluna.
-// Modo usa o próprio modo como coluna; filtrar por modo aqui esvaziaria colunas.
+// Cada visão "colunada" usa um campo como coluna; aplicar o filtro
+// correspondente nessa visão esvaziaria as próprias colunas.
 function applyFilters(
   tasks: Task[],
   view: TaskView,
@@ -41,13 +46,37 @@ function applyFilters(
   const applyHideCompleted = filters.hideCompleted && view !== 'kanban';
   const applyModo =
     view !== 'modo' && filters.modoFilter.size !== MODO_VALUES.length;
+  const applyMoscow =
+    view !== 'moscow' && filters.moscowFilter.size !== MOSCOW_VALUES.length;
+  const applyEsforco =
+    view !== 'esforco' && filters.esforcoFilter.size !== ESFORCO_VALUES.length;
+  const applyStatus =
+    view !== 'kanban' && filters.statusFilter.size !== STATUS_VALUES.length;
   const applyProject = !!filters.projectFilter;
-  if (!applyHideCompleted && !applyModo && !applyProject) return tasks;
+  if (
+    !applyHideCompleted &&
+    !applyModo &&
+    !applyMoscow &&
+    !applyEsforco &&
+    !applyStatus &&
+    !applyProject
+  )
+    return tasks;
 
   return tasks.filter((t) => {
     if (applyHideCompleted && t.checked) return false;
     if (applyProject && t.section !== filters.projectFilter) return false;
     if (applyModo && !filters.modoFilter.has(t.modo)) return false;
+    if (applyMoscow && !filters.moscowFilter.has(t.moscow)) return false;
+    if (applyEsforco && !filters.esforcoFilter.has(t.esforco)) return false;
+    if (applyStatus) {
+      const status: 'todo' | 'doing' | 'done' = t.checked
+        ? 'done'
+        : t.inProgress
+          ? 'doing'
+          : 'todo';
+      if (!filters.statusFilter.has(status)) return false;
+    }
     return true;
   });
 }
