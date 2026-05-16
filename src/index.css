@@ -341,6 +341,13 @@ a:focus-visible {
   align-items: center;
   gap: 0.35rem;
   line-height: 1;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+}
+.topbar-filter .filters-toggle:hover {
+  background: transparent;
+  color: var(--accent, var(--fg));
 }
 .topbar-filter .filters-toggle svg {
   display: block;
