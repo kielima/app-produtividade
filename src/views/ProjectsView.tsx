@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
 import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
-import type { Project, ProjectStatus } from '../types';
+import { subscribeToTasks } from '../repositories/tasksRepo';
+import type { Project, ProjectStatus, Task } from '../types';
 
 type StatusFilter = ProjectStatus | 'all';
 
@@ -16,15 +17,27 @@ const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
 
 export function ProjectsView({ uid }: { uid: string }) {
   const [projects, setProjects] = useState<Project[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
 
   useEffect(() => {
-    const unsub = subscribeToProjects(uid, setProjects, (e) => setError(e.message));
-    return () => unsub();
+    const onErr = (e: Error) => setError(e.message);
+    const unsubProjects = subscribeToProjects(uid, setProjects, onErr);
+    const unsubTasks = subscribeToTasks(uid, setTasks, onErr);
+    return () => {
+      unsubProjects();
+      unsubTasks();
+    };
   }, [uid]);
+
+  const taskCountByProject = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of tasks) counts[t.section] = (counts[t.section] ?? 0) + 1;
+    return counts;
+  }, [tasks]);
 
   const filtered = useMemo(
     () =>
@@ -79,7 +92,12 @@ export function ProjectsView({ uid }: { uid: string }) {
 
       <div className="project-list">
         {filtered.map((p) => (
-          <ProjectCard key={p.id} uid={uid} project={p} />
+          <ProjectCard
+            key={p.id}
+            uid={uid}
+            project={p}
+            taskCount={taskCountByProject[p.id] ?? 0}
+          />
         ))}
       </div>
 
