@@ -1,6 +1,6 @@
 import { ColumnedTaskView, type ColumnSpec } from '../components/ColumnedTaskView';
 import { isTaskBlocked } from '../lib/score';
-import type { Esforco, ScoreContext, Section, Task } from '../types';
+import type { Esforco, Project, ScoreContext, Task } from '../types';
 
 const COLUMNS: ColumnSpec[] = [
   { key: 'rapido', label: 'Rápido', badgeClass: 'col-esforco-rapido' },
@@ -20,12 +20,12 @@ function applyChange(_task: Task, newKey: string): Partial<Task> {
 export function EsforcoView({
   uid,
   tasks,
-  sections,
+  projects,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
+  projects: Project[];
   ctx: ScoreContext;
 }) {
   const visible = tasks.filter((t) => !t.checked);
@@ -33,7 +33,7 @@ export function EsforcoView({
     <ColumnedTaskView
       uid={uid}
       tasks={visible}
-      sections={sections}
+      projects={projects}
       allTasks={tasks}
       blocked={(t) => isTaskBlocked(t, ctx)}
       columns={COLUMNS}

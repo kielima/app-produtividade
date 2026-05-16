@@ -1,6 +1,6 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import type { Section, Task } from '../types';
+import type { Project, Task } from '../types';
 import { TaskCard } from './TaskCard';
 
 /**
@@ -12,13 +12,13 @@ export function DraggableTaskCard({
   uid,
   task,
   blocked,
-  sections,
+  projects,
   allTasks,
 }: {
   uid: string;
   task: Task;
   blocked: boolean;
-  sections: Section[];
+  projects: Project[];
   allTasks: Task[];
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
@@ -37,7 +37,7 @@ export function DraggableTaskCard({
       <button
         type="button"
         className="drag-handle"
-        aria-label="arrastar para outra seção"
+        aria-label="arrastar para outro projeto"
         {...listeners}
         {...attributes}
       >
@@ -48,7 +48,7 @@ export function DraggableTaskCard({
           uid={uid}
           task={task}
           blocked={blocked}
-          sections={sections}
+          projects={projects}
           allTasks={allTasks}
         />
       </div>

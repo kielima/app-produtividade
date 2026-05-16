@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { getDisplayTitle } from '../lib/parser';
 import { patchTask } from '../lib/taskMutations';
 import { deleteTask } from '../repositories/tasksRepo';
-import type { Esforco, Modo, MoSCoW, Section, Subtask, Task } from '../types';
+import type { Esforco, Modo, MoSCoW, Project, Subtask, Task } from '../types';
 import { DepPicker } from './DepPicker';
 import { InlineEdit } from './InlineEdit';
 import { Popover } from './Popover';
@@ -39,14 +39,14 @@ export function TaskCard({
   uid,
   task,
   blocked,
-  sections,
+  projects,
   allTasks,
   score,
 }: {
   uid: string;
   task: Task;
   blocked: boolean;
-  sections: Section[];
+  projects: Project[];
   allTasks: Task[];
   score?: number;
 }) {
@@ -256,17 +256,17 @@ export function TaskCard({
               <li>
                 <strong className="picker-section">Mover para</strong>
               </li>
-              {sections.map((s) => (
-                <li key={s.id}>
+              {projects.map((p) => (
+                <li key={p.id}>
                   <button
                     type="button"
-                    className={s.id === task.section ? 'active' : ''}
+                    className={p.id === task.section ? 'active' : ''}
                     onClick={() => {
-                      moveToSection(s.id);
+                      moveToSection(p.id);
                       close();
                     }}
                   >
-                    {s.name}
+                    {p.name}
                   </button>
                 </li>
               ))}

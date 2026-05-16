@@ -1,6 +1,6 @@
 import { ColumnedTaskView, type ColumnSpec } from '../components/ColumnedTaskView';
 import { isTaskBlocked } from '../lib/score';
-import type { Modo, ScoreContext, Section, Task } from '../types';
+import type { Modo, Project, ScoreContext, Task } from '../types';
 
 const COLUMNS: ColumnSpec[] = [
   { key: 'manual', label: 'Manual', badgeClass: 'col-modo-manual' },
@@ -21,12 +21,12 @@ function applyChange(_task: Task, newKey: string): Partial<Task> {
 export function ModoView({
   uid,
   tasks,
-  sections,
+  projects,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  sections: Section[];
+  projects: Project[];
   ctx: ScoreContext;
 }) {
   const visible = tasks.filter((t) => !t.checked);
@@ -34,7 +34,7 @@ export function ModoView({
     <ColumnedTaskView
       uid={uid}
       tasks={visible}
-      sections={sections}
+      projects={projects}
       allTasks={tasks}
       blocked={(t) => isTaskBlocked(t, ctx)}
       columns={COLUMNS}

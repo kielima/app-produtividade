@@ -1,5 +1,9 @@
-import { deleteSection, renameSection, setSectionMoscow } from '../repositories/sectionsRepo';
-import type { MoSCoW, Section } from '../types';
+import {
+  deleteProjectWithTasks,
+  patchProject,
+  setProjectMoscow,
+} from '../repositories/projectsRepo';
+import type { MoSCoW, Project } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { Popover } from './Popover';
 
@@ -15,38 +19,38 @@ const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
 
 export function SectionHeader({
   uid,
-  section,
+  project,
   taskCount,
 }: {
   uid: string;
-  section: Section;
+  project: Project;
   taskCount: number;
 }) {
   async function rename(newName: string) {
-    if (!newName || newName === section.name) return;
-    await renameSection(uid, section.id, newName);
+    if (!newName || newName === project.name) return;
+    await patchProject(uid, project.id, { name: newName });
   }
 
   async function setMoscow(m: MoSCoW) {
-    await setSectionMoscow(uid, section.id, m);
+    await setProjectMoscow(uid, project.id, m);
   }
 
   async function handleDelete() {
     const msg =
       taskCount > 0
-        ? `Apagar a seção "${section.name}" e ${taskCount} tarefa(s) dentro dela?`
-        : `Apagar a seção "${section.name}"?`;
+        ? `Apagar o projeto "${project.name}" e ${taskCount} tarefa(s) dentro dele?`
+        : `Apagar o projeto "${project.name}"?`;
     if (!window.confirm(msg)) return;
-    await deleteSection(uid, section.id);
+    await deleteProjectWithTasks(uid, project.id);
   }
 
   return (
     <header className="section-header">
-      <InlineEdit value={section.name} onSave={rename} className="section-title" />
+      <InlineEdit value={project.name} onSave={rename} className="section-title" />
       <Popover
         trigger={(open) => (
-          <button type="button" className={`badge moscow-${section.moscow}`} onClick={open}>
-            {MOSCOW_LABEL[section.moscow]}
+          <button type="button" className={`badge moscow-${project.moscow}`} onClick={open}>
+            {MOSCOW_LABEL[project.moscow]}
           </button>
         )}
       >
@@ -56,7 +60,7 @@ export function SectionHeader({
               <li key={v}>
                 <button
                   type="button"
-                  className={v === section.moscow ? 'active' : ''}
+                  className={v === project.moscow ? 'active' : ''}
                   onClick={() => {
                     setMoscow(v);
                     close();
@@ -74,8 +78,8 @@ export function SectionHeader({
         type="button"
         className="icon-btn danger"
         onClick={handleDelete}
-        aria-label="deletar seção"
-        title="apagar seção"
+        aria-label="apagar projeto"
+        title="apagar projeto"
       >
         🗑
       </button>
