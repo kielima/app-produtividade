@@ -13,6 +13,7 @@ import { auth } from './lib/firebase';
 import { useUserData } from './lib/useUserData';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
+import { createProject } from './repositories/projectsRepo';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
 
 const TASK_VIEW_KEY = 'app-produtividade:task-view';
@@ -146,6 +147,10 @@ function AppShell({
               setState={setFilters}
               projects={data.projects}
               showHideZero={taskView === 'prioridade'}
+              onCreateProject={async (name) => {
+                const p = await createProject(uid, name, data.projects.length);
+                return p.id;
+              }}
             />
           </>
         )}
