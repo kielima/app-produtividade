@@ -35,17 +35,19 @@ function isHiddenProject(p: Project): boolean {
 export function ListView({
   uid,
   tasks,
+  totalCount,
   projects,
+  projectFilter,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
+  totalCount: number;
   projects: Project[];
+  projectFilter: string;
   ctx: ScoreContext;
 }) {
-  const [projectFilter, setProjectFilter] = useState<string>('all');
   const [moscowFilter, setMoscowFilter] = useState<MoSCoW | 'all'>('all');
-  const [hideCompleted, setHideCompleted] = useState(true);
   const [archiveMsg, setArchiveMsg] = useState<string | null>(null);
   const [newProjectName, setNewProjectName] = useState('');
   const [addingProject, setAddingProject] = useState(false);
@@ -62,27 +64,26 @@ export function ListView({
     return m;
   }, [tasks]);
 
-  // Por padrão esconde projetos Concluído/Cancelado. Se o usuário filtrar
-  // por um projeto específico, mostra mesmo que esteja concluído.
+  // Se o filtro global selecionou um projeto específico, mostra só ele
+  // (mesmo Concluído/Cancelado). Senão, oculta os encerrados.
   const activeProjects = useMemo(() => {
-    if (projectFilter !== 'all') return projects.filter((p) => p.id === projectFilter);
+    if (projectFilter) return projects.filter((p) => p.id === projectFilter);
     return projects.filter((p) => !isHiddenProject(p));
   }, [projects, projectFilter]);
 
   const filtered = useMemo(() => {
     const allowedIds = new Set(activeProjects.map((p) => p.id));
     return tasks.filter((t) => {
-      if (hideCompleted && t.checked) return false;
       if (!allowedIds.has(t.section)) return false;
       if (moscowFilter !== 'all' && t.moscow !== moscowFilter) return false;
       return true;
     });
-  }, [tasks, activeProjects, moscowFilter, hideCompleted]);
+  }, [tasks, activeProjects, moscowFilter]);
 
   const grouped = useMemo(() => {
     const g: Record<string, Task[]> = {};
     for (const t of filtered) {
-      const key = t.section || '(sem seção)';
+      const key = t.section || '(sem projeto)';
       (g[key] ??= []).push(t);
     }
     return g;
@@ -127,18 +128,6 @@ export function ListView({
     <section className="list-view">
       <header className="filters">
         <label>
-          Projeto:&nbsp;
-          <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)}>
-            <option value="all">Todos (ativos)</option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-                {isHiddenProject(p) ? ` — ${p.status}` : ''}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label>
           MoSCoW:&nbsp;
           <select
             value={moscowFilter}
@@ -151,16 +140,8 @@ export function ListView({
             ))}
           </select>
         </label>
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            checked={hideCompleted}
-            onChange={(e) => setHideCompleted(e.target.checked)}
-          />
-          &nbsp;ocultar concluídas
-        </label>
         <span className="counter">
-          {filtered.length} de {tasks.length}
+          {filtered.length} de {totalCount}
         </span>
         <button type="button" className="btn-secondary" onClick={handleArchiveNow}>
           Arquivar concluídas
@@ -169,7 +150,7 @@ export function ListView({
 
       {archiveMsg && <p className="toast">{archiveMsg}</p>}
 
-      {activeProjects.length === 0 && tasks.length === 0 && (
+      {activeProjects.length === 0 && totalCount === 0 && (
         <p className="muted">
           Nada por aqui. Crie o primeiro projeto abaixo ou rode o script de migração.
         </p>
