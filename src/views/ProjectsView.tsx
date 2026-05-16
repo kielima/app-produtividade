@@ -16,6 +16,7 @@ import {
 import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
 import { SortableProjectCard } from '../components/SortableProjectCard';
+import { buildProjectScoreMap } from '../lib/projectRankScore';
 import {
   createProject,
   reorderProjects,
@@ -88,6 +89,13 @@ export function ProjectsView({ uid }: { uid: string }) {
     for (const p of projects) if (!seen.has(p.id)) ordered.push(p);
     return ordered;
   }, [projects, localOrder]);
+
+  // Score sempre vem da posição na lista global (sem filtro), pra refletir
+  // o ranking real usado na priorização de tarefas.
+  const projectScoreMap = useMemo(
+    () => buildProjectScoreMap(orderedProjects),
+    [orderedProjects],
+  );
 
   const filtered = useMemo(
     () =>
@@ -189,6 +197,7 @@ export function ProjectsView({ uid }: { uid: string }) {
                 uid={uid}
                 project={p}
                 taskCount={taskCountByProject[p.id] ?? 0}
+                score={projectScoreMap[p.id] ?? 0}
                 disabled={!reorderEnabled}
               />
             ))}
@@ -202,6 +211,7 @@ export function ProjectsView({ uid }: { uid: string }) {
                 uid={uid}
                 project={activeProject}
                 taskCount={taskCountByProject[activeProject.id] ?? 0}
+                score={projectScoreMap[activeProject.id] ?? 0}
               />
             </div>
           )}

@@ -11,11 +11,13 @@ export function SortableProjectCard({
   uid,
   project,
   taskCount,
+  score,
   disabled,
 }: {
   uid: string;
   project: Project;
   taskCount: number;
+  score?: number;
   disabled?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } =
@@ -42,7 +44,7 @@ export function SortableProjectCard({
         </button>
       )}
       <div className="sortable-project-content">
-        <ProjectCard uid={uid} project={project} taskCount={taskCount} />
+        <ProjectCard uid={uid} project={project} taskCount={taskCount} score={score} />
       </div>
     </div>
   );
