@@ -37,10 +37,12 @@ export function ProjectCard({
   uid,
   project,
   taskCount,
+  score,
 }: {
   uid: string;
   project: Project;
   taskCount: number;
+  score?: number;
 }) {
   const [expanded, setExpanded] = useState(false);
 
@@ -93,6 +95,11 @@ export function ProjectCard({
       </header>
 
       <div className="project-badges">
+        {typeof score === 'number' && (
+          <span className="badge score" title="pontuação derivada da posição na lista (curva gaussiana)">
+            ⚡ {score.toFixed(2)}
+          </span>
+        )}
         <Popover
           trigger={(open) => (
             <button type="button" className={`badge status-${statusClass}`} onClick={open}>
