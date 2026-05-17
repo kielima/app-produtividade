@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { pickNextPair, reorderByRating, type Pair } from '../lib/duelPairing';
+import {
+  pickNextPair,
+  recommendedDuelLimit,
+  reorderByRating,
+  summarizeChanges,
+  type DuelSummary,
+  type Pair,
+} from '../lib/duelPairing';
 import { DEFAULT_RATING, type GlickoRating } from '../lib/glicko2';
 import { reorderProjects } from '../repositories/projectsRepo';
 import {
@@ -10,6 +17,8 @@ import {
 import type { Project } from '../types';
 
 const INACTIVE_STATUSES = new Set(['Concluído', 'Cancelado']);
+
+type Phase = 'dueling' | 'summary';
 
 export function ProjectDuelView({
   uid,
@@ -25,7 +34,13 @@ export function ProjectDuelView({
   const [pair, setPair] = useState<Pair | null>(null);
   const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
+  const [phase, setPhase] = useState<Phase>('dueling');
+  const [summary, setSummary] = useState<DuelSummary | null>(null);
   const lastPairRef = useRef<Pair | null>(null);
+  /** Snapshot dos ativos no momento em que a sessão começa — base do diff final. */
+  const initialOrderRef = useRef<string[] | null>(null);
+  /** Limite calculado uma vez, no início. */
+  const limitRef = useRef<number>(0);
 
   useEffect(() => {
     const unsub = subscribeToGlickoRatings(uid, setRatings);
@@ -43,6 +58,13 @@ export function ProjectDuelView({
     return m;
   }, [projects]);
 
+  // Captura o snapshot inicial + limite uma única vez (no primeiro render
+  // em que tem ativos suficientes). Refs não disparam re-render.
+  if (initialOrderRef.current === null && activeIds.length >= 2) {
+    initialOrderRef.current = [...activeIds];
+    limitRef.current = recommendedDuelLimit(activeIds.length);
+  }
+
   const generateNextPair = () => {
     const next = pickNextPair({
       candidateIds: activeIds,
@@ -53,30 +75,55 @@ export function ProjectDuelView({
   };
 
   useEffect(() => {
+    if (phase !== 'dueling') return;
     if (!pair && activeIds.length >= 2) generateNextPair();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeIds.length, pair]);
+  }, [activeIds.length, pair, phase]);
 
-  const handleEscape = (e: KeyboardEvent) => {
-    if (e.key === 'Escape') handleClose();
-  };
   useEffect(() => {
-    window.addEventListener('keydown', handleEscape);
-    return () => window.removeEventListener('keydown', handleEscape);
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') handleClose();
+    }
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   async function handlePick(winnerId: string) {
-    if (!pair || busy) return;
+    if (!pair || busy || phase !== 'dueling') return;
     const loserId = pair[0] === winnerId ? pair[1] : pair[0];
     const winnerRating = ratings[winnerId] ?? { ...DEFAULT_RATING };
     const loserRating = ratings[loserId] ?? { ...DEFAULT_RATING };
     setBusy(true);
     try {
-      await recordDuelAndPersist(uid, winnerId, winnerRating, loserId, loserRating);
+      const result = await recordDuelAndPersist(
+        uid,
+        winnerId,
+        winnerRating,
+        loserId,
+        loserRating,
+      );
       lastPairRef.current = pair;
-      setDuelCount((n) => n + 1);
-      setPair(null); // dispara o useEffect pra sortear o próximo
+      const nextCount = duelCount + 1;
+      setDuelCount(nextCount);
+      setPair(null);
+      if (nextCount >= limitRef.current) {
+        // Usa os ratings recém-aplicados (snapshot ainda não chegou via listener).
+        const mergedRatings: GlickoMap = {
+          ...ratings,
+          [winnerId]: result.winner,
+          [loserId]: result.loser,
+        };
+        const newOrder = reorderByRating(
+          projects.map((p) => p.id),
+          new Set(activeIds),
+          mergedRatings,
+        );
+        setSummary(
+          summarizeChanges(initialOrderRef.current ?? activeIds, newOrder),
+        );
+        setPhase('summary');
+      }
     } catch (err) {
       console.error('Falha ao registrar duelo', err);
     } finally {
@@ -85,6 +132,7 @@ export function ProjectDuelView({
   }
 
   function handleSkip() {
+    if (phase !== 'dueling') return;
     lastPairRef.current = pair;
     setPair(null);
     generateNextPair();
@@ -110,19 +158,36 @@ export function ProjectDuelView({
   if (activeIds.length < 2) {
     return (
       <section className="duel-view">
-        <header className="duel-topbar">
-          <button
-            type="button"
-            className="duel-close"
-            onClick={handleClose}
-            aria-label="encerrar duelos"
-          >
-            ✕
-          </button>
-        </header>
+        <DuelTopbar
+          duelCount={duelCount}
+          limit={limitRef.current}
+          onClose={handleClose}
+          closing={closing}
+          showCount={false}
+        />
         <div className="duel-empty">
           <p>É preciso ter ao menos 2 projetos ativos para duelar.</p>
         </div>
+      </section>
+    );
+  }
+
+  if (phase === 'summary' && summary) {
+    return (
+      <section className="duel-view">
+        <DuelTopbar
+          duelCount={duelCount}
+          limit={limitRef.current}
+          onClose={handleClose}
+          closing={closing}
+        />
+        <DuelSummaryView
+          summary={summary}
+          duelCount={duelCount}
+          projectById={projectById}
+          onClose={handleClose}
+          closing={closing}
+        />
       </section>
     );
   }
@@ -132,20 +197,12 @@ export function ProjectDuelView({
 
   return (
     <section className="duel-view">
-      <header className="duel-topbar">
-        <button
-          type="button"
-          className="duel-close"
-          onClick={handleClose}
-          aria-label="encerrar duelos"
-          disabled={closing}
-        >
-          ✕
-        </button>
-        <span className="duel-count" aria-live="polite">
-          {duelCount} duelo{duelCount === 1 ? '' : 's'}
-        </span>
-      </header>
+      <DuelTopbar
+        duelCount={duelCount}
+        limit={limitRef.current}
+        onClose={handleClose}
+        closing={closing}
+      />
 
       <p className="duel-prompt">Qual é mais prioritário?</p>
 
@@ -185,6 +242,52 @@ export function ProjectDuelView({
   );
 }
 
+function DuelTopbar({
+  duelCount,
+  limit,
+  onClose,
+  closing,
+  showCount = true,
+}: {
+  duelCount: number;
+  limit: number;
+  onClose: () => void;
+  closing: boolean;
+  showCount?: boolean;
+}) {
+  return (
+    <header className="duel-topbar">
+      <button
+        type="button"
+        className="duel-close"
+        onClick={onClose}
+        aria-label="encerrar duelos"
+        disabled={closing}
+      >
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          aria-hidden="true"
+        >
+          <path
+            d="M6 6l12 12M18 6L6 18"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+      {showCount && limit > 0 && (
+        <span className="duel-count" aria-live="polite">
+          {duelCount} / {limit}
+        </span>
+      )}
+    </header>
+  );
+}
+
 function DuelCard({
   project,
   rating,
@@ -210,5 +313,91 @@ function DuelCard({
         {Math.round(effective.r)} ± {Math.round(effective.rd)}
       </span>
     </button>
+  );
+}
+
+function DuelSummaryView({
+  summary,
+  duelCount,
+  projectById,
+  onClose,
+  closing,
+}: {
+  summary: DuelSummary;
+  duelCount: number;
+  projectById: Record<string, Project>;
+  onClose: () => void;
+  closing: boolean;
+}) {
+  const nameOf = (id: string) => projectById[id]?.name ?? id;
+  const nothingMoved = summary.risers.length === 0 && summary.fallers.length === 0;
+
+  return (
+    <div className="duel-summary">
+      <h2 className="duel-summary-title">Sessão concluída</h2>
+      <p className="duel-summary-sub">
+        {duelCount} duelo{duelCount === 1 ? '' : 's'} realizado{duelCount === 1 ? '' : 's'}.
+      </p>
+
+      {nothingMoved && (
+        <p className="muted duel-summary-empty">
+          A ordem da lista não mudou.
+        </p>
+      )}
+
+      {summary.risers.length > 0 && (
+        <section className="duel-summary-section">
+          <h3>Subiram</h3>
+          <ul>
+            {summary.risers.map((r) => (
+              <li key={r.id}>
+                <span className="duel-summary-name">{nameOf(r.id)}</span>
+                <span className="duel-summary-delta up">
+                  +{r.delta} posição{r.delta === 1 ? '' : 'es'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {summary.fallers.length > 0 && (
+        <section className="duel-summary-section">
+          <h3>Desceram</h3>
+          <ul>
+            {summary.fallers.map((f) => (
+              <li key={f.id}>
+                <span className="duel-summary-name">{nameOf(f.id)}</span>
+                <span className="duel-summary-delta down">
+                  {f.delta} posição{f.delta === -1 ? '' : 'es'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {summary.newTop.length > 0 && (
+        <section className="duel-summary-section">
+          <h3>Nova Top {summary.newTop.length}</h3>
+          <ol className="duel-summary-top">
+            {summary.newTop.map((id) => (
+              <li key={id}>{nameOf(id)}</li>
+            ))}
+          </ol>
+        </section>
+      )}
+
+      <div className="duel-actions">
+        <button
+          type="button"
+          className="btn-primary"
+          onClick={onClose}
+          disabled={closing}
+        >
+          {closing ? 'aplicando…' : 'voltar para a lista'}
+        </button>
+      </div>
+    </div>
   );
 }

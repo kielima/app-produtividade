@@ -95,3 +95,49 @@ export function reorderByRating(
   active.sort((a, b) => ratingOf(ratings, b).r - ratingOf(ratings, a).r);
   return [...active, ...inactive];
 }
+
+/**
+ * Limite recomendado de duelos por sessão: `N × 2`, clampado entre 10 e 25.
+ * Garante movimento mínimo (10) e evita cansar o usuário com listas grandes (25).
+ */
+export function recommendedDuelLimit(activeCount: number): number {
+  return Math.min(Math.max(activeCount * 2, 10), 25);
+}
+
+export interface DuelSummary {
+  /** Top 3 subidas: maior delta de posição (positivo = subiu). */
+  risers: Array<{ id: string; delta: number }>;
+  /** Top 3 descidas (delta negativo). */
+  fallers: Array<{ id: string; delta: number }>;
+  /** Primeiros 3 da nova ordem (líderes atuais). */
+  newTop: string[];
+}
+
+/**
+ * Compara a ordem inicial com a final e extrai os movimentos mais
+ * significativos. Projetos que não estão em ambas as listas são ignorados.
+ */
+export function summarizeChanges(
+  initialOrder: ReadonlyArray<string>,
+  newOrder: ReadonlyArray<string>,
+): DuelSummary {
+  const oldIdx = new Map(initialOrder.map((id, i) => [id, i]));
+  const newIdx = new Map(newOrder.map((id, i) => [id, i]));
+  const deltas: Array<{ id: string; delta: number }> = [];
+  for (const id of initialOrder) {
+    const o = oldIdx.get(id)!;
+    const n = newIdx.get(id);
+    if (n === undefined) continue;
+    deltas.push({ id, delta: o - n });
+  }
+  const risers = deltas
+    .filter((d) => d.delta > 0)
+    .sort((a, b) => b.delta - a.delta)
+    .slice(0, 3);
+  const fallers = deltas
+    .filter((d) => d.delta < 0)
+    .sort((a, b) => a.delta - b.delta)
+    .slice(0, 3);
+  const newTop = newOrder.slice(0, 3);
+  return { risers, fallers, newTop };
+}
