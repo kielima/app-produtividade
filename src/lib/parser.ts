@@ -308,7 +308,7 @@ export function parseProjectMarkdown(content: string): Project[] {
       const status: ProjectStatus = statusMatch
         ? (statusMatch[1]!
             .replace('Concluido', 'Concluído') as ProjectStatus)
-        : '';
+        : 'A iniciar';
       const priority: ProjectPriority = priorityMatch
         ? (priorityMatch[1]!.toUpperCase() as ProjectPriority)
         : '';

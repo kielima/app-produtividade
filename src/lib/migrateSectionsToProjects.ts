@@ -49,7 +49,7 @@ export async function migrateSectionsToProjects(uid: string): Promise<number> {
         id,
         name: section.name ?? id,
         area: '',
-        status: '',
+        status: 'A iniciar',
         priority: '',
         objective: '',
         currentStatus: '',

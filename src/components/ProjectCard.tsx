@@ -10,7 +10,6 @@ const STATUS_OPTS: ProjectStatus[] = [
   'Pausado',
   'Concluído',
   'Cancelado',
-  '',
 ];
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
@@ -19,7 +18,6 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
   Pausado: 'Pausado',
   'Concluído': 'Concluído',
   Cancelado: 'Cancelado',
-  '': '— sem status —',
 };
 
 const STATUS_SLUG: Record<ProjectStatus, string> = {
@@ -28,7 +26,6 @@ const STATUS_SLUG: Record<ProjectStatus, string> = {
   Pausado: 'pausado',
   'Concluído': 'concluido',
   Cancelado: 'cancelado',
-  '': 'none',
 };
 
 export function ProjectCard({
@@ -108,7 +105,7 @@ export function ProjectCard({
           {(close) => (
             <ul className="picker-list">
               {STATUS_OPTS.map((s) => (
-                <li key={s || 'none'}>
+                <li key={s}>
                   <button
                     type="button"
                     className={s === project.status ? 'active' : ''}
