@@ -164,7 +164,6 @@ export function TasksRoot({
       <NewTaskFab
         uid={uid}
         projects={data.projects}
-        allTasks={data.tasks}
         defaultProjectId={filters.projectFilter}
       />
     </>
