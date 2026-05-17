@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { getDisplayTitle } from '../lib/parser';
 import { patchTask } from '../lib/taskMutations';
+import { useTaskNavigation } from '../lib/taskNavigation';
 import { deleteTask } from '../repositories/tasksRepo';
 import type { Esforco, Modo, MoSCoW, Project, Subtask, Task } from '../types';
 import { DepPicker } from './DepPicker';
@@ -75,13 +76,10 @@ export function TaskCard({
   const display = getDisplayTitle(task.title);
   const [expanded, setExpanded] = useState(false);
   const [depModalOpen, setDepModalOpen] = useState(false);
+  const { openTask } = useTaskNavigation();
 
   async function toggleChecked() {
     await patchTask(uid, task, { checked: !task.checked });
-  }
-
-  async function setDisplay(newDisplay: string) {
-    await patchTask(uid, task, {}, newDisplay);
   }
 
   async function setNote(newNote: string) {
@@ -123,12 +121,14 @@ export function TaskCard({
           aria-label="alternar concluída"
           className="task-checkbox"
         />
-        <InlineEdit
-          value={display}
-          onSave={setDisplay}
-          className="task-title"
-          ariaLabel="editar título"
-        />
+        <button
+          type="button"
+          className="task-title task-title-btn"
+          onClick={() => openTask(task.id)}
+          aria-label="abrir tarefa"
+        >
+          {display}
+        </button>
         <button
           type="button"
           className="icon-btn task-expand"
