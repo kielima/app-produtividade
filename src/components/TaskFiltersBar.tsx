@@ -272,6 +272,19 @@ export function TaskFiltersBar({
               />
               &nbsp;concluídas
             </label>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={state.onlyWithoutDeadline}
+                onChange={(e) =>
+                  setState({
+                    ...state,
+                    onlyWithoutDeadline: e.target.checked,
+                  })
+                }
+              />
+              &nbsp;sem data
+            </label>
           </fieldset>
 
           <fieldset>
@@ -284,23 +297,6 @@ export function TaskFiltersBar({
               projects={projects}
               onCreateProject={onCreateProject}
             />
-          </fieldset>
-
-          <fieldset>
-            <legend>Data</legend>
-            <label className="checkbox">
-              <input
-                type="checkbox"
-                checked={state.onlyWithoutDeadline}
-                onChange={(e) =>
-                  setState({
-                    ...state,
-                    onlyWithoutDeadline: e.target.checked,
-                  })
-                }
-              />
-              &nbsp;apenas sem data
-            </label>
           </fieldset>
 
           <fieldset>
