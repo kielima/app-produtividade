@@ -1,19 +1,16 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Fundo off-white preenchendo borda a borda (sem cantos arredondados)
-       pra que o maskable não deixe área transparente e launchers (Samsung,
-       Pixel) não adicionem moldura branca extra. Cantos são aplicados pelo
-       SO/launcher conforme a máscara do tema. -->
+  <!-- Fundo off-white preenchendo borda a borda. Sem rx pra que o maskable
+       cubra toda a área e o launcher não desenhe moldura branca extra. -->
   <rect width="512" height="512" fill="#f3ede3"/>
-  <!-- Checkmark minimalista em tom escuro quente (não preto puro).
-       Posicionado dentro da safe zone maskable (~80% central, x:51..461).
-       Stroke largo (56px ≈ 11%) com cantos arredondados pra leitura limpa
-       em tamanhos pequenos (64x64 e abaixo). -->
+  <!-- Check estilo emoji "Heavy Check Mark" (✔): polígono filled de 6
+       vértices em vez de dois palitos com stroke. Simula o corpo cheio
+       do glifo emoji. stroke-linejoin=round suaviza os cantos.
+       Conteúdo dentro da safe zone maskable (~80% central). -->
   <path
-    d="M 132 268 L 224 360 L 388 168"
-    fill="none"
+    d="M 97 252 L 227 394 L 445 121 L 405 89 L 223 316 L 133 218 Z"
+    fill="#2b2b2b"
     stroke="#2b2b2b"
-    stroke-width="56"
-    stroke-linecap="round"
+    stroke-width="20"
     stroke-linejoin="round"
   />
 </svg>
