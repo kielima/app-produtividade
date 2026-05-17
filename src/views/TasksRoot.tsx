@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef } from 'react';
+import { NewTaskFab } from '../components/NewTaskFab';
 import type { TaskFiltersState } from '../components/TaskFiltersBar';
 import {
   ESFORCO_VALUES,
@@ -160,6 +161,11 @@ export function TasksRoot({
           ctx={data.ctx}
         />
       )}
+      <NewTaskFab
+        uid={uid}
+        projects={data.projects}
+        defaultProjectId={filters.projectFilter}
+      />
     </>
   );
 }
