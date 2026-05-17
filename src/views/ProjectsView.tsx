@@ -25,9 +25,9 @@ import {
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import type { Project, ProjectStatus, Task } from '../types';
 
-type StatusFilter = ProjectStatus | 'all';
+export type StatusFilter = ProjectStatus | 'all';
 
-const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
+export const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'all', label: 'Todos' },
   { value: 'A iniciar', label: 'A iniciar' },
   { value: 'Em andamento', label: 'Em andamento' },
@@ -36,11 +36,16 @@ const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
   { value: 'Cancelado', label: 'Cancelado' },
 ];
 
-export function ProjectsView({ uid }: { uid: string }) {
+export function ProjectsView({
+  uid,
+  statusFilter,
+}: {
+  uid: string;
+  statusFilter: StatusFilter;
+}) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
@@ -151,25 +156,6 @@ export function ProjectsView({ uid }: { uid: string }) {
 
   return (
     <section className="projects-view">
-      <header className="filters">
-        <label>
-          Status:&nbsp;
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-          >
-            {STATUS_FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
-        </label>
-        <span className="counter">
-          {filtered.length} de {projects.length}
-        </span>
-      </header>
-
       {filtered.length === 0 && (
         <p className="muted">
           {projects.length === 0
