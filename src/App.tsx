@@ -15,8 +15,10 @@ import {
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
+import { ProjectNavigationContext } from './lib/projectNavigation';
 import { TaskNavigationContext } from './lib/taskNavigation';
 import { useUserData } from './lib/useUserData';
+import { ProjectDetailView } from './views/ProjectDetailView';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
 import { TaskDetailView } from './views/TaskDetailView';
@@ -122,14 +124,22 @@ function AppShell({
 }) {
   const data = useUserData(uid);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
 
-  const navValue = useMemo(
+  const taskNavValue = useMemo(
     () => ({ openTask: (taskId: string) => setSelectedTaskId(taskId) }),
+    [],
+  );
+  const projectNavValue = useMemo(
+    () => ({ openProject: (projectId: string) => setSelectedProjectId(projectId) }),
     [],
   );
 
   const selectedTask = selectedTaskId
     ? data.tasks.find((t) => t.id === selectedTaskId) ?? null
+    : null;
+  const selectedProject = selectedProjectId
+    ? data.projects.find((p) => p.id === selectedProjectId) ?? null
     : null;
 
   useEffect(() => {
@@ -138,29 +148,64 @@ function AppShell({
     }
   }, [selectedTaskId, selectedTask, data.tasks.length]);
 
+  useEffect(() => {
+    if (selectedProjectId && !selectedProject && data.projects.length > 0) {
+      setSelectedProjectId(null);
+    }
+  }, [selectedProjectId, selectedProject, data.projects.length]);
+
+  const selectedProjectTaskCount = useMemo(() => {
+    if (!selectedProject) return 0;
+    return data.tasks.filter((t) => t.section === selectedProject.id).length;
+  }, [selectedProject, data.tasks]);
+
   if (selectedTask) {
     return (
-      <TaskNavigationContext.Provider value={navValue}>
-        <div className="app app--detail">
-          <main role="main">
-            <TaskDetailView
-              uid={uid}
-              task={selectedTask}
-              allTasks={data.tasks}
-              projects={data.projects}
-              projectMap={data.projectMap}
-              ctx={data.ctx}
-              onClose={() => setSelectedTaskId(null)}
-            />
-          </main>
-          <UpdatePrompt />
-        </div>
+      <TaskNavigationContext.Provider value={taskNavValue}>
+        <ProjectNavigationContext.Provider value={projectNavValue}>
+          <div className="app app--detail">
+            <main role="main">
+              <TaskDetailView
+                uid={uid}
+                task={selectedTask}
+                allTasks={data.tasks}
+                projects={data.projects}
+                projectMap={data.projectMap}
+                ctx={data.ctx}
+                onClose={() => setSelectedTaskId(null)}
+              />
+            </main>
+            <UpdatePrompt />
+          </div>
+        </ProjectNavigationContext.Provider>
+      </TaskNavigationContext.Provider>
+    );
+  }
+
+  if (selectedProject) {
+    return (
+      <TaskNavigationContext.Provider value={taskNavValue}>
+        <ProjectNavigationContext.Provider value={projectNavValue}>
+          <div className="app app--detail">
+            <main role="main">
+              <ProjectDetailView
+                uid={uid}
+                project={selectedProject}
+                taskCount={selectedProjectTaskCount}
+                score={data.ctx.projectScoreMap[selectedProject.id]}
+                onClose={() => setSelectedProjectId(null)}
+              />
+            </main>
+            <UpdatePrompt />
+          </div>
+        </ProjectNavigationContext.Provider>
       </TaskNavigationContext.Provider>
     );
   }
 
   return (
-    <TaskNavigationContext.Provider value={navValue}>
+    <TaskNavigationContext.Provider value={taskNavValue}>
+    <ProjectNavigationContext.Provider value={projectNavValue}>
     <div className="app">
       <header
         className={`topbar${tab === 'tasks' ? ' topbar--with-subtabs' : ''}`}
@@ -237,6 +282,7 @@ function AppShell({
 
       <UpdatePrompt />
     </div>
+    </ProjectNavigationContext.Provider>
     </TaskNavigationContext.Provider>
   );
 }
