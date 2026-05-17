@@ -76,6 +76,60 @@ export function defaultFiltersState(): TaskFiltersState {
   };
 }
 
+interface SerializedTaskFilters {
+  hideZero: boolean;
+  hideCompleted: boolean;
+  onlyWithoutDeadline: boolean;
+  projectFilter: string;
+  modoFilter: Modo[];
+  moscowFilter: MoSCoW[];
+  esforcoFilter: Esforco[];
+  statusFilter: StatusKey[];
+}
+
+export function serializeFiltersState(
+  state: TaskFiltersState,
+): SerializedTaskFilters {
+  return {
+    hideZero: state.hideZero,
+    hideCompleted: state.hideCompleted,
+    onlyWithoutDeadline: state.onlyWithoutDeadline,
+    projectFilter: state.projectFilter,
+    modoFilter: [...state.modoFilter],
+    moscowFilter: [...state.moscowFilter],
+    esforcoFilter: [...state.esforcoFilter],
+    statusFilter: [...state.statusFilter],
+  };
+}
+
+export function deserializeFiltersState(raw: unknown): TaskFiltersState {
+  const base = defaultFiltersState();
+  if (!raw || typeof raw !== 'object') return base;
+  const v = raw as Partial<SerializedTaskFilters>;
+  function allowed<T>(arr: unknown, valid: readonly T[]): Set<T> {
+    if (!Array.isArray(arr)) return new Set(valid);
+    const filtered = arr.filter((x): x is T =>
+      (valid as readonly unknown[]).includes(x),
+    );
+    return new Set(filtered);
+  }
+  return {
+    hideZero: typeof v.hideZero === 'boolean' ? v.hideZero : base.hideZero,
+    hideCompleted:
+      typeof v.hideCompleted === 'boolean' ? v.hideCompleted : base.hideCompleted,
+    onlyWithoutDeadline:
+      typeof v.onlyWithoutDeadline === 'boolean'
+        ? v.onlyWithoutDeadline
+        : base.onlyWithoutDeadline,
+    projectFilter:
+      typeof v.projectFilter === 'string' ? v.projectFilter : base.projectFilter,
+    modoFilter: allowed(v.modoFilter, MODO_VALUES),
+    moscowFilter: allowed(v.moscowFilter, MOSCOW_VALUES),
+    esforcoFilter: allowed(v.esforcoFilter, ESFORCO_VALUES),
+    statusFilter: allowed(v.statusFilter, STATUS_VALUES),
+  };
+}
+
 export function activeFilterCount(
   state: TaskFiltersState,
   showHideZero: boolean,

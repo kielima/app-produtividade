@@ -3,12 +3,16 @@ import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
 import {
   defaultProjectFiltersState,
+  deserializeProjectFiltersState,
   ProjectFiltersBar,
+  serializeProjectFiltersState,
   type ProjectFiltersState,
 } from './components/ProjectFiltersBar';
 import { SidebarMenu } from './components/SidebarMenu';
 import {
   defaultFiltersState,
+  deserializeFiltersState,
+  serializeFiltersState,
   TaskFiltersBar,
   type TaskFiltersState,
 } from './components/TaskFiltersBar';
@@ -26,6 +30,28 @@ import { createProject } from './repositories/projectsRepo';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
 
 const TASK_VIEW_KEY = 'app-produtividade:task-view';
+const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
+const PROJECT_FILTERS_KEY = 'app-produtividade:project-filters';
+
+function loadTaskFilters(): TaskFiltersState {
+  try {
+    const raw = localStorage.getItem(TASK_FILTERS_KEY);
+    if (!raw) return defaultFiltersState();
+    return deserializeFiltersState(JSON.parse(raw));
+  } catch {
+    return defaultFiltersState();
+  }
+}
+
+function loadProjectFilters(): ProjectFiltersState {
+  try {
+    const raw = localStorage.getItem(PROJECT_FILTERS_KEY);
+    if (!raw) return defaultProjectFiltersState();
+    return deserializeProjectFiltersState(JSON.parse(raw));
+  } catch {
+    return defaultProjectFiltersState();
+  }
+}
 
 type Tab = 'tasks' | 'projects' | 'settings';
 
@@ -43,16 +69,28 @@ export function App() {
     const stored = localStorage.getItem(TASK_VIEW_KEY);
     return (VIEW_TABS.find((v) => v.key === stored)?.key ?? 'prioridade') as TaskView;
   });
-  const [filters, setFilters] = useState<TaskFiltersState>(() =>
-    defaultFiltersState(),
-  );
+  const [filters, setFilters] = useState<TaskFiltersState>(loadTaskFilters);
   const [projectFilters, setProjectFilters] = useState<ProjectFiltersState>(
-    () => defaultProjectFiltersState(),
+    loadProjectFilters,
   );
 
   useEffect(() => {
     localStorage.setItem(TASK_VIEW_KEY, taskView);
   }, [taskView]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      TASK_FILTERS_KEY,
+      JSON.stringify(serializeFiltersState(filters)),
+    );
+  }, [filters]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      PROJECT_FILTERS_KEY,
+      JSON.stringify(serializeProjectFiltersState(projectFilters)),
+    );
+  }, [projectFilters]);
 
   if (loading) {
     return (
