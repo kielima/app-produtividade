@@ -31,6 +31,29 @@ export function defaultProjectFiltersState(): ProjectFiltersState {
   };
 }
 
+interface SerializedProjectFilters {
+  statusFilter: ProjectStatusKey[];
+}
+
+export function serializeProjectFiltersState(
+  state: ProjectFiltersState,
+): SerializedProjectFilters {
+  return { statusFilter: [...state.statusFilter] };
+}
+
+export function deserializeProjectFiltersState(
+  raw: unknown,
+): ProjectFiltersState {
+  const base = defaultProjectFiltersState();
+  if (!raw || typeof raw !== 'object') return base;
+  const v = raw as Partial<SerializedProjectFilters>;
+  if (!Array.isArray(v.statusFilter)) return base;
+  const filtered = v.statusFilter.filter((x): x is ProjectStatusKey =>
+    (PROJECT_STATUS_VALUES as readonly string[]).includes(x as string),
+  );
+  return { statusFilter: new Set(filtered) };
+}
+
 export function activeProjectFilterCount(state: ProjectFiltersState): number {
   return state.statusFilter.size === PROJECT_STATUS_VALUES.length ? 0 : 1;
 }
