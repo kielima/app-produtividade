@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RATING, type GlickoRating } from './glicko2';
-import { pickNextPair, reorderByRating } from './duelPairing';
+import {
+  pickNextPair,
+  recommendedDuelLimit,
+  reorderByRating,
+  summarizeChanges,
+} from './duelPairing';
 
 const fresh = (r: number, rd = 350): GlickoRating => ({
   r,
@@ -91,5 +96,68 @@ describe('reorderByRating', () => {
     const active = new Set(all);
     // Sem ratings persistidos: a e b ficam com rating default; ordem estável.
     expect(reorderByRating(all, active, {})).toHaveLength(2);
+  });
+});
+
+describe('recommendedDuelLimit', () => {
+  it('returns at least 10', () => {
+    expect(recommendedDuelLimit(0)).toBe(10);
+    expect(recommendedDuelLimit(3)).toBe(10);
+    expect(recommendedDuelLimit(5)).toBe(10);
+  });
+
+  it('scales as N × 2', () => {
+    expect(recommendedDuelLimit(8)).toBe(16);
+    expect(recommendedDuelLimit(10)).toBe(20);
+    expect(recommendedDuelLimit(12)).toBe(24);
+  });
+
+  it('caps at 25', () => {
+    expect(recommendedDuelLimit(13)).toBe(25);
+    expect(recommendedDuelLimit(50)).toBe(25);
+  });
+});
+
+describe('summarizeChanges', () => {
+  it('detects risers and fallers correctly', () => {
+    const initial = ['a', 'b', 'c', 'd', 'e'];
+    const final = ['c', 'a', 'e', 'b', 'd'];
+    const s = summarizeChanges(initial, final);
+    // a: 0→1 (delta -1) faller
+    // b: 1→3 (delta -2) faller
+    // c: 2→0 (delta +2) riser
+    // d: 3→4 (delta -1) faller
+    // e: 4→2 (delta +2) riser
+    expect(s.risers.map((r) => r.id)).toEqual(['c', 'e']);
+    expect(s.risers[0]!.delta).toBe(2);
+    expect(s.fallers[0]!.id).toBe('b');
+    expect(s.fallers[0]!.delta).toBe(-2);
+  });
+
+  it('returns the new top 3', () => {
+    const s = summarizeChanges(['a', 'b', 'c', 'd'], ['c', 'd', 'a', 'b']);
+    expect(s.newTop).toEqual(['c', 'd', 'a']);
+  });
+
+  it('limits to 3 risers and 3 fallers', () => {
+    const initial = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
+    const final = ['h', 'g', 'f', 'e', 'd', 'c', 'b', 'a'];
+    const s = summarizeChanges(initial, final);
+    expect(s.risers).toHaveLength(3);
+    expect(s.fallers).toHaveLength(3);
+  });
+
+  it('returns empty arrays when nothing moved', () => {
+    const order = ['a', 'b', 'c'];
+    const s = summarizeChanges(order, order);
+    expect(s.risers).toEqual([]);
+    expect(s.fallers).toEqual([]);
+    expect(s.newTop).toEqual(['a', 'b', 'c']);
+  });
+
+  it('ignores ids that disappear or appear', () => {
+    const s = summarizeChanges(['a', 'b', 'c'], ['a', 'b']);
+    // c sumiu — não entra
+    expect([...s.risers, ...s.fallers].map((d) => d.id)).not.toContain('c');
   });
 });

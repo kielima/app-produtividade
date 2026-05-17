@@ -433,30 +433,37 @@ a:focus-visible {
   min-height: 100vh;
   padding: 0 1rem 2rem;
 }
+/* Mesma altura/padding/posicionamento do topbar normal — o X cai
+   no mesmo lugar visual do botão de menu. */
 .duel-topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  padding: 0.5rem 0;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
   position: sticky;
   top: 0;
   background: var(--bg);
   z-index: 10;
 }
+/* Espelha .menu-toggle: mesmo padding, mesmo border-radius, mesmo SVG 22px */
 .duel-close {
   background: transparent;
   border: none;
   color: var(--fg);
-  font-size: 1.25rem;
-  padding: 0.4rem 0.6rem;
+  padding: 0.5rem;
   border-radius: 8px;
-  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
   cursor: pointer;
 }
 .duel-close:hover { background: var(--surface-2); }
+.duel-close:disabled { opacity: 0.5; cursor: wait; }
 .duel-count {
   color: var(--muted);
   font-size: 0.9rem;
+  margin-left: auto;
 }
 .duel-prompt {
   text-align: center;
@@ -523,6 +530,90 @@ a:focus-visible {
   text-align: center;
   padding: 3rem 1rem;
   color: var(--muted);
+}
+
+/* Resumo de sessão (aparece ao atingir o limite de duelos) */
+.duel-summary {
+  width: 100%;
+  max-width: 600px;
+  margin: 1rem auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.duel-summary-title {
+  margin: 0;
+  font-size: 1.4rem;
+  text-align: center;
+  color: var(--accent, var(--fg));
+}
+.duel-summary-sub {
+  margin: 0;
+  text-align: center;
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+.duel-summary-empty {
+  text-align: center;
+  padding: 1.5rem 0;
+}
+.duel-summary-section {
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
+  background: var(--surface);
+}
+.duel-summary-section h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+.duel-summary-section ul,
+.duel-summary-section ol {
+  margin: 0;
+  padding-left: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.duel-summary-section li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  line-height: 1.3;
+}
+.duel-summary-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.duel-summary-delta {
+  font-size: 0.85rem;
+  font-weight: 600;
+  flex-shrink: 0;
+}
+.duel-summary-delta.up { color: #16a34a; }
+.duel-summary-delta.down { color: #dc2626; }
+.duel-summary-top {
+  counter-reset: rank;
+}
+.duel-summary-top li {
+  counter-increment: rank;
+  justify-content: flex-start;
+}
+.duel-summary-top li::before {
+  content: counter(rank) ".";
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  margin-right: 0.5rem;
+  flex-shrink: 0;
 }
 
 /* ===== Sidebar menu (drawer) ===== */
