@@ -1320,53 +1320,6 @@ a:focus-visible {
   color: white;
 }
 
-/* ===== Board view (colunas horizontais por seção) ===== */
-.board-view { overflow: hidden; }
-.board-columns {
-  display: flex;
-  gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.5rem;
-  align-items: flex-start;
-  scroll-snap-type: x mandatory;
-  scrollbar-width: thin;
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
-}
-.board-column {
-  flex: 0 0 min(85vw, 320px);
-  background: var(--surface-2);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.5rem 0.6rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-  min-height: 14rem;
-  scroll-snap-align: start;
-}
-@media (min-width: 720px) {
-  .board-column { flex: 0 0 320px; }
-}
-.board-column-body { flex: 1; }
-.board-column .task-card { background: var(--surface); }
-.board-add-column {
-  background: transparent;
-  border: 2px dashed var(--border);
-  align-items: center;
-  justify-content: center;
-}
-.board-add-btn {
-  background: transparent;
-  border: none;
-  color: var(--muted);
-  font-size: 0.9rem;
-  padding: 0.5rem 1rem;
-  width: 100%;
-  min-height: 4rem;
-}
-.board-add-btn:hover { color: var(--accent); background: var(--surface-2); }
-
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #1a1a1a;
