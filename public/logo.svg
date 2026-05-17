@@ -1,23 +1,19 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- Fundo laranja com cantos arredondados. Safe zone (maskable) ~80%
-       centralizada: o "P" ocupa o centro, deixando 10% de borda. -->
-  <rect width="512" height="512" rx="96" fill="#e07b00"/>
-  <!-- Letra P em SF Pro / Inter style. Path geométrico pra não depender
-       de fonte instalada no gerador. -->
-  <path fill="#ffffff" d="
-    M 168 128
-    L 168 384
-    L 220 384
-    L 220 280
-    L 296 280
-    C 348 280 388 246 388 200
-    C 388 158 354 128 296 128
-    Z
-    M 220 172
-    L 290 172
-    C 320 172 336 184 336 204
-    C 336 224 320 236 290 236
-    L 220 236
-    Z
-  "/>
+  <!-- Fundo off-white preenchendo borda a borda (sem cantos arredondados)
+       pra que o maskable não deixe área transparente e launchers (Samsung,
+       Pixel) não adicionem moldura branca extra. Cantos são aplicados pelo
+       SO/launcher conforme a máscara do tema. -->
+  <rect width="512" height="512" fill="#f3ede3"/>
+  <!-- Checkmark minimalista em tom escuro quente (não preto puro).
+       Posicionado dentro da safe zone maskable (~80% central, x:51..461).
+       Stroke largo (56px ≈ 11%) com cantos arredondados pra leitura limpa
+       em tamanhos pequenos (64x64 e abaixo). -->
+  <path
+    d="M 132 268 L 224 360 L 388 168"
+    fill="none"
+    stroke="#2b2b2b"
+    stroke-width="56"
+    stroke-linecap="round"
+    stroke-linejoin="round"
+  />
 </svg>
