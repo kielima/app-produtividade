@@ -515,6 +515,19 @@ a:focus-visible {
 .duel-card:disabled { opacity: 0.5; cursor: wait; }
 .duel-card-name { font-size: 1.1rem; line-height: 1.3; }
 .duel-card-rating { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
+.duel-card-volatility {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.5rem;
+  border-radius: 999px;
+  border: 1px solid currentColor;
+  background: transparent;
+  margin-top: -0.2rem;
+}
+.duel-card-volatility--baixa { color: #16a34a; }
+.duel-card-volatility--média { color: #d97706; }
+.duel-card-volatility--alta { color: #dc2626; }
 .duel-vs {
   align-self: center;
   font-style: italic;

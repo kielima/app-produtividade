@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   DEFAULT_RATING,
+  classifyVolatility,
   clampRD,
   recordDuel,
   updateRating,
@@ -74,5 +75,27 @@ describe('Glicko-2', () => {
     expect(clampRD(500)).toBe(350);
     expect(clampRD(10)).toBe(30);
     expect(clampRD(150)).toBe(150);
+  });
+});
+
+describe('classifyVolatility', () => {
+  it('default σ (0.06) is "média"', () => {
+    expect(classifyVolatility(0.06)).toBe('média');
+  });
+
+  it('classifies low volatility', () => {
+    expect(classifyVolatility(0.03)).toBe('baixa');
+    expect(classifyVolatility(0.054)).toBe('baixa');
+  });
+
+  it('classifies medium volatility', () => {
+    expect(classifyVolatility(0.055)).toBe('média');
+    expect(classifyVolatility(0.07)).toBe('média');
+    expect(classifyVolatility(0.0749)).toBe('média');
+  });
+
+  it('classifies high volatility', () => {
+    expect(classifyVolatility(0.075)).toBe('alta');
+    expect(classifyVolatility(0.12)).toBe('alta');
   });
 });
