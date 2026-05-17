@@ -99,6 +99,7 @@ export function ProjectFiltersBar({
 
   function clearFilters() {
     setState(defaultProjectFiltersState());
+    setOpen(false);
   }
 
   const count = activeProjectFilterCount(state);
