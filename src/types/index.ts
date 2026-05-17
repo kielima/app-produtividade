@@ -66,4 +66,7 @@ export interface ScoreContext {
   potentialScoreMap: Record<string, number>;
   taskFlatMap: Record<string, Task>;
   projectScoreMap: Record<string, number>;
+  // Fecho transitivo de `unlocksIds`: para cada tarefa, todos os ids que estão
+  // travados (direta ou indiretamente) por ela. Não inclui a própria tarefa.
+  transitiveUnlocksMap: Record<string, string[]>;
 }
