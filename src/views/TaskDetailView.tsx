@@ -313,6 +313,43 @@ export function TaskDetailView({
             )}
           </Popover>
 
+          <Popover
+            trigger={(open, isOpen) => (
+              <button
+                type="button"
+                className={`badge deadline${isOpen ? ' open' : ''}`}
+                onClick={open}
+              >
+                {task.deadline || 'Data'}
+              </button>
+            )}
+          >
+            {(close) => (
+              <div className="picker-date">
+                <input
+                  type="date"
+                  value={task.deadline}
+                  onChange={(e) => setField('deadline', e.target.value)}
+                />
+                <div className="picker-actions">
+                  <button
+                    type="button"
+                    className="link-btn"
+                    onClick={() => {
+                      setField('deadline', '');
+                      close();
+                    }}
+                  >
+                    limpar
+                  </button>
+                  <button type="button" className="link-btn" onClick={close}>
+                    ok
+                  </button>
+                </div>
+              </div>
+            )}
+          </Popover>
+
           <button
             type="button"
             className="badge dep"
@@ -348,27 +385,6 @@ export function TaskDetailView({
                 <span className="muted task-detail-project-status">
                   &nbsp;· {project.status}
                 </span>
-              )}
-            </dd>
-          </div>
-
-          <div className="task-detail-field">
-            <dt>Prazo</dt>
-            <dd>
-              <input
-                type="date"
-                className="task-detail-date"
-                value={task.deadline}
-                onChange={(e) => setField('deadline', e.target.value)}
-              />
-              {task.deadline && (
-                <button
-                  type="button"
-                  className="link-btn"
-                  onClick={() => setField('deadline', '')}
-                >
-                  limpar
-                </button>
               )}
             </dd>
           </div>
