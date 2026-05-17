@@ -129,6 +129,28 @@ a:focus-visible {
 }
 .link-btn:hover { text-decoration: underline; }
 
+.fab {
+  position: fixed;
+  bottom: 1rem;
+  right: 1rem;
+  width: 3.5rem;
+  height: 3.5rem;
+  border-radius: 50%;
+  border: none;
+  background: var(--accent);
+  color: white;
+  font-size: 1.75rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  z-index: 50;
+}
+.fab:hover { filter: brightness(1.08); }
+.fab:active { transform: translateY(1px); }
+
 /* ===== Auth screens ===== */
 .auth-screen {
   max-width: 480px;
