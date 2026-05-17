@@ -16,12 +16,11 @@ import type {
   Task,
 } from '../types';
 
-const MOSCOW_LABEL: Record<MoSCoW, string> = {
+const MOSCOW_LABEL: Record<Exclude<MoSCoW, ''>, string> = {
   must: 'Must',
   should: 'Should',
   could: 'Could',
   wont: "Won't",
-  '': '—',
 };
 
 const MODO_LABEL: Record<Modo, string> = {
@@ -48,7 +47,7 @@ const STATUS_LABEL: Record<KanbanStatus, string> = {
 };
 
 const STATUS_OPTS: KanbanStatus[] = ['todo', 'doing', 'done'];
-const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
+const MOSCOW_OPTS: Array<Exclude<MoSCoW, ''>> = ['must', 'should', 'could', 'wont'];
 const MODO_OPTS: Modo[] = ['manual', 'colaborar', 'delegar', 'automatizar', ''];
 const ESFORCO_OPTS: Esforco[] = ['rapido', 'medio', 'longo', ''];
 
@@ -151,14 +150,16 @@ export function TaskDetailView({
       </header>
 
       <div className="task-detail-body">
+        <div className="task-detail-meta">
+          <span className="muted task-detail-added">
+            {task.addedDate ? `Adicionada em ${task.addedDate}` : ''}
+          </span>
+          <span className="badge score" title="score calculado">
+            ⚡ {score.toFixed(2)}
+          </span>
+        </div>
+
         <div className="task-detail-title-row">
-          <input
-            type="checkbox"
-            checked={task.checked}
-            onChange={() => setStatus(task.checked ? 'todo' : 'done')}
-            aria-label="alternar concluída"
-            className="task-checkbox"
-          />
           <InlineEdit
             value={display}
             onSave={setDisplay}
@@ -173,13 +174,6 @@ export function TaskDetailView({
         )}
 
         <dl className="task-detail-fields">
-          <div className="task-detail-field">
-            <dt>Score</dt>
-            <dd>
-              <span className="badge score">⚡ {score.toFixed(2)}</span>
-            </dd>
-          </div>
-
           <div className="task-detail-field">
             <dt>Status</dt>
             <dd>
@@ -230,16 +224,19 @@ export function TaskDetailView({
             <dt>MoSCoW</dt>
             <dd>
               <div className="task-detail-options">
-                {MOSCOW_OPTS.map((v) => (
-                  <button
-                    key={v || 'none'}
-                    type="button"
-                    className={`badge moscow-${v}${v === task.moscow ? ' active' : ''}`}
-                    onClick={() => setField('moscow', v)}
-                  >
-                    {MOSCOW_LABEL[v]}
-                  </button>
-                ))}
+                {MOSCOW_OPTS.map((v) => {
+                  const current = task.moscow || 'wont';
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`badge moscow-${v}${v === current ? ' active' : ''}`}
+                      onClick={() => setField('moscow', v)}
+                    >
+                      {MOSCOW_LABEL[v]}
+                    </button>
+                  );
+                })}
               </div>
             </dd>
           </div>
@@ -330,12 +327,6 @@ export function TaskDetailView({
             </dd>
           </div>
 
-          {task.addedDate && (
-            <div className="task-detail-field">
-              <dt>Adicionada em</dt>
-              <dd className="muted">{task.addedDate}</dd>
-            </div>
-          )}
         </dl>
 
         <section className="task-detail-section">
