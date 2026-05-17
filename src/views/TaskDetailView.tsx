@@ -225,9 +225,6 @@ export function TaskDetailView({
                       }}
                     >
                       {p.name}
-                      {p.status && (
-                        <span className="muted">&nbsp;· {p.status}</span>
-                      )}
                     </button>
                   </li>
                 ))}
