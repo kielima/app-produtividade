@@ -11,7 +11,7 @@ export default defineConfig({
       // toast "nova versão disponível" em src/components/UpdatePrompt.tsx.
       registerType: 'prompt',
       injectRegister: 'auto',
-      includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png', 'logo.svg'],
+      includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Produtividade — Kiê',
         short_name: 'Produtividade',
