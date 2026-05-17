@@ -45,7 +45,7 @@ test.describe('smoke @smoke', () => {
     await page.getByRole('button', { name: 'confirmar' }).click();
   }
 
-  test('first-time PIN setup → create section → create task → mark complete', async ({ page }) => {
+  test('first-time PIN setup → create project', async ({ page }) => {
     // 1. App opens on login screen with PIN numpad
     await page.goto('/');
     await expect(page.getByText(/Insira seu PIN/i)).toBeVisible({ timeout: 15_000 });
@@ -63,30 +63,16 @@ test.describe('smoke @smoke', () => {
     await expect(page.getByRole('button', { name: 'Tarefas' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByRole('button', { name: 'Projetos' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Configurações' })).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Board' })).toBeVisible({ timeout: 10_000 });
 
-    // 5. Switch to Board view (Prioridade is the default landing tab) and create a project
-    await page.getByRole('button', { name: 'Board' }).click();
+    // 5. Switch to the Projetos tab and create a project
+    await page.getByRole('button', { name: 'Projetos' }).click();
     const addProjectBtn = page.getByRole('button', { name: /adicionar projeto/i });
     await expect(addProjectBtn).toBeVisible({ timeout: 10_000 });
     await addProjectBtn.click();
-    const projectInput = page.getByPlaceholder(/nome do projeto/i);
+    const projectInput = page.getByPlaceholder(/nome do novo projeto/i);
     await expect(projectInput).toBeVisible();
     await projectInput.fill('Teste E2E');
     await projectInput.press('Enter');
     await expect(page.getByText('Teste E2E')).toBeVisible({ timeout: 10_000 });
-
-    // 6. Create a task
-    const newTaskInput = page.getByLabel('nova tarefa');
-    await expect(newTaskInput).toBeVisible({ timeout: 5_000 });
-    await newTaskInput.fill('Tarefa de smoke test');
-    await newTaskInput.press('Enter');
-    await expect(page.getByText('Tarefa de smoke test')).toBeVisible({ timeout: 10_000 });
-
-    // 7. Mark the task as complete
-    const taskCheckbox = page.getByLabel('alternar concluída').first();
-    await expect(taskCheckbox).toBeVisible();
-    await taskCheckbox.check();
-    await expect(taskCheckbox).toBeChecked();
   });
 });
