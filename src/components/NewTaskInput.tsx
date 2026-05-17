@@ -26,7 +26,7 @@ export function NewTaskInput({
         title: serializeTitle(text, {
           taskId,
           modo: '',
-          moscow: '',
+          moscow: 'wont',
           esforco: '',
           deadline: '',
           addedDate: today,
@@ -35,7 +35,7 @@ export function NewTaskInput({
         note: '',
         checked: false,
         inProgress: false,
-        moscow: '',
+        moscow: 'wont',
         modo: '',
         esforco: '',
         deadline: '',
