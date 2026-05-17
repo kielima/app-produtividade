@@ -880,6 +880,31 @@ a:focus-visible {
   color: var(--accent);
 }
 
+.new-task-modal-body {
+  padding: 0.8rem 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+}
+.new-task-modal-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.new-task-modal-field > span {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+}
+.new-task-modal-footer {
+  display: flex;
+  justify-content: flex-end;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
 .muted { color: var(--muted); }
 
 /* ===== Settings view ===== */
