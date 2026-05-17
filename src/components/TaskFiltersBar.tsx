@@ -55,6 +55,7 @@ export const STATUS_VALUES: StatusKey[] = ['todo', 'doing', 'done'];
 export interface TaskFiltersState {
   hideZero: boolean;
   hideCompleted: boolean;
+  onlyWithoutDeadline: boolean;
   projectFilter: string;
   modoFilter: Set<Modo>;
   moscowFilter: Set<MoSCoW>;
@@ -66,6 +67,7 @@ export function defaultFiltersState(): TaskFiltersState {
   return {
     hideZero: true,
     hideCompleted: true,
+    onlyWithoutDeadline: false,
     projectFilter: '',
     modoFilter: new Set<Modo>(MODO_VALUES),
     moscowFilter: new Set<MoSCoW>(MOSCOW_VALUES),
@@ -81,6 +83,7 @@ export function activeFilterCount(
   return (
     (showHideZero && !state.hideZero ? 1 : 0) +
     (state.hideCompleted ? 0 : 1) +
+    (state.onlyWithoutDeadline ? 1 : 0) +
     (state.projectFilter ? 1 : 0) +
     (state.modoFilter.size === MODO_VALUES.length ? 0 : 1) +
     (state.moscowFilter.size === MOSCOW_VALUES.length ? 0 : 1) +
@@ -227,6 +230,23 @@ export function TaskFiltersBar({
               projects={projects}
               onCreateProject={onCreateProject}
             />
+          </fieldset>
+
+          <fieldset>
+            <legend>Data</legend>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={state.onlyWithoutDeadline}
+                onChange={(e) =>
+                  setState({
+                    ...state,
+                    onlyWithoutDeadline: e.target.checked,
+                  })
+                }
+              />
+              &nbsp;apenas sem data
+            </label>
           </fieldset>
 
           <fieldset>
