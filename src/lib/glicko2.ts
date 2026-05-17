@@ -158,3 +158,18 @@ export function clampRD(rd: number, max = 350, min = 30): number {
   if (rd < min) return min;
   return rd;
 }
+
+export type VolatilityLevel = 'baixa' | 'média' | 'alta';
+
+/**
+ * Classifica a volatilidade σ em três faixas, calibradas em torno do
+ * default 0.06:
+ *   - baixa  : σ < 0.055  → desempenho consistente
+ *   - média  : 0.055..0.075 → variação normal
+ *   - alta   : σ ≥ 0.075  → resultados erráticos / em transição
+ */
+export function classifyVolatility(sigma: number): VolatilityLevel {
+  if (sigma < 0.055) return 'baixa';
+  if (sigma < 0.075) return 'média';
+  return 'alta';
+}
