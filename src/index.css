@@ -635,27 +635,6 @@ a:focus-visible {
   min-width: 1ch;
 }
 .task-title-btn:hover { background: var(--surface-2); }
-.task-expand { color: var(--muted); }
-
-.task-badges {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-  margin-top: 0.45rem;
-  align-items: center;
-}
-
-.task-menu { margin-left: auto; font-size: 1.1rem; }
-
-.subtask-summary { font-size: 0.8rem; margin: 0.4rem 0 0; }
-
-.task-expanded {
-  margin-top: 0.75rem;
-  padding-top: 0.6rem;
-  border-top: 1px dashed var(--border);
-}
-.task-note-label { display: block; font-size: 0.9rem; }
-.task-note-edit { min-height: 1.5em; display: inline-block; }
 
 .subtasks { list-style: none; padding-left: 0; margin: 0.5rem 0 0; }
 .subtasks li {

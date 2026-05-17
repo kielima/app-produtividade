@@ -123,43 +123,22 @@ export function TasksRoot({
         <PrioridadeView
           uid={uid}
           tasks={filteredTasks}
-          projects={data.projects}
           projectMap={data.projectMap}
           ctx={data.ctx}
           hideZero={filters.hideZero}
         />
       )}
       {view === 'kanban' && (
-        <KanbanView
-          uid={uid}
-          tasks={filteredTasks}
-          projects={data.projects}
-          ctx={data.ctx}
-        />
+        <KanbanView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
       )}
       {view === 'moscow' && (
-        <MoscowView
-          uid={uid}
-          tasks={filteredTasks}
-          projects={data.projects}
-          ctx={data.ctx}
-        />
+        <MoscowView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
       )}
       {view === 'modo' && (
-        <ModoView
-          uid={uid}
-          tasks={filteredTasks}
-          projects={data.projects}
-          ctx={data.ctx}
-        />
+        <ModoView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
       )}
       {view === 'esforco' && (
-        <EsforcoView
-          uid={uid}
-          tasks={filteredTasks}
-          projects={data.projects}
-          ctx={data.ctx}
-        />
+        <EsforcoView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
       )}
       <NewTaskFab
         uid={uid}
