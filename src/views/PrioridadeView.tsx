@@ -6,20 +6,18 @@ import type { Project, ScoreContext, Task } from '../types';
 /**
  * Lista única ordenada por score descendente. Tarefas com score 0 (Won't
  * ou bloqueadas) ficam no fim. Não há D&D — a ordem é derivada dos campos
- * (MoSCoW, esforço, prazo, etc.); para mudar a prioridade o usuário edita
- * os badges no próprio card.
+ * (MoSCoW, esforço, prazo, etc.); para mudar a prioridade o usuário abre a
+ * página da tarefa.
  */
 export function PrioridadeView({
   uid,
   tasks,
-  projects,
   projectMap,
   ctx,
   hideZero,
 }: {
   uid: string;
   tasks: Task[];
-  projects: Project[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
   hideZero: boolean;
@@ -37,15 +35,12 @@ export function PrioridadeView({
   return (
     <section className="prioridade-view">
       <div className="task-list prioridade-list">
-        {scored.map(({ task, score }) => (
+        {scored.map(({ task }) => (
           <TaskCard
             key={task.id}
             uid={uid}
             task={task}
             blocked={isTaskBlocked(task, ctx)}
-            projects={projects}
-            allTasks={tasks}
-            score={score}
           />
         ))}
         {scored.length === 0 && <p className="muted">Nenhuma tarefa.</p>}
