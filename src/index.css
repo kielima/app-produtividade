@@ -168,6 +168,7 @@ a:focus-visible {
   align-items: center;
   padding: 1rem;
   text-align: center;
+  background: #f3ede3;
 }
 .pin-screen-top {
   display: flex;
@@ -205,7 +206,7 @@ a:focus-visible {
   align-items: center;
   gap: 1rem;
   width: 100%;
-  margin-top: auto;
+  margin-top: 3rem;
   margin-bottom: 4vh;
 }
 
@@ -238,7 +239,7 @@ a:focus-visible {
 .pin-key {
   aspect-ratio: 1;
   border-radius: 50%;
-  background: var(--surface-2);
+  background: rgba(0, 0, 0, 0.06);
   border: none;
   font-size: clamp(1.6rem, 6vw, 2.1rem);
   font-weight: 400;
@@ -252,7 +253,7 @@ a:focus-visible {
   user-select: none;
 }
 .pin-key:active:not(:disabled) {
-  background: var(--border);
+  background: rgba(0, 0, 0, 0.12);
   transform: scale(0.96);
 }
 .pin-key:disabled {
