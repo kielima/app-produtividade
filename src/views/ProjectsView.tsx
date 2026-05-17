@@ -204,8 +204,8 @@ export function ProjectsView({
         </DragOverlay>
       </DndContext>
 
-      <div className="add-section-row">
-        {adding ? (
+      {adding ? (
+        <div className="add-section-row">
           <input
             type="text"
             value={newName}
@@ -222,12 +222,18 @@ export function ProjectsView({
             autoFocus
             className="inline-edit-input"
           />
-        ) : (
-          <button type="button" className="link-btn" onClick={() => setAdding(true)}>
-            + adicionar projeto
-          </button>
-        )}
-      </div>
+        </div>
+      ) : (
+        <button
+          type="button"
+          className="fab"
+          onClick={() => setAdding(true)}
+          aria-label="adicionar projeto"
+          title="adicionar projeto"
+        >
+          +
+        </button>
+      )}
     </section>
   );
 }
