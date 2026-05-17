@@ -1,5 +1,14 @@
 import { useProjectNavigation } from '../lib/projectNavigation';
-import type { Project } from '../types';
+import type { Project, ProjectStatus } from '../types';
+
+const STATUS_SLUG: Record<ProjectStatus, string> = {
+  'A iniciar': 'a-iniciar',
+  'Em planejamento': 'em-planejamento',
+  'Em andamento': 'em-andamento',
+  Pausado: 'pausado',
+  'Concluído': 'concluido',
+  Cancelado: 'cancelado',
+};
 
 export function ProjectCard({
   project,
@@ -11,9 +20,12 @@ export function ProjectCard({
   const { openProject, openProjectTasks } = useProjectNavigation();
   const isDone = project.status === 'Concluído' || project.status === 'Cancelado';
   const countLabel = `${taskCount} tarefa${taskCount === 1 ? '' : 's'}`;
+  const statusClass = STATUS_SLUG[project.status];
 
   return (
-    <article className={`project-card${isDone ? ' done' : ''}`}>
+    <article
+      className={`project-card status-${statusClass}${isDone ? ' done' : ''}`}
+    >
       <div className="project-line">
         <button
           type="button"
