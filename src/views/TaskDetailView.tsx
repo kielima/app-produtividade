@@ -167,7 +167,7 @@ export function TaskDetailView({
           </svg>
         </button>
         <span className="muted task-detail-added">
-          {task.addedDate ? `Adicionada em ${task.addedDate}` : ''}
+          {task.addedDate ? `Adicionada em ${task.addedDate.replace(/^\d{2}(\d{2})/, '$1')}` : ''}
         </span>
         <span className="task-detail-topbar-right">
           <span className="badge score" title="score calculado">
