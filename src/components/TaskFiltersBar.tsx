@@ -171,8 +171,8 @@ export function TaskFiltersBar({
         <svg
           xmlns="http://www.w3.org/2000/svg"
           viewBox="0 0 512 512"
-          width="18"
-          height="18"
+          width="17"
+          height="17"
           fill="none"
           stroke="currentColor"
           strokeWidth="36"
