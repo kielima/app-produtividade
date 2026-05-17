@@ -1534,22 +1534,42 @@ a:focus-visible {
   margin: 0 auto;
 }
 .task-detail-topbar {
-  margin-bottom: 1rem;
+  margin-bottom: 0.5rem;
 }
+.task-detail-topbar .task-detail-added {
+  font-size: 0.85rem;
+  margin-left: 0.25rem;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.task-detail-topbar-right {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+}
+.task-detail-delete {
+  background: transparent;
+  border: none;
+  color: var(--danger);
+  font-size: 1.4rem;
+  line-height: 1;
+  width: 2rem;
+  height: 2rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.task-detail-delete:hover { background: var(--danger-bg); }
 .task-detail-body {
   display: flex;
   flex-direction: column;
   gap: 1.2rem;
-}
-.task-detail-meta {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-  font-size: 0.85rem;
-}
-.task-detail-added {
-  font-size: 0.85rem;
 }
 .task-detail-title-row {
   display: flex;
@@ -1593,17 +1613,6 @@ a:focus-visible {
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
-}
-.task-detail-options {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
-}
-.task-detail-options .badge { opacity: 0.55; }
-.task-detail-options .badge.active {
-  opacity: 1;
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
 }
 .task-detail-select {
   font: inherit;
@@ -1658,13 +1667,6 @@ a:focus-visible {
   font-size: 0.95rem;
   white-space: pre-wrap;
 }
-.task-detail-actions {
-  border-top: 1px solid var(--border);
-  padding-top: 1rem;
-  display: flex;
-  justify-content: flex-end;
-}
-
 @media (max-width: 480px) {
   .task-detail-field {
     grid-template-columns: 1fr;
