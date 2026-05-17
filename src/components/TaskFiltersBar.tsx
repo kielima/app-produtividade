@@ -6,7 +6,7 @@ const MODO_LABEL: Record<Modo, string> = {
   colaborar: 'Colaborar',
   delegar: 'Delegar',
   automatizar: 'Automatizar',
-  '': '—',
+  '': 'Sem modo',
 };
 
 export const MODO_VALUES: Modo[] = [
@@ -22,7 +22,7 @@ const MOSCOW_LABEL: Record<MoSCoW, string> = {
   should: 'Should',
   could: 'Could',
   wont: "Won't",
-  '': '—',
+  '': 'Sem MoSCoW',
 };
 
 export const MOSCOW_VALUES: MoSCoW[] = [
@@ -37,7 +37,7 @@ const ESFORCO_LABEL: Record<Esforco, string> = {
   rapido: 'Rápido',
   medio: 'Médio',
   longo: 'Longo',
-  '': '—',
+  '': 'Sem esforço',
 };
 
 export const ESFORCO_VALUES: Esforco[] = ['rapido', 'medio', 'longo', ''];
