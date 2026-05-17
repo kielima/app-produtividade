@@ -42,6 +42,7 @@ function applyFilters(
   filters: TaskFiltersState,
 ): Task[] {
   const applyHideCompleted = filters.hideCompleted && view !== 'kanban';
+  const applyOnlyWithoutDeadline = filters.onlyWithoutDeadline;
   const applyModo =
     view !== 'modo' && filters.modoFilter.size !== MODO_VALUES.length;
   const applyMoscow =
@@ -53,6 +54,7 @@ function applyFilters(
   const applyProject = !!filters.projectFilter;
   if (
     !applyHideCompleted &&
+    !applyOnlyWithoutDeadline &&
     !applyModo &&
     !applyMoscow &&
     !applyEsforco &&
@@ -63,6 +65,7 @@ function applyFilters(
 
   return tasks.filter((t) => {
     if (applyHideCompleted && t.checked) return false;
+    if (applyOnlyWithoutDeadline && t.deadline) return false;
     if (applyProject && t.section !== filters.projectFilter) return false;
     if (applyModo && !filters.modoFilter.has(t.modo)) return false;
     if (applyMoscow && !filters.moscowFilter.has(t.moscow)) return false;
