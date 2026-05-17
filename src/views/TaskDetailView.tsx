@@ -188,43 +188,142 @@ export function TaskDetailView({
           <p className="badge blocked task-detail-blocked">🔒 bloqueada por dependências</p>
         )}
 
-        <dl className="task-detail-fields">
-          <div className="task-detail-field">
-            <dt>Status</dt>
-            <dd>
-              <Popover
-                trigger={(open, isOpen) => (
-                  <button
-                    type="button"
-                    className={`badge status-${status}${isOpen ? ' open' : ''}`}
-                    onClick={open}
-                  >
-                    {STATUS_LABEL[status]}
-                  </button>
-                )}
+        <div className="task-detail-badges">
+          <Popover
+            trigger={(open, isOpen) => (
+              <button
+                type="button"
+                className={`badge status-${status}${isOpen ? ' open' : ''}`}
+                onClick={open}
               >
-                {(close) => (
-                  <ul className="picker-list">
-                    {STATUS_OPTS.map((v) => (
-                      <li key={v}>
-                        <button
-                          type="button"
-                          className={v === status ? 'active' : ''}
-                          onClick={() => {
-                            setStatus(v);
-                            close();
-                          }}
-                        >
-                          {STATUS_LABEL[v]}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Popover>
-            </dd>
-          </div>
+                {STATUS_LABEL[status]}
+              </button>
+            )}
+          >
+            {(close) => (
+              <ul className="picker-list">
+                {STATUS_OPTS.map((v) => (
+                  <li key={v}>
+                    <button
+                      type="button"
+                      className={v === status ? 'active' : ''}
+                      onClick={() => {
+                        setStatus(v);
+                        close();
+                      }}
+                    >
+                      {STATUS_LABEL[v]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Popover>
 
+          <Popover
+            trigger={(open, isOpen) => (
+              <button
+                type="button"
+                className={`badge moscow-${currentMoscow}${isOpen ? ' open' : ''}`}
+                onClick={open}
+              >
+                {MOSCOW_LABEL[currentMoscow]}
+              </button>
+            )}
+          >
+            {(close) => (
+              <ul className="picker-list">
+                {MOSCOW_OPTS.map((v) => (
+                  <li key={v}>
+                    <button
+                      type="button"
+                      className={v === currentMoscow ? 'active' : ''}
+                      onClick={() => {
+                        setField('moscow', v);
+                        close();
+                      }}
+                    >
+                      {MOSCOW_LABEL[v]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Popover>
+
+          <Popover
+            trigger={(open, isOpen) => (
+              <button
+                type="button"
+                className={`badge modo-${currentModo}${isOpen ? ' open' : ''}`}
+                onClick={open}
+              >
+                {MODO_LABEL[currentModo]}
+              </button>
+            )}
+          >
+            {(close) => (
+              <ul className="picker-list">
+                {MODO_OPTS.map((v) => (
+                  <li key={v}>
+                    <button
+                      type="button"
+                      className={v === currentModo ? 'active' : ''}
+                      onClick={() => {
+                        setField('modo', v);
+                        close();
+                      }}
+                    >
+                      {MODO_LABEL[v]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Popover>
+
+          <Popover
+            trigger={(open, isOpen) => (
+              <button
+                type="button"
+                className={`badge esforco-${currentEsforco}${isOpen ? ' open' : ''}`}
+                onClick={open}
+              >
+                {ESFORCO_LABEL[currentEsforco]}
+              </button>
+            )}
+          >
+            {(close) => (
+              <ul className="picker-list">
+                {ESFORCO_OPTS.map((v) => (
+                  <li key={v}>
+                    <button
+                      type="button"
+                      className={v === currentEsforco ? 'active' : ''}
+                      onClick={() => {
+                        setField('esforco', v);
+                        close();
+                      }}
+                    >
+                      {ESFORCO_LABEL[v]}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Popover>
+
+          <button
+            type="button"
+            className="badge dep"
+            onClick={() => setDepModalOpen(true)}
+            aria-label="dependências"
+          >
+            🔗 {task.dependsOn.length || '—'}
+          </button>
+        </div>
+
+        <dl className="task-detail-fields">
           <div className="task-detail-field">
             <dt>Projeto</dt>
             <dd>
@@ -254,114 +353,6 @@ export function TaskDetailView({
           </div>
 
           <div className="task-detail-field">
-            <dt>MoSCoW</dt>
-            <dd>
-              <Popover
-                trigger={(open, isOpen) => (
-                  <button
-                    type="button"
-                    className={`badge moscow-${currentMoscow}${isOpen ? ' open' : ''}`}
-                    onClick={open}
-                  >
-                    {MOSCOW_LABEL[currentMoscow]}
-                  </button>
-                )}
-              >
-                {(close) => (
-                  <ul className="picker-list">
-                    {MOSCOW_OPTS.map((v) => (
-                      <li key={v}>
-                        <button
-                          type="button"
-                          className={v === currentMoscow ? 'active' : ''}
-                          onClick={() => {
-                            setField('moscow', v);
-                            close();
-                          }}
-                        >
-                          {MOSCOW_LABEL[v]}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Popover>
-            </dd>
-          </div>
-
-          <div className="task-detail-field">
-            <dt>Modo</dt>
-            <dd>
-              <Popover
-                trigger={(open, isOpen) => (
-                  <button
-                    type="button"
-                    className={`badge modo-${currentModo}${isOpen ? ' open' : ''}`}
-                    onClick={open}
-                  >
-                    {MODO_LABEL[currentModo]}
-                  </button>
-                )}
-              >
-                {(close) => (
-                  <ul className="picker-list">
-                    {MODO_OPTS.map((v) => (
-                      <li key={v}>
-                        <button
-                          type="button"
-                          className={v === currentModo ? 'active' : ''}
-                          onClick={() => {
-                            setField('modo', v);
-                            close();
-                          }}
-                        >
-                          {MODO_LABEL[v]}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Popover>
-            </dd>
-          </div>
-
-          <div className="task-detail-field">
-            <dt>Esforço</dt>
-            <dd>
-              <Popover
-                trigger={(open, isOpen) => (
-                  <button
-                    type="button"
-                    className={`badge esforco-${currentEsforco}${isOpen ? ' open' : ''}`}
-                    onClick={open}
-                  >
-                    {ESFORCO_LABEL[currentEsforco]}
-                  </button>
-                )}
-              >
-                {(close) => (
-                  <ul className="picker-list">
-                    {ESFORCO_OPTS.map((v) => (
-                      <li key={v}>
-                        <button
-                          type="button"
-                          className={v === currentEsforco ? 'active' : ''}
-                          onClick={() => {
-                            setField('esforco', v);
-                            close();
-                          }}
-                        >
-                          {ESFORCO_LABEL[v]}
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-              </Popover>
-            </dd>
-          </div>
-
-          <div className="task-detail-field">
             <dt>Prazo</dt>
             <dd>
               <input
@@ -382,17 +373,10 @@ export function TaskDetailView({
             </dd>
           </div>
 
-          <div className="task-detail-field">
-            <dt>Dependências</dt>
-            <dd>
-              <button
-                type="button"
-                className="badge dep"
-                onClick={() => setDepModalOpen(true)}
-              >
-                🔗 {task.dependsOn.length || '—'}
-              </button>
-              {task.dependsOn.length > 0 && (
+          {task.dependsOn.length > 0 && (
+            <div className="task-detail-field">
+              <dt>Dependências</dt>
+              <dd>
                 <ul className="task-detail-deps">
                   {task.dependsOn.map((dep) => {
                     const m = dep.trim().match(/^#(\d+)$/);
@@ -407,9 +391,9 @@ export function TaskDetailView({
                     );
                   })}
                 </ul>
-              )}
-            </dd>
-          </div>
+              </dd>
+            </div>
+          )}
 
         </dl>
 
