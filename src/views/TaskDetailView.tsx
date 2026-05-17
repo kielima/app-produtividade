@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { DepPicker } from '../components/DepPicker';
 import { InlineEdit } from '../components/InlineEdit';
 import { Popover } from '../components/Popover';
@@ -81,6 +81,7 @@ export function TaskDetailView({
 }) {
   const display = getDisplayTitle(task.title);
   const [depModalOpen, setDepModalOpen] = useState(false);
+  const deadlineInputRef = useRef<HTMLInputElement>(null);
   const blocked = isTaskBlocked(task, ctx);
   const score = useMemo(
     () => calcScore(task, projectMap[task.section] ?? null, ctx),
@@ -122,6 +123,17 @@ export function TaskDetailView({
 
   async function moveToSection(newSectionId: string) {
     await patchTask(uid, task, { section: newSectionId });
+  }
+
+  function openDatePicker() {
+    const input = deadlineInputRef.current;
+    if (!input) return;
+    if (typeof input.showPicker === 'function') {
+      input.showPicker();
+    } else {
+      input.focus();
+      input.click();
+    }
   }
 
   async function handleDelete() {
@@ -313,42 +325,35 @@ export function TaskDetailView({
             )}
           </Popover>
 
-          <Popover
-            trigger={(open, isOpen) => (
+          <span className="task-detail-deadline-wrap">
+            <button
+              type="button"
+              className="badge deadline"
+              onClick={openDatePicker}
+            >
+              {task.deadline || 'Data'}
+            </button>
+            <input
+              ref={deadlineInputRef}
+              type="date"
+              className="sr-only task-detail-deadline-input"
+              value={task.deadline}
+              onChange={(e) => setField('deadline', e.target.value)}
+              tabIndex={-1}
+              aria-hidden="true"
+            />
+            {task.deadline && (
               <button
                 type="button"
-                className={`badge deadline${isOpen ? ' open' : ''}`}
-                onClick={open}
+                className="badge deadline-clear"
+                onClick={() => setField('deadline', '')}
+                aria-label="limpar prazo"
+                title="limpar prazo"
               >
-                {task.deadline || 'Data'}
+                ×
               </button>
             )}
-          >
-            {(close) => (
-              <div className="picker-date">
-                <input
-                  type="date"
-                  value={task.deadline}
-                  onChange={(e) => setField('deadline', e.target.value)}
-                />
-                <div className="picker-actions">
-                  <button
-                    type="button"
-                    className="link-btn"
-                    onClick={() => {
-                      setField('deadline', '');
-                      close();
-                    }}
-                  >
-                    limpar
-                  </button>
-                  <button type="button" className="link-btn" onClick={close}>
-                    ok
-                  </button>
-                </div>
-              </div>
-            )}
-          </Popover>
+          </span>
 
           <button
             type="button"

@@ -1591,6 +1591,30 @@ a:focus-visible {
   gap: 0.4rem;
   align-items: center;
 }
+.task-detail-deadline-wrap {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+.task-detail-deadline-input {
+  position: absolute;
+  inset: 0;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+}
+.badge.deadline-clear {
+  padding: 0 0.45rem;
+  font-size: 0.95rem;
+  color: var(--danger);
+  background: transparent;
+}
+.badge.deadline-clear:hover { background: var(--danger-bg); }
 .task-detail-fields {
   display: grid;
   grid-template-columns: 1fr;
