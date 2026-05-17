@@ -12,7 +12,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "migrate": "tsx scripts/migrate/index.ts",
-    "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/logo.svg",
+    "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/logo.png",
     "emulators": "firebase emulators:start",
     "deploy": "npm run build && firebase deploy --only hosting,firestore:rules",
     "test:e2e": "playwright test",
