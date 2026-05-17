@@ -11,7 +11,11 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
 import { useUserData } from './lib/useUserData';
-import { ProjectsView } from './views/ProjectsView';
+import {
+  ProjectsView,
+  STATUS_FILTERS as PROJECT_STATUS_FILTERS,
+  type StatusFilter as ProjectStatusFilter,
+} from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
 import { createProject } from './repositories/projectsRepo';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
@@ -37,6 +41,8 @@ export function App() {
   const [filters, setFilters] = useState<TaskFiltersState>(() =>
     defaultFiltersState(),
   );
+  const [projectStatusFilter, setProjectStatusFilter] =
+    useState<ProjectStatusFilter>('all');
 
   useEffect(() => {
     localStorage.setItem(TASK_VIEW_KEY, taskView);
@@ -80,6 +86,8 @@ export function App() {
     setTaskView={setTaskView}
     filters={filters}
     setFilters={setFilters}
+    projectStatusFilter={projectStatusFilter}
+    setProjectStatusFilter={setProjectStatusFilter}
   />;
 }
 
@@ -93,6 +101,8 @@ function AppShell({
   setTaskView,
   filters,
   setFilters,
+  projectStatusFilter,
+  setProjectStatusFilter,
 }: {
   uid: string;
   tab: Tab;
@@ -103,6 +113,8 @@ function AppShell({
   setTaskView: (v: TaskView) => void;
   filters: TaskFiltersState;
   setFilters: (f: TaskFiltersState) => void;
+  projectStatusFilter: ProjectStatusFilter;
+  setProjectStatusFilter: (v: ProjectStatusFilter) => void;
 }) {
   const data = useUserData(uid);
 
@@ -154,6 +166,22 @@ function AppShell({
             />
           </>
         )}
+        {tab === 'projects' && (
+          <select
+            className="topbar-status-filter"
+            value={projectStatusFilter}
+            onChange={(e) =>
+              setProjectStatusFilter(e.target.value as ProjectStatusFilter)
+            }
+            aria-label="Filtrar projetos por status"
+          >
+            {PROJECT_STATUS_FILTERS.map((f) => (
+              <option key={f.value} value={f.value}>
+                {f.label}
+              </option>
+            ))}
+          </select>
+        )}
       </header>
 
       <SidebarMenu
@@ -169,7 +197,9 @@ function AppShell({
         {tab === 'tasks' && (
           <TasksRoot uid={uid} view={taskView} data={data} filters={filters} />
         )}
-        {tab === 'projects' && <ProjectsView uid={uid} />}
+        {tab === 'projects' && (
+          <ProjectsView uid={uid} statusFilter={projectStatusFilter} />
+        )}
         {tab === 'settings' && <SettingsView uid={uid} />}
       </main>
 
