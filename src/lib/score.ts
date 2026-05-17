@@ -99,6 +99,21 @@ export function buildDependencyMap(
     }
   }
 
+  const transitiveUnlocksMap: Record<string, string[]> = {};
+  for (const rootId of Object.keys(depMap)) {
+    const reached = new Set<string>();
+    const queue: string[] = [...(depMap[rootId]?.unlocksIds ?? [])];
+    while (queue.length > 0) {
+      const next = queue.shift()!;
+      if (next === rootId || reached.has(next)) continue;
+      reached.add(next);
+      for (const child of depMap[next]?.unlocksIds ?? []) {
+        if (child !== rootId && !reached.has(child)) queue.push(child);
+      }
+    }
+    transitiveUnlocksMap[rootId] = [...reached];
+  }
+
   const t0 = startOfDay(today);
   for (const { task: t, section: s } of allTasks) {
     const taskM = t.moscow || '';
@@ -129,7 +144,7 @@ export function buildDependencyMap(
     potentialScoreMap[t.id] = (base + inProgressBonus + deadlineBonus + ageBonus) / effort;
   }
 
-  return { depMap, potentialScoreMap, taskFlatMap, projectScoreMap };
+  return { depMap, potentialScoreMap, taskFlatMap, projectScoreMap, transitiveUnlocksMap };
 }
 
 /**
@@ -153,7 +168,8 @@ export function calcScore(
 
   const projectScore = section ? ctx.projectScoreMap[section.id] ?? 0 : 0;
   const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
-  const depBonus = dep.unlocksIds.reduce((sum, id) => sum + (ctx.potentialScoreMap[id] ?? 0), 0);
+  const unlockedChain = ctx.transitiveUnlocksMap[task.id] ?? dep.unlocksIds;
+  const depBonus = unlockedChain.reduce((sum, id) => sum + (ctx.potentialScoreMap[id] ?? 0), 0);
   const deadlineBonus = calcDeadlinePoints(task.deadline, today);
   const inProgressBonus = task.inProgress ? 1 : 0;
 

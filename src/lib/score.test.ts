@@ -158,6 +158,69 @@ describe('calcScore', () => {
     expect(calcScore(unlocker, SECTION, ctx, TODAY)).toBe(15);
   });
 
+  it('depBonus sums entire transitive chain (A → B → C)', () => {
+    const a = makeTask({ id: '1', taskId: 1, moscow: 'should' });
+    const b = makeTask({ id: '2', taskId: 2, moscow: 'should', dependsOn: ['#1'] });
+    const c = makeTask({ id: '3', taskId: 3, moscow: 'must', dependsOn: ['#2'] });
+    const ctx = buildDependencyMap(
+      [
+        { task: a, section: SECTION },
+        { task: b, section: SECTION },
+        { task: c, section: SECTION },
+      ],
+      PSM_SINGLE,
+      TODAY,
+    );
+    // potentials: A=6, B=6, C=9
+    // A desbloqueia transitivamente B e C → depBonus = 6 + 9 = 15
+    // A.calcScore = base(6) + depBonus(15) = 21
+    expect(ctx.transitiveUnlocksMap['1']!.sort()).toEqual(['2', '3']);
+    expect(ctx.transitiveUnlocksMap['2']).toEqual(['3']);
+    expect(ctx.transitiveUnlocksMap['3']).toEqual([]);
+    expect(calcScore(a, SECTION, ctx, TODAY)).toBe(21);
+    // B continua bloqueado por A (não-checked) → score 0
+    expect(calcScore(b, SECTION, ctx, TODAY)).toBe(0);
+  });
+
+  it('transitive chain does not double-count diamond shapes', () => {
+    // A desbloqueia B e C; B e C ambos desbloqueiam D.
+    const a = makeTask({ id: '1', taskId: 1, moscow: 'should' });
+    const b = makeTask({ id: '2', taskId: 2, moscow: 'should', dependsOn: ['#1'] });
+    const c = makeTask({ id: '3', taskId: 3, moscow: 'should', dependsOn: ['#1'] });
+    const d = makeTask({ id: '4', taskId: 4, moscow: 'must', dependsOn: ['#2', '#3'] });
+    const ctx = buildDependencyMap(
+      [
+        { task: a, section: SECTION },
+        { task: b, section: SECTION },
+        { task: c, section: SECTION },
+        { task: d, section: SECTION },
+      ],
+      PSM_SINGLE,
+      TODAY,
+    );
+    expect(ctx.transitiveUnlocksMap['1']!.sort()).toEqual(['2', '3', '4']);
+    // depBonus para A = potential(B) + potential(C) + potential(D) = 6 + 6 + 9 = 21
+    // A.calcScore = base(6) + 21 = 27
+    expect(calcScore(a, SECTION, ctx, TODAY)).toBe(27);
+  });
+
+  it('handles cycles in unlocks chain without infinite loop', () => {
+    // Ciclo A → B → A. Não deveria existir, mas o build precisa terminar.
+    const a = makeTask({ id: '1', taskId: 1, moscow: 'should', dependsOn: ['#2'] });
+    const b = makeTask({ id: '2', taskId: 2, moscow: 'should', dependsOn: ['#1'] });
+    const ctx = buildDependencyMap(
+      [
+        { task: a, section: SECTION },
+        { task: b, section: SECTION },
+      ],
+      PSM_SINGLE,
+      TODAY,
+    );
+    // Fecho transitivo de A não inclui A; só B.
+    expect(ctx.transitiveUnlocksMap['1']).toEqual(['2']);
+    expect(ctx.transitiveUnlocksMap['2']).toEqual(['1']);
+  });
+
   it('returns base=0 when task has no matching project in the score map', () => {
     const t = makeTask({ moscow: 'must' });
     const ctx = buildDependencyMap([{ task: t, section: SECTION }], {}, TODAY);
