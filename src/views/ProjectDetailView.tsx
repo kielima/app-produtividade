@@ -9,6 +9,7 @@ import type { Project, ProjectStatus } from '../types';
 
 const STATUS_OPTS: ProjectStatus[] = [
   'A iniciar',
+  'Em planejamento',
   'Em andamento',
   'Pausado',
   'Concluído',
@@ -17,6 +18,7 @@ const STATUS_OPTS: ProjectStatus[] = [
 
 const STATUS_LABEL: Record<ProjectStatus, string> = {
   'A iniciar': 'A iniciar',
+  'Em planejamento': 'Em planejamento',
   'Em andamento': 'Em andamento',
   Pausado: 'Pausado',
   'Concluído': 'Concluído',
@@ -25,6 +27,7 @@ const STATUS_LABEL: Record<ProjectStatus, string> = {
 
 const STATUS_SLUG: Record<ProjectStatus, string> = {
   'A iniciar': 'a-iniciar',
+  'Em planejamento': 'em-planejamento',
   'Em andamento': 'em-andamento',
   Pausado: 'pausado',
   'Concluído': 'concluido',

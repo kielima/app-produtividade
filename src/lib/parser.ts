@@ -303,7 +303,7 @@ export function parseProjectMarkdown(content: string): Project[] {
     if (header) {
       flush();
       let name = header[1]!.trim();
-      const statusMatch = name.match(/\[(A iniciar|Em andamento|Pausado|Conclu[íi]do|Cancelado)\]/i);
+      const statusMatch = name.match(/\[(A iniciar|Em planejamento|Em andamento|Pausado|Conclu[íi]do|Cancelado)\]/i);
       const priorityMatch = name.match(/\[(P[123])\]/i);
       const status: ProjectStatus = statusMatch
         ? (statusMatch[1]!
@@ -313,7 +313,7 @@ export function parseProjectMarkdown(content: string): Project[] {
         ? (priorityMatch[1]!.toUpperCase() as ProjectPriority)
         : '';
       name = name
-        .replace(/\[(A iniciar|Em andamento|Pausado|Conclu[íi]do|Cancelado)\]/i, '')
+        .replace(/\[(A iniciar|Em planejamento|Em andamento|Pausado|Conclu[íi]do|Cancelado)\]/i, '')
         .replace(/\[(P[123])\]/i, '')
         .trim();
 
