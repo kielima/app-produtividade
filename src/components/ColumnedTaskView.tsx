@@ -10,7 +10,7 @@ import {
 } from '@dnd-kit/core';
 import { useMemo, useState } from 'react';
 import { patchTask } from '../lib/taskMutations';
-import type { Project, Task } from '../types';
+import type { Task } from '../types';
 import { DraggableTaskCard } from './DraggableTaskCard';
 import { DroppableSection } from './DroppableSection';
 import { TaskCard } from './TaskCard';
@@ -35,8 +35,6 @@ const COL_PREFIX = 'col:';
 export function ColumnedTaskView({
   uid,
   tasks,
-  projects,
-  allTasks,
   blocked,
   columns,
   groupBy,
@@ -45,8 +43,6 @@ export function ColumnedTaskView({
 }: {
   uid: string;
   tasks: Task[];
-  projects: Project[];
-  allTasks: Task[];
   blocked: (task: Task) => boolean;
   columns: ColumnSpec[];
   groupBy: (task: Task) => string;
@@ -114,8 +110,6 @@ export function ColumnedTaskView({
                       uid={uid}
                       task={t}
                       blocked={blocked(t)}
-                      projects={projects}
-                      allTasks={allTasks}
                     />
                   ))}
                   {list.length === 0 && (
@@ -131,13 +125,7 @@ export function ColumnedTaskView({
       <DragOverlay dropAnimation={null}>
         {activeTask && (
           <div className="drag-overlay">
-            <TaskCard
-              uid={uid}
-              task={activeTask}
-              blocked={blocked(activeTask)}
-              projects={projects}
-              allTasks={allTasks}
-            />
+            <TaskCard uid={uid} task={activeTask} blocked={blocked(activeTask)} />
           </div>
         )}
       </DragOverlay>
