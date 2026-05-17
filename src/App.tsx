@@ -131,8 +131,17 @@ function AppShell({
     [],
   );
   const projectNavValue = useMemo(
-    () => ({ openProject: (projectId: string) => setSelectedProjectId(projectId) }),
-    [],
+    () => ({
+      openProject: (projectId: string) => setSelectedProjectId(projectId),
+      openProjectTasks: (projectId: string) => {
+        setSelectedProjectId(null);
+        setSelectedTaskId(null);
+        setFilters({ ...defaultFiltersState(), projectFilter: projectId });
+        setTaskView('prioridade');
+        setTab('tasks');
+      },
+    }),
+    [setFilters, setTaskView, setTab],
   );
 
   const selectedTask = selectedTaskId
