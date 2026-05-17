@@ -35,12 +35,13 @@ export function PrioridadeView({
   return (
     <section className="prioridade-view">
       <div className="task-list prioridade-list">
-        {scored.map(({ task }) => (
+        {scored.map(({ task, score }) => (
           <TaskCard
             key={task.id}
             uid={uid}
             task={task}
             blocked={isTaskBlocked(task, ctx)}
+            score={score}
           />
         ))}
         {scored.length === 0 && <p className="muted">Nenhuma tarefa.</p>}
