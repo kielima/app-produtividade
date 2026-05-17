@@ -71,7 +71,7 @@ export function DepPicker({
           <button
             onClick={onClose}
             className="icon-btn"
-            style={{ fontSize: '24px' }}
+            style={{ fontSize: '25px' }}
             aria-label="fechar"
           >
             ×
@@ -90,7 +90,7 @@ export function DepPicker({
                   <button
                     onClick={() => removeDep(d)}
                     className="icon-btn"
-                    style={{ fontSize: '24px' }}
+                    style={{ fontSize: '25px' }}
                     aria-label="remover"
                   >
                     ×
