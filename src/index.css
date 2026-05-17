@@ -1585,6 +1585,12 @@ a:focus-visible {
 .task-detail-blocked {
   align-self: flex-start;
 }
+.task-detail-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  align-items: center;
+}
 .task-detail-fields {
   display: grid;
   grid-template-columns: 1fr;
