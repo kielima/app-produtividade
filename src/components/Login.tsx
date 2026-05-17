@@ -87,7 +87,7 @@ export function Login() {
     <main className="pin-screen">
       <div className="pin-screen-top">
         <div className="pin-app-icon" aria-hidden="true">
-          ⚡
+          <img src="/pwa-192x192.png" alt="" />
         </div>
         <h1 className="pin-app-name">Produtividade</h1>
         <p className="pin-prompt">{prompt}</p>
