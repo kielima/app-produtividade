@@ -33,6 +33,7 @@ export interface Section {
 
 export type ProjectStatus =
   | 'A iniciar'
+  | 'Em planejamento'
   | 'Em andamento'
   | 'Pausado'
   | 'Concluído'
