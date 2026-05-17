@@ -26,10 +26,10 @@ export function subscribeToProjects(
     (snap) => {
       const projects: Project[] = snap.docs.map((d) => {
         const data = d.data() as Partial<Omit<Project, 'id'>>;
-        return {
+        const merged = {
           name: '',
           area: '',
-          status: '',
+          status: 'A iniciar',
           priority: '',
           objective: '',
           currentStatus: '',
@@ -41,6 +41,8 @@ export function subscribeToProjects(
           ...data,
           id: d.id,
         } as Project;
+        if (!merged.status) merged.status = 'A iniciar';
+        return merged;
       });
       projects.sort(
         (a, b) => (a.order ?? 0) - (b.order ?? 0) || a.name.localeCompare(b.name),
@@ -140,7 +142,7 @@ export async function createProject(
     id,
     name,
     area: '',
-    status: '',
+    status: 'A iniciar',
     priority: '',
     objective: '',
     currentStatus: '',
