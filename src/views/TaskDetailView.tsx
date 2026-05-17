@@ -23,19 +23,17 @@ const MOSCOW_LABEL: Record<Exclude<MoSCoW, ''>, string> = {
   wont: "Won't",
 };
 
-const MODO_LABEL: Record<Modo, string> = {
+const MODO_LABEL: Record<Exclude<Modo, ''>, string> = {
   manual: 'Manual',
   colaborar: 'Colaborar',
   delegar: 'Delegar',
   automatizar: 'Automatizar',
-  '': '—',
 };
 
-const ESFORCO_LABEL: Record<Esforco, string> = {
+const ESFORCO_LABEL: Record<Exclude<Esforco, ''>, string> = {
   rapido: 'Rápido',
   medio: 'Médio',
   longo: 'Longo',
-  '': '—',
 };
 
 type KanbanStatus = 'todo' | 'doing' | 'done';
@@ -48,8 +46,8 @@ const STATUS_LABEL: Record<KanbanStatus, string> = {
 
 const STATUS_OPTS: KanbanStatus[] = ['todo', 'doing', 'done'];
 const MOSCOW_OPTS: Array<Exclude<MoSCoW, ''>> = ['must', 'should', 'could', 'wont'];
-const MODO_OPTS: Modo[] = ['manual', 'colaborar', 'delegar', 'automatizar', ''];
-const ESFORCO_OPTS: Esforco[] = ['rapido', 'medio', 'longo', ''];
+const MODO_OPTS: Array<Exclude<Modo, ''>> = ['manual', 'colaborar', 'delegar', 'automatizar'];
+const ESFORCO_OPTS: Array<Exclude<Esforco, ''>> = ['rapido', 'medio', 'longo'];
 
 function taskStatus(task: Task): KanbanStatus {
   if (task.checked) return 'done';
@@ -135,18 +133,23 @@ export function TaskDetailView({
 
   return (
     <section className="task-detail">
-      <header className="task-detail-header">
+      <header className="topbar task-detail-topbar" role="banner">
         <button
           type="button"
-          className="icon-btn task-detail-back"
+          className="menu-toggle"
           onClick={onClose}
           aria-label="voltar"
         >
-          ←
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M15 18l-6-6 6-6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
         </button>
-        <span className="task-detail-id muted">
-          {task.taskId != null ? `#${String(task.taskId).padStart(4, '0')}` : ''}
-        </span>
       </header>
 
       <div className="task-detail-body">
@@ -245,16 +248,19 @@ export function TaskDetailView({
             <dt>Modo</dt>
             <dd>
               <div className="task-detail-options">
-                {MODO_OPTS.map((v) => (
-                  <button
-                    key={v || 'none'}
-                    type="button"
-                    className={`badge modo-${v}${v === task.modo ? ' active' : ''}`}
-                    onClick={() => setField('modo', v)}
-                  >
-                    {MODO_LABEL[v]}
-                  </button>
-                ))}
+                {MODO_OPTS.map((v) => {
+                  const current = task.modo || 'manual';
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`badge modo-${v}${v === current ? ' active' : ''}`}
+                      onClick={() => setField('modo', v)}
+                    >
+                      {MODO_LABEL[v]}
+                    </button>
+                  );
+                })}
               </div>
             </dd>
           </div>
@@ -263,16 +269,19 @@ export function TaskDetailView({
             <dt>Esforço</dt>
             <dd>
               <div className="task-detail-options">
-                {ESFORCO_OPTS.map((v) => (
-                  <button
-                    key={v || 'none'}
-                    type="button"
-                    className={`badge esforco-${v}${v === task.esforco ? ' active' : ''}`}
-                    onClick={() => setField('esforco', v)}
-                  >
-                    {ESFORCO_LABEL[v]}
-                  </button>
-                ))}
+                {ESFORCO_OPTS.map((v) => {
+                  const current = task.esforco || 'longo';
+                  return (
+                    <button
+                      key={v}
+                      type="button"
+                      className={`badge esforco-${v}${v === current ? ' active' : ''}`}
+                      onClick={() => setField('esforco', v)}
+                    >
+                      {ESFORCO_LABEL[v]}
+                    </button>
+                  );
+                })}
               </div>
             </dd>
           </div>

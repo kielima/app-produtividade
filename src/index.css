@@ -1532,27 +1532,9 @@ a:focus-visible {
 .task-detail {
   max-width: 720px;
   margin: 0 auto;
-  padding: 0.8rem 1rem 2rem;
 }
-.task-detail-header {
-  display: flex;
-  align-items: center;
-  gap: 0.6rem;
-  padding-bottom: 0.6rem;
-  border-bottom: 1px solid var(--border);
+.task-detail-topbar {
   margin-bottom: 1rem;
-}
-.task-detail-back {
-  font-size: 1.4rem;
-  line-height: 1;
-  padding: 0.25rem 0.55rem;
-  border-radius: 4px;
-  color: var(--fg);
-}
-.task-detail-back:hover { background: var(--surface-2); }
-.task-detail-id {
-  font-size: 0.85rem;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .task-detail-body {
   display: flex;
