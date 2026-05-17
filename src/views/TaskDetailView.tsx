@@ -17,24 +17,27 @@ import type {
   Task,
 } from '../types';
 
-const MOSCOW_LABEL: Record<Exclude<MoSCoW, ''>, string> = {
+const MOSCOW_LABEL: Record<MoSCoW, string> = {
   must: 'Must',
   should: 'Should',
   could: 'Could',
   wont: "Won't",
+  '': 'Sem MoSCoW',
 };
 
-const MODO_LABEL: Record<Exclude<Modo, ''>, string> = {
+const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
   colaborar: 'Colaborar',
   delegar: 'Delegar',
   automatizar: 'Automatizar',
+  '': 'Sem modo',
 };
 
-const ESFORCO_LABEL: Record<Exclude<Esforco, ''>, string> = {
+const ESFORCO_LABEL: Record<Esforco, string> = {
   rapido: 'Rápido',
   medio: 'Médio',
   longo: 'Longo',
+  '': 'Sem esforço',
 };
 
 type KanbanStatus = 'todo' | 'doing' | 'done';
@@ -46,9 +49,9 @@ const STATUS_LABEL: Record<KanbanStatus, string> = {
 };
 
 const STATUS_OPTS: KanbanStatus[] = ['todo', 'doing', 'done'];
-const MOSCOW_OPTS: Array<Exclude<MoSCoW, ''>> = ['must', 'should', 'could', 'wont'];
-const MODO_OPTS: Array<Exclude<Modo, ''>> = ['manual', 'colaborar', 'delegar', 'automatizar'];
-const ESFORCO_OPTS: Array<Exclude<Esforco, ''>> = ['rapido', 'medio', 'longo'];
+const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
+const MODO_OPTS: Modo[] = ['manual', 'colaborar', 'delegar', 'automatizar', ''];
+const ESFORCO_OPTS: Esforco[] = ['rapido', 'medio', 'longo', ''];
 
 function taskStatus(task: Task): KanbanStatus {
   if (task.checked) return 'done';
@@ -143,9 +146,12 @@ export function TaskDetailView({
   }
 
   const status = taskStatus(task);
-  const currentMoscow: Exclude<MoSCoW, ''> = task.moscow || 'wont';
-  const currentModo: Exclude<Modo, ''> = task.modo || 'manual';
-  const currentEsforco: Exclude<Esforco, ''> = task.esforco || 'longo';
+  const currentMoscow: MoSCoW = task.moscow;
+  const currentModo: Modo = task.modo;
+  const currentEsforco: Esforco = task.esforco;
+  const moscowClass = currentMoscow ? `moscow-${currentMoscow}` : 'moscow-none';
+  const modoClass = currentModo ? `modo-${currentModo}` : 'modo-none';
+  const esforcoClass = currentEsforco ? `esforco-${currentEsforco}` : 'esforco-none';
 
   return (
     <section className="task-detail">
@@ -267,7 +273,7 @@ export function TaskDetailView({
             trigger={(open, isOpen) => (
               <button
                 type="button"
-                className={`badge moscow-${currentMoscow}${isOpen ? ' open' : ''}`}
+                className={`badge ${moscowClass}${isOpen ? ' open' : ''}`}
                 onClick={open}
               >
                 {MOSCOW_LABEL[currentMoscow]}
@@ -277,7 +283,7 @@ export function TaskDetailView({
             {(close) => (
               <ul className="picker-list">
                 {MOSCOW_OPTS.map((v) => (
-                  <li key={v}>
+                  <li key={v || 'none'}>
                     <button
                       type="button"
                       className={v === currentMoscow ? 'active' : ''}
@@ -298,7 +304,7 @@ export function TaskDetailView({
             trigger={(open, isOpen) => (
               <button
                 type="button"
-                className={`badge modo-${currentModo}${isOpen ? ' open' : ''}`}
+                className={`badge ${modoClass}${isOpen ? ' open' : ''}`}
                 onClick={open}
               >
                 {MODO_LABEL[currentModo]}
@@ -308,7 +314,7 @@ export function TaskDetailView({
             {(close) => (
               <ul className="picker-list">
                 {MODO_OPTS.map((v) => (
-                  <li key={v}>
+                  <li key={v || 'none'}>
                     <button
                       type="button"
                       className={v === currentModo ? 'active' : ''}
@@ -329,7 +335,7 @@ export function TaskDetailView({
             trigger={(open, isOpen) => (
               <button
                 type="button"
-                className={`badge esforco-${currentEsforco}${isOpen ? ' open' : ''}`}
+                className={`badge ${esforcoClass}${isOpen ? ' open' : ''}`}
                 onClick={open}
               >
                 {ESFORCO_LABEL[currentEsforco]}
@@ -339,7 +345,7 @@ export function TaskDetailView({
             {(close) => (
               <ul className="picker-list">
                 {ESFORCO_OPTS.map((v) => (
-                  <li key={v}>
+                  <li key={v || 'none'}>
                     <button
                       type="button"
                       className={v === currentEsforco ? 'active' : ''}
