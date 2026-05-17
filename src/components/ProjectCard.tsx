@@ -8,8 +8,9 @@ export function ProjectCard({
   project: Project;
   taskCount: number;
 }) {
-  const { openProject } = useProjectNavigation();
+  const { openProject, openProjectTasks } = useProjectNavigation();
   const isDone = project.status === 'Concluído' || project.status === 'Cancelado';
+  const countLabel = `${taskCount} tarefa${taskCount === 1 ? '' : 's'}`;
 
   return (
     <article className={`project-card${isDone ? ' done' : ''}`}>
@@ -22,9 +23,14 @@ export function ProjectCard({
         >
           {project.name}
         </button>
-        <span className="muted project-task-count">
-          {taskCount} tarefa{taskCount === 1 ? '' : 's'}
-        </span>
+        <button
+          type="button"
+          className="muted project-task-count project-task-count-btn"
+          onClick={() => openProjectTasks(project.id)}
+          aria-label={`ver ${countLabel} do projeto ${project.name}`}
+        >
+          {countLabel}
+        </button>
       </div>
     </article>
   );

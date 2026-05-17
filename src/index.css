@@ -1074,6 +1074,17 @@ a:focus-visible {
   white-space: nowrap;
   flex-shrink: 0;
 }
+.project-task-count-btn {
+  background: none;
+  border: none;
+  padding: 0.05rem 0.3rem;
+  color: inherit;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+  border-radius: 3px;
+}
+.project-task-count-btn:hover { background: var(--surface-2); }
 
 .badge.status-a-iniciar { background: #6c7a89; color: white; }
 .badge.status-em-andamento { background: var(--accent); color: white; }

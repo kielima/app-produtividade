@@ -2,6 +2,7 @@ import { createContext, useContext } from 'react';
 
 interface ProjectNavigation {
   openProject: (projectId: string) => void;
+  openProjectTasks: (projectId: string) => void;
 }
 
 export const ProjectNavigationContext = createContext<ProjectNavigation | null>(null);
