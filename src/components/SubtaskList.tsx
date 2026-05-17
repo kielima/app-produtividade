@@ -54,6 +54,7 @@ export function SubtaskList({
           <button
             type="button"
             className="icon-btn"
+            style={{ fontSize: '24px' }}
             onClick={() => remove(i)}
             aria-label="remover subtarefa"
           >

@@ -1256,7 +1256,7 @@ a:focus-visible {
   color: var(--muted);
   cursor: pointer;
   padding: 0 0.2rem;
-  font-size: 1rem;
+  font-size: 24px;
   line-height: 1;
 }
 .combobox-clear:hover { color: var(--accent); }
@@ -1399,7 +1399,7 @@ a:focus-visible {
   background: transparent;
   border: none;
   color: var(--danger);
-  font-size: 1.4rem;
+  font-size: 24px;
   line-height: 1;
   width: 2rem;
   height: 2rem;

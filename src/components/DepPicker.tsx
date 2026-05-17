@@ -68,7 +68,12 @@ export function DepPicker({
       <div className="modal" onClick={(e) => e.stopPropagation()} role="dialog" aria-modal="true">
         <header className="modal-header">
           <h3>Dependências de “{getDisplayTitle(task.title)}”</h3>
-          <button onClick={onClose} className="icon-btn" aria-label="fechar">
+          <button
+            onClick={onClose}
+            className="icon-btn"
+            style={{ fontSize: '24px' }}
+            aria-label="fechar"
+          >
             ×
           </button>
         </header>
@@ -82,7 +87,12 @@ export function DepPicker({
               {deps.map((d) => (
                 <li key={d}>
                   <span>{resolveLabel(d)}</span>
-                  <button onClick={() => removeDep(d)} className="icon-btn" aria-label="remover">
+                  <button
+                    onClick={() => removeDep(d)}
+                    className="icon-btn"
+                    style={{ fontSize: '24px' }}
+                    aria-label="remover"
+                  >
                     ×
                   </button>
                 </li>
