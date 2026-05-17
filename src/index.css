@@ -893,29 +893,93 @@ a:focus-visible {
   color: var(--accent);
 }
 
-.new-task-modal-body {
-  padding: 0.8rem 1rem;
+/* ===== Task editor full-page overlay ===== */
+.task-editor-overlay {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 90;
   display: flex;
   flex-direction: column;
-  gap: 0.8rem;
 }
-.new-task-modal-field {
+.task-editor-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  position: sticky;
+  top: 0;
+  z-index: 1;
+}
+.task-editor-header h2 {
+  margin: 0;
+  font-size: 1rem;
+  flex: 1;
+  text-align: center;
+}
+.task-editor-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  max-width: 720px;
+  width: 100%;
+  margin: 0 auto;
+}
+.task-editor-field {
   display: flex;
   flex-direction: column;
   gap: 0.3rem;
 }
-.new-task-modal-field > span {
+.task-editor-field > span {
   font-size: 0.75rem;
   text-transform: uppercase;
   color: var(--muted);
   letter-spacing: 0.04em;
 }
-.new-task-modal-footer {
+.task-editor-title { font-size: 1rem; }
+.task-editor-note {
+  font: inherit;
+  resize: vertical;
+  min-height: 4.5rem;
+}
+.task-editor-fieldset {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.6rem 0.8rem 0.8rem;
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.task-editor-fieldset legend {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  letter-spacing: 0.04em;
+  padding: 0 0.3rem;
+}
+.task-editor-deps {
+  list-style: none;
+  padding-left: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.task-editor-deps li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
   gap: 0.5rem;
-  padding: 0.6rem 1rem 0.8rem;
-  border-top: 1px solid var(--border);
+  padding: 0.3rem 0.4rem;
+  background: var(--surface);
+  border-radius: 3px;
+  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .muted { color: var(--muted); }
