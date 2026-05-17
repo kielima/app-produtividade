@@ -620,8 +620,8 @@ a:focus-visible {
   gap: 0.5rem;
   align-items: center;
 }
-.task-checkbox { margin: 0; }
-.task-title { flex: 1; font-weight: 500; }
+.task-checkbox { margin: 0; flex-shrink: 0; }
+.task-title { flex: 1; font-weight: 500; min-width: 0; }
 .task-title-btn {
   background: none;
   border: none;
@@ -633,6 +633,8 @@ a:focus-visible {
   cursor: pointer;
   border-radius: 3px;
   min-width: 1ch;
+  width: 100%;
+  overflow-wrap: anywhere;
 }
 .task-title-btn:hover { background: var(--surface-2); }
 
@@ -1116,7 +1118,9 @@ a:focus-visible {
 .columned-view {
   display: grid;
   gap: 0.75rem;
-  grid-template-columns: 1fr;
+  /* minmax(0, 1fr) impede que o conteúdo de min-content (títulos longos)
+     estoure a largura da coluna do grid pra fora da viewport. */
+  grid-template-columns: minmax(0, 1fr);
   align-items: stretch;
 }
 @media (min-width: 720px) {
@@ -1133,6 +1137,7 @@ a:focus-visible {
   flex-direction: column;
   gap: 0.4rem;
   min-height: 14rem;
+  min-width: 0;
 }
 .columned-col-header {
   display: flex;
