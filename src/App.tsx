@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
 import {
@@ -15,9 +15,11 @@ import {
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
+import { TaskNavigationContext } from './lib/taskNavigation';
 import { useUserData } from './lib/useUserData';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
+import { TaskDetailView } from './views/TaskDetailView';
 import { createProject } from './repositories/projectsRepo';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
 
@@ -119,8 +121,46 @@ function AppShell({
   setProjectFilters: (f: ProjectFiltersState) => void;
 }) {
   const data = useUserData(uid);
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  const navValue = useMemo(
+    () => ({ openTask: (taskId: string) => setSelectedTaskId(taskId) }),
+    [],
+  );
+
+  const selectedTask = selectedTaskId
+    ? data.tasks.find((t) => t.id === selectedTaskId) ?? null
+    : null;
+
+  useEffect(() => {
+    if (selectedTaskId && !selectedTask && data.tasks.length > 0) {
+      setSelectedTaskId(null);
+    }
+  }, [selectedTaskId, selectedTask, data.tasks.length]);
+
+  if (selectedTask) {
+    return (
+      <TaskNavigationContext.Provider value={navValue}>
+        <div className="app app--detail">
+          <main role="main">
+            <TaskDetailView
+              uid={uid}
+              task={selectedTask}
+              allTasks={data.tasks}
+              projects={data.projects}
+              projectMap={data.projectMap}
+              ctx={data.ctx}
+              onClose={() => setSelectedTaskId(null)}
+            />
+          </main>
+          <UpdatePrompt />
+        </div>
+      </TaskNavigationContext.Provider>
+    );
+  }
 
   return (
+    <TaskNavigationContext.Provider value={navValue}>
     <div className="app">
       <header
         className={`topbar${tab === 'tasks' ? ' topbar--with-subtabs' : ''}`}
@@ -197,5 +237,6 @@ function AppShell({
 
       <UpdatePrompt />
     </div>
+    </TaskNavigationContext.Provider>
   );
 }
