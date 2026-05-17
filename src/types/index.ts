@@ -36,8 +36,7 @@ export type ProjectStatus =
   | 'Em andamento'
   | 'Pausado'
   | 'Concluído'
-  | 'Cancelado'
-  | '';
+  | 'Cancelado';
 
 export type ProjectPriority = 'P1' | 'P2' | 'P3' | '';
 
