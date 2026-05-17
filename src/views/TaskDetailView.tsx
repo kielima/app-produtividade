@@ -205,6 +205,40 @@ export function TaskDetailView({
             trigger={(open, isOpen) => (
               <button
                 type="button"
+                className={`badge project${isOpen ? ' open' : ''}`}
+                onClick={open}
+              >
+                {project?.name || task.section || 'Sem projeto'}
+              </button>
+            )}
+          >
+            {(close) => (
+              <ul className="picker-list">
+                {projects.map((p) => (
+                  <li key={p.id}>
+                    <button
+                      type="button"
+                      className={p.id === task.section ? 'active' : ''}
+                      onClick={() => {
+                        moveToSection(p.id);
+                        close();
+                      }}
+                    >
+                      {p.name}
+                      {p.status && (
+                        <span className="muted">&nbsp;· {p.status}</span>
+                      )}
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Popover>
+
+          <Popover
+            trigger={(open, isOpen) => (
+              <button
+                type="button"
                 className={`badge status-${status}${isOpen ? ' open' : ''}`}
                 onClick={open}
               >
@@ -336,23 +370,12 @@ export function TaskDetailView({
             <input
               ref={deadlineInputRef}
               type="date"
-              className="sr-only task-detail-deadline-input"
+              className="task-detail-deadline-input"
               value={task.deadline}
               onChange={(e) => setField('deadline', e.target.value)}
               tabIndex={-1}
               aria-hidden="true"
             />
-            {task.deadline && (
-              <button
-                type="button"
-                className="badge deadline-clear"
-                onClick={() => setField('deadline', '')}
-                aria-label="limpar prazo"
-                title="limpar prazo"
-              >
-                ×
-              </button>
-            )}
           </span>
 
           <button
@@ -365,36 +388,8 @@ export function TaskDetailView({
           </button>
         </div>
 
-        <dl className="task-detail-fields">
-          <div className="task-detail-field">
-            <dt>Projeto</dt>
-            <dd>
-              <select
-                className="task-detail-select"
-                value={task.section}
-                onChange={(e) => moveToSection(e.target.value)}
-              >
-                {projects.length === 0 && (
-                  <option value={task.section}>{task.section || '—'}</option>
-                )}
-                {!projects.some((p) => p.id === task.section) && task.section && (
-                  <option value={task.section}>{task.section}</option>
-                )}
-                {projects.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
-              {project?.status && (
-                <span className="muted task-detail-project-status">
-                  &nbsp;· {project.status}
-                </span>
-              )}
-            </dd>
-          </div>
-
-          {task.dependsOn.length > 0 && (
+        {task.dependsOn.length > 0 && (
+          <dl className="task-detail-fields">
             <div className="task-detail-field">
               <dt>Dependências</dt>
               <dd>
@@ -414,9 +409,8 @@ export function TaskDetailView({
                 </ul>
               </dd>
             </div>
-          )}
-
-        </dl>
+          </dl>
+        )}
 
         <section className="task-detail-section">
           <h3>Nota</h3>
