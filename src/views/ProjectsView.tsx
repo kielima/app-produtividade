@@ -15,6 +15,10 @@ import {
 } from '@dnd-kit/sortable';
 import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
+import {
+  isAllProjectStatuses,
+  type ProjectFiltersState,
+} from '../components/ProjectFiltersBar';
 import { SortableProjectCard } from '../components/SortableProjectCard';
 import { buildProjectScoreMap } from '../lib/projectRankScore';
 import {
@@ -23,25 +27,14 @@ import {
   subscribeToProjects,
 } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
-import type { Project, ProjectStatus, Task } from '../types';
-
-export type StatusFilter = ProjectStatus | 'all';
-
-export const STATUS_FILTERS: Array<{ value: StatusFilter; label: string }> = [
-  { value: 'all', label: 'Todos' },
-  { value: 'A iniciar', label: 'A iniciar' },
-  { value: 'Em andamento', label: 'Em andamento' },
-  { value: 'Pausado', label: 'Pausado' },
-  { value: 'Concluído', label: 'Concluído' },
-  { value: 'Cancelado', label: 'Cancelado' },
-];
+import type { Project, Task } from '../types';
 
 export function ProjectsView({
   uid,
-  statusFilter,
+  filters,
 }: {
   uid: string;
-  statusFilter: StatusFilter;
+  filters: ProjectFiltersState;
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -102,15 +95,19 @@ export function ProjectsView({
     [orderedProjects],
   );
 
+  const reorderEnabled = isAllProjectStatuses(filters);
   const filtered = useMemo(
     () =>
-      statusFilter === 'all'
+      reorderEnabled
         ? orderedProjects
-        : orderedProjects.filter((p) => p.status === statusFilter),
-    [orderedProjects, statusFilter],
+        : orderedProjects.filter((p) =>
+            p.status === ''
+              ? false
+              : filters.statusFilter.has(p.status),
+          ),
+    [orderedProjects, filters, reorderEnabled],
   );
 
-  const reorderEnabled = statusFilter === 'all';
   const filteredIds = useMemo(() => filtered.map((p) => p.id), [filtered]);
   const activeProject = useMemo(
     () => (activeDragId ? projects.find((p) => p.id === activeDragId) ?? null : null),
@@ -166,7 +163,7 @@ export function ProjectsView({
 
       {!reorderEnabled && filtered.length > 0 && (
         <p className="muted reorder-hint">
-          Para reordenar, selecione <strong>Todos</strong> em Status.
+          Para reordenar, limpe os filtros.
         </p>
       )}
 

@@ -330,16 +330,6 @@ a:focus-visible {
 }
 .menu-toggle:hover { background: var(--surface-2); }
 
-.topbar-status-filter {
-  padding: 0.4rem 0.5rem;
-  border-radius: 4px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: inherit;
-  font: inherit;
-  font-size: 0.9rem;
-}
-
 /* Topbar com subtabs inline: menu fixo à esquerda, abas rolando à direita */
 .topbar--with-subtabs {
   align-items: center;
@@ -368,6 +358,9 @@ a:focus-visible {
   margin-left: 0.5rem;
   padding-left: 0.5rem;
   align-self: center;
+}
+.topbar:not(.topbar--with-subtabs) .topbar-filter {
+  margin-left: auto;
 }
 .topbar-filter .filters-toggle {
   white-space: nowrap;
