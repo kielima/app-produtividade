@@ -1595,26 +1595,18 @@ a:focus-visible {
   position: relative;
   display: inline-flex;
   align-items: center;
-  gap: 0.25rem;
 }
 .task-detail-deadline-input {
   position: absolute;
   inset: 0;
-  width: 1px;
-  height: 1px;
+  width: 100%;
+  height: 100%;
   opacity: 0;
   pointer-events: none;
   border: 0;
   padding: 0;
   margin: 0;
 }
-.badge.deadline-clear {
-  padding: 0 0.45rem;
-  font-size: 0.95rem;
-  color: var(--danger);
-  background: transparent;
-}
-.badge.deadline-clear:hover { background: var(--danger-bg); }
 .task-detail-fields {
   display: grid;
   grid-template-columns: 1fr;
@@ -1641,26 +1633,6 @@ a:focus-visible {
   flex-wrap: wrap;
   gap: 0.4rem;
   align-items: center;
-}
-.task-detail-select {
-  font: inherit;
-  padding: 0.35rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--fg);
-  max-width: 100%;
-}
-.task-detail-date {
-  font: inherit;
-  padding: 0.3rem 0.5rem;
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  background: var(--surface);
-  color: var(--fg);
-}
-.task-detail-project-status {
-  font-size: 0.85rem;
 }
 .task-detail-deps {
   list-style: none;
