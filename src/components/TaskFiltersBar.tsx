@@ -79,6 +79,7 @@ export function defaultFiltersState(): TaskFiltersState {
 interface SerializedTaskFilters {
   hideZero: boolean;
   hideCompleted: boolean;
+  onlyWithoutDeadline: boolean;
   projectFilter: string;
   modoFilter: Modo[];
   moscowFilter: MoSCoW[];
@@ -92,6 +93,7 @@ export function serializeFiltersState(
   return {
     hideZero: state.hideZero,
     hideCompleted: state.hideCompleted,
+    onlyWithoutDeadline: state.onlyWithoutDeadline,
     projectFilter: state.projectFilter,
     modoFilter: [...state.modoFilter],
     moscowFilter: [...state.moscowFilter],
@@ -115,6 +117,10 @@ export function deserializeFiltersState(raw: unknown): TaskFiltersState {
     hideZero: typeof v.hideZero === 'boolean' ? v.hideZero : base.hideZero,
     hideCompleted:
       typeof v.hideCompleted === 'boolean' ? v.hideCompleted : base.hideCompleted,
+    onlyWithoutDeadline:
+      typeof v.onlyWithoutDeadline === 'boolean'
+        ? v.onlyWithoutDeadline
+        : base.onlyWithoutDeadline,
     projectFilter:
       typeof v.projectFilter === 'string' ? v.projectFilter : base.projectFilter,
     modoFilter: allowed(v.modoFilter, MODO_VALUES),
