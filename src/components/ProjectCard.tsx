@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { deleteProjectWithTasks, patchProject } from '../repositories/projectsRepo';
-import type { Project, ProjectPriority, ProjectStatus } from '../types';
+import type { Project, ProjectStatus } from '../types';
 import { InlineEdit } from './InlineEdit';
 import { Popover } from './Popover';
 
@@ -30,8 +30,6 @@ const STATUS_SLUG: Record<ProjectStatus, string> = {
   Cancelado: 'cancelado',
   '': 'none',
 };
-
-const PRIORITY_OPTS: ProjectPriority[] = ['P1', 'P2', 'P3', ''];
 
 export function ProjectCard({
   uid,
@@ -120,33 +118,6 @@ export function ProjectCard({
                     }}
                   >
                     {STATUS_LABEL[s]}
-                  </button>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Popover>
-
-        <Popover
-          trigger={(open) => (
-            <button type="button" className={`badge prio-${project.priority || 'none'}`} onClick={open}>
-              {project.priority || '— sem prioridade —'}
-            </button>
-          )}
-        >
-          {(close) => (
-            <ul className="picker-list">
-              {PRIORITY_OPTS.map((p) => (
-                <li key={p || 'none'}>
-                  <button
-                    type="button"
-                    className={p === project.priority ? 'active' : ''}
-                    onClick={() => {
-                      patch('priority', p);
-                      close();
-                    }}
-                  >
-                    {p || '— sem prioridade —'}
                   </button>
                 </li>
               ))}
