@@ -5,6 +5,7 @@ export type ProjectStatusKey = Exclude<ProjectStatus, ''>;
 
 const STATUS_LABEL: Record<ProjectStatusKey, string> = {
   'A iniciar': 'A iniciar',
+  'Em planejamento': 'Em planejamento',
   'Em andamento': 'Em andamento',
   Pausado: 'Pausado',
   Concluído: 'Concluído',
@@ -13,6 +14,7 @@ const STATUS_LABEL: Record<ProjectStatusKey, string> = {
 
 export const PROJECT_STATUS_VALUES: ProjectStatusKey[] = [
   'A iniciar',
+  'Em planejamento',
   'Em andamento',
   'Pausado',
   'Concluído',
