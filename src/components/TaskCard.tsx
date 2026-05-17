@@ -7,10 +7,12 @@ export function TaskCard({
   uid,
   task,
   blocked,
+  score,
 }: {
   uid: string;
   task: Task;
   blocked: boolean;
+  score?: number;
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
@@ -37,6 +39,7 @@ export function TaskCard({
         >
           {display}
         </button>
+        {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}
       </div>
     </article>
   );
