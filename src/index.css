@@ -1086,11 +1086,12 @@ a:focus-visible {
 }
 .project-task-count-btn:hover { background: var(--surface-2); }
 
-.badge.status-a-iniciar { background: #6c7a89; color: white; }
-.badge.status-em-andamento { background: var(--accent); color: white; }
-.badge.status-pausado { background: #b08020; color: white; }
-.badge.status-concluido { background: #2e8b57; color: white; }
-.badge.status-cancelado { background: var(--moscow-wont); color: white; }
+.badge.status-a-iniciar { background: #e2e8f0; color: #1f2937; }
+.badge.status-em-planejamento { background: #ddd6fe; color: #1f2937; }
+.badge.status-em-andamento { background: #bfdbfe; color: #1f2937; }
+.badge.status-pausado { background: #fef3c7; color: #1f2937; }
+.badge.status-concluido { background: #bbf7d0; color: #1f2937; }
+.badge.status-cancelado { background: #fecaca; color: #1f2937; }
 .badge.status-none { background: rgba(0, 0, 0, 0.06); color: var(--muted); }
 
 .badge.prio-P1 { background: var(--moscow-must); color: white; }
