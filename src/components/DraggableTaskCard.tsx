@@ -1,25 +1,21 @@
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
-import type { Project, Task } from '../types';
+import type { Task } from '../types';
 import { TaskCard } from './TaskCard';
 
 /**
  * Envelope draggable em torno do TaskCard. Aplica `listeners` em uma alça
- * dedicada (⋮⋮) à esquerda do card para não conflitar com checkbox/inputs
- * /badges/inline edit que já consomem cliques no card.
+ * dedicada (⋮⋮) à esquerda do card para não conflitar com o checkbox e o
+ * botão do título.
  */
 export function DraggableTaskCard({
   uid,
   task,
   blocked,
-  projects,
-  allTasks,
 }: {
   uid: string;
   task: Task;
   blocked: boolean;
-  projects: Project[];
-  allTasks: Task[];
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
@@ -44,13 +40,7 @@ export function DraggableTaskCard({
         ⋮⋮
       </button>
       <div className="draggable-content">
-        <TaskCard
-          uid={uid}
-          task={task}
-          blocked={blocked}
-          projects={projects}
-          allTasks={allTasks}
-        />
+        <TaskCard uid={uid} task={task} blocked={blocked} />
       </div>
     </div>
   );

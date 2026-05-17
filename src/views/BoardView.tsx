@@ -139,8 +139,6 @@ export function BoardView({
                         uid={uid}
                         task={t}
                         blocked={isTaskBlocked(t, ctx)}
-                        projects={projects}
-                        allTasks={tasks}
                       />
                     ))}
                     {list.length === 0 && (
@@ -190,8 +188,6 @@ export function BoardView({
                 uid={uid}
                 task={activeTask}
                 blocked={isTaskBlocked(activeTask, ctx)}
-                projects={projects}
-                allTasks={tasks}
               />
             </div>
           )}

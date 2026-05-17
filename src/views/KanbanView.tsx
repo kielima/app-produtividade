@@ -1,6 +1,6 @@
 import { ColumnedTaskView, type ColumnSpec } from '../components/ColumnedTaskView';
 import { isTaskBlocked } from '../lib/score';
-import type { Project, ScoreContext, Task } from '../types';
+import type { ScoreContext, Task } from '../types';
 
 const COLUMNS: ColumnSpec[] = [
   { key: 'todo', label: 'A fazer', badgeClass: 'col-todo' },
@@ -23,20 +23,16 @@ function applyChange(_task: Task, newKey: string): Partial<Task> {
 export function KanbanView({
   uid,
   tasks,
-  projects,
   ctx,
 }: {
   uid: string;
   tasks: Task[];
-  projects: Project[];
   ctx: ScoreContext;
 }) {
   return (
     <ColumnedTaskView
       uid={uid}
       tasks={tasks}
-      projects={projects}
-      allTasks={tasks}
       blocked={(t) => isTaskBlocked(t, ctx)}
       columns={COLUMNS}
       groupBy={groupBy}
