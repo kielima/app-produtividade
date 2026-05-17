@@ -1,40 +1,83 @@
 import { useState } from 'react';
+import { serializeTitle } from '../lib/parser';
+import { useTaskNavigation } from '../lib/taskNavigation';
+import { nextTaskId, upsertTask } from '../repositories/tasksRepo';
 import type { Project, Task } from '../types';
-import { NewTaskPage } from './NewTaskPage';
+
+function isHiddenProject(p: Project): boolean {
+  return p.status === 'Concluído' || p.status === 'Cancelado';
+}
 
 export function NewTaskFab({
   uid,
   projects,
-  allTasks,
   defaultProjectId,
 }: {
   uid: string;
   projects: Project[];
-  allTasks: Task[];
   defaultProjectId: string;
 }) {
-  const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const { openTask } = useTaskNavigation();
+
+  const available = projects.filter((p) => !isHiddenProject(p));
+  const disabled = creating || available.length === 0;
+
+  async function handleClick() {
+    if (disabled) return;
+    const sectionId =
+      defaultProjectId && available.some((p) => p.id === defaultProjectId)
+        ? defaultProjectId
+        : available[0]!.id;
+    setCreating(true);
+    try {
+      const taskId = await nextTaskId(uid);
+      const today = new Date().toISOString().slice(0, 10);
+      const newTask: Task = {
+        id: String(taskId),
+        taskId,
+        title: serializeTitle('', {
+          taskId,
+          modo: '',
+          moscow: '',
+          esforco: '',
+          deadline: '',
+          addedDate: today,
+          dependsOn: [],
+        }),
+        note: '',
+        checked: false,
+        inProgress: false,
+        moscow: '',
+        modo: '',
+        esforco: '',
+        deadline: '',
+        addedDate: today,
+        dependsOn: [],
+        subtasks: [],
+        section: sectionId,
+      };
+      await upsertTask(uid, newTask);
+      openTask(String(taskId));
+    } finally {
+      setCreating(false);
+    }
+  }
 
   return (
-    <>
-      <button
-        type="button"
-        className="fab"
-        onClick={() => setOpen(true)}
-        aria-label="adicionar tarefa"
-        title="adicionar tarefa"
-      >
-        +
-      </button>
-      {open && (
-        <NewTaskPage
-          uid={uid}
-          projects={projects}
-          allTasks={allTasks}
-          defaultProjectId={defaultProjectId}
-          onClose={() => setOpen(false)}
-        />
-      )}
-    </>
+    <button
+      type="button"
+      className="fab"
+      onClick={handleClick}
+      disabled={disabled}
+      aria-label="adicionar tarefa"
+      title={
+        available.length === 0
+          ? 'Crie um projeto antes de adicionar uma tarefa'
+          : 'adicionar tarefa'
+      }
+    >
+      +
+    </button>
   );
 }
