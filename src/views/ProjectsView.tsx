@@ -100,11 +100,7 @@ export function ProjectsView({
     () =>
       reorderEnabled
         ? orderedProjects
-        : orderedProjects.filter((p) =>
-            p.status === ''
-              ? false
-              : filters.statusFilter.has(p.status),
-          ),
+        : orderedProjects.filter((p) => filters.statusFilter.has(p.status)),
     [orderedProjects, filters, reorderEnabled],
   );
 
