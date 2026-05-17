@@ -1,6 +1,11 @@
 import { useEffect, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
+import {
+  defaultProjectFiltersState,
+  ProjectFiltersBar,
+  type ProjectFiltersState,
+} from './components/ProjectFiltersBar';
 import { SidebarMenu } from './components/SidebarMenu';
 import {
   defaultFiltersState,
@@ -11,11 +16,7 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
 import { useUserData } from './lib/useUserData';
-import {
-  ProjectsView,
-  STATUS_FILTERS as PROJECT_STATUS_FILTERS,
-  type StatusFilter as ProjectStatusFilter,
-} from './views/ProjectsView';
+import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
 import { createProject } from './repositories/projectsRepo';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
@@ -41,8 +42,9 @@ export function App() {
   const [filters, setFilters] = useState<TaskFiltersState>(() =>
     defaultFiltersState(),
   );
-  const [projectStatusFilter, setProjectStatusFilter] =
-    useState<ProjectStatusFilter>('all');
+  const [projectFilters, setProjectFilters] = useState<ProjectFiltersState>(
+    () => defaultProjectFiltersState(),
+  );
 
   useEffect(() => {
     localStorage.setItem(TASK_VIEW_KEY, taskView);
@@ -86,8 +88,8 @@ export function App() {
     setTaskView={setTaskView}
     filters={filters}
     setFilters={setFilters}
-    projectStatusFilter={projectStatusFilter}
-    setProjectStatusFilter={setProjectStatusFilter}
+    projectFilters={projectFilters}
+    setProjectFilters={setProjectFilters}
   />;
 }
 
@@ -101,8 +103,8 @@ function AppShell({
   setTaskView,
   filters,
   setFilters,
-  projectStatusFilter,
-  setProjectStatusFilter,
+  projectFilters,
+  setProjectFilters,
 }: {
   uid: string;
   tab: Tab;
@@ -113,8 +115,8 @@ function AppShell({
   setTaskView: (v: TaskView) => void;
   filters: TaskFiltersState;
   setFilters: (f: TaskFiltersState) => void;
-  projectStatusFilter: ProjectStatusFilter;
-  setProjectStatusFilter: (v: ProjectStatusFilter) => void;
+  projectFilters: ProjectFiltersState;
+  setProjectFilters: (f: ProjectFiltersState) => void;
 }) {
   const data = useUserData(uid);
 
@@ -167,20 +169,10 @@ function AppShell({
           </>
         )}
         {tab === 'projects' && (
-          <select
-            className="topbar-status-filter"
-            value={projectStatusFilter}
-            onChange={(e) =>
-              setProjectStatusFilter(e.target.value as ProjectStatusFilter)
-            }
-            aria-label="Filtrar projetos por status"
-          >
-            {PROJECT_STATUS_FILTERS.map((f) => (
-              <option key={f.value} value={f.value}>
-                {f.label}
-              </option>
-            ))}
-          </select>
+          <ProjectFiltersBar
+            state={projectFilters}
+            setState={setProjectFilters}
+          />
         )}
       </header>
 
@@ -198,7 +190,7 @@ function AppShell({
           <TasksRoot uid={uid} view={taskView} data={data} filters={filters} />
         )}
         {tab === 'projects' && (
-          <ProjectsView uid={uid} statusFilter={projectStatusFilter} />
+          <ProjectsView uid={uid} filters={projectFilters} />
         )}
         {tab === 'settings' && <SettingsView uid={uid} />}
       </main>
