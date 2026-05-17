@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { DepPicker } from '../components/DepPicker';
 import { InlineEdit } from '../components/InlineEdit';
+import { Popover } from '../components/Popover';
 import { SubtaskList } from '../components/SubtaskList';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
@@ -130,6 +131,9 @@ export function TaskDetailView({
   }
 
   const status = taskStatus(task);
+  const currentMoscow: Exclude<MoSCoW, ''> = task.moscow || 'wont';
+  const currentModo: Exclude<Modo, ''> = task.modo || 'manual';
+  const currentEsforco: Exclude<Esforco, ''> = task.esforco || 'longo';
 
   return (
     <section className="task-detail">
@@ -150,18 +154,26 @@ export function TaskDetailView({
             />
           </svg>
         </button>
-      </header>
-
-      <div className="task-detail-body">
-        <div className="task-detail-meta">
-          <span className="muted task-detail-added">
-            {task.addedDate ? `Adicionada em ${task.addedDate}` : ''}
-          </span>
+        <span className="muted task-detail-added">
+          {task.addedDate ? `Adicionada em ${task.addedDate}` : ''}
+        </span>
+        <span className="task-detail-topbar-right">
           <span className="badge score" title="score calculado">
             ⚡ {score.toFixed(2)}
           </span>
-        </div>
+          <button
+            type="button"
+            className="task-detail-delete"
+            onClick={handleDelete}
+            aria-label="apagar tarefa"
+            title="apagar tarefa"
+          >
+            ×
+          </button>
+        </span>
+      </header>
 
+      <div className="task-detail-body">
         <div className="task-detail-title-row">
           <InlineEdit
             value={display}
@@ -180,18 +192,36 @@ export function TaskDetailView({
           <div className="task-detail-field">
             <dt>Status</dt>
             <dd>
-              <div className="task-detail-options">
-                {STATUS_OPTS.map((v) => (
+              <Popover
+                trigger={(open, isOpen) => (
                   <button
-                    key={v}
                     type="button"
-                    className={`badge status-${v}${v === status ? ' active' : ''}`}
-                    onClick={() => setStatus(v)}
+                    className={`badge status-${status}${isOpen ? ' open' : ''}`}
+                    onClick={open}
                   >
-                    {STATUS_LABEL[v]}
+                    {STATUS_LABEL[status]}
                   </button>
-                ))}
-              </div>
+                )}
+              >
+                {(close) => (
+                  <ul className="picker-list">
+                    {STATUS_OPTS.map((v) => (
+                      <li key={v}>
+                        <button
+                          type="button"
+                          className={v === status ? 'active' : ''}
+                          onClick={() => {
+                            setStatus(v);
+                            close();
+                          }}
+                        >
+                          {STATUS_LABEL[v]}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Popover>
             </dd>
           </div>
 
@@ -226,63 +256,108 @@ export function TaskDetailView({
           <div className="task-detail-field">
             <dt>MoSCoW</dt>
             <dd>
-              <div className="task-detail-options">
-                {MOSCOW_OPTS.map((v) => {
-                  const current = task.moscow || 'wont';
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      className={`badge moscow-${v}${v === current ? ' active' : ''}`}
-                      onClick={() => setField('moscow', v)}
-                    >
-                      {MOSCOW_LABEL[v]}
-                    </button>
-                  );
-                })}
-              </div>
+              <Popover
+                trigger={(open, isOpen) => (
+                  <button
+                    type="button"
+                    className={`badge moscow-${currentMoscow}${isOpen ? ' open' : ''}`}
+                    onClick={open}
+                  >
+                    {MOSCOW_LABEL[currentMoscow]}
+                  </button>
+                )}
+              >
+                {(close) => (
+                  <ul className="picker-list">
+                    {MOSCOW_OPTS.map((v) => (
+                      <li key={v}>
+                        <button
+                          type="button"
+                          className={v === currentMoscow ? 'active' : ''}
+                          onClick={() => {
+                            setField('moscow', v);
+                            close();
+                          }}
+                        >
+                          {MOSCOW_LABEL[v]}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Popover>
             </dd>
           </div>
 
           <div className="task-detail-field">
             <dt>Modo</dt>
             <dd>
-              <div className="task-detail-options">
-                {MODO_OPTS.map((v) => {
-                  const current = task.modo || 'manual';
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      className={`badge modo-${v}${v === current ? ' active' : ''}`}
-                      onClick={() => setField('modo', v)}
-                    >
-                      {MODO_LABEL[v]}
-                    </button>
-                  );
-                })}
-              </div>
+              <Popover
+                trigger={(open, isOpen) => (
+                  <button
+                    type="button"
+                    className={`badge modo-${currentModo}${isOpen ? ' open' : ''}`}
+                    onClick={open}
+                  >
+                    {MODO_LABEL[currentModo]}
+                  </button>
+                )}
+              >
+                {(close) => (
+                  <ul className="picker-list">
+                    {MODO_OPTS.map((v) => (
+                      <li key={v}>
+                        <button
+                          type="button"
+                          className={v === currentModo ? 'active' : ''}
+                          onClick={() => {
+                            setField('modo', v);
+                            close();
+                          }}
+                        >
+                          {MODO_LABEL[v]}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Popover>
             </dd>
           </div>
 
           <div className="task-detail-field">
             <dt>Esforço</dt>
             <dd>
-              <div className="task-detail-options">
-                {ESFORCO_OPTS.map((v) => {
-                  const current = task.esforco || 'longo';
-                  return (
-                    <button
-                      key={v}
-                      type="button"
-                      className={`badge esforco-${v}${v === current ? ' active' : ''}`}
-                      onClick={() => setField('esforco', v)}
-                    >
-                      {ESFORCO_LABEL[v]}
-                    </button>
-                  );
-                })}
-              </div>
+              <Popover
+                trigger={(open, isOpen) => (
+                  <button
+                    type="button"
+                    className={`badge esforco-${currentEsforco}${isOpen ? ' open' : ''}`}
+                    onClick={open}
+                  >
+                    {ESFORCO_LABEL[currentEsforco]}
+                  </button>
+                )}
+              >
+                {(close) => (
+                  <ul className="picker-list">
+                    {ESFORCO_OPTS.map((v) => (
+                      <li key={v}>
+                        <button
+                          type="button"
+                          className={v === currentEsforco ? 'active' : ''}
+                          onClick={() => {
+                            setField('esforco', v);
+                            close();
+                          }}
+                        >
+                          {ESFORCO_LABEL[v]}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </Popover>
             </dd>
           </div>
 
@@ -359,16 +434,6 @@ export function TaskDetailView({
             )}
           </h3>
           <SubtaskList subtasks={task.subtasks} onChange={setSubtasks} />
-        </section>
-
-        <section className="task-detail-actions">
-          <button
-            type="button"
-            className="link-btn danger"
-            onClick={handleDelete}
-          >
-            Apagar tarefa
-          </button>
         </section>
       </div>
 
