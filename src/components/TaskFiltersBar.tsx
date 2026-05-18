@@ -210,6 +210,7 @@ export function TaskFiltersBar({
 
   function clearFilters() {
     setState(defaultFiltersState());
+    setOpen(false);
   }
 
   const count = activeFilterCount(state, showHideZero);
