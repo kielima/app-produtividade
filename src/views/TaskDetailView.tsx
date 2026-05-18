@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { DepPicker } from '../components/DepPicker';
 import { InlineEdit } from '../components/InlineEdit';
+import { MarkdownNote } from '../components/MarkdownNote';
 import { Popover } from '../components/Popover';
 import { SubtaskList } from '../components/SubtaskList';
 import { getDisplayTitle } from '../lib/parser';
@@ -417,12 +418,10 @@ export function TaskDetailView({
 
         <section className="task-detail-section">
           <h3>Nota</h3>
-          <InlineEdit
+          <MarkdownNote
             value={task.note}
             onSave={setNote}
             placeholder="(sem nota)"
-            multiline
-            className="task-detail-note"
           />
         </section>
 
