@@ -97,6 +97,23 @@ export async function recordDuelAndPersist(
 }
 
 /**
+ * Desfaz um duelo restaurando os ratings *anteriores* dos dois projetos.
+ * Quem chama deve fornecer o snapshot capturado antes do duelo.
+ */
+export async function revertDuelAndPersist(
+  uid: string,
+  aId: string,
+  aRatingBefore: GlickoRating,
+  bId: string,
+  bRatingBefore: GlickoRating,
+): Promise<void> {
+  const batch = writeBatch(db);
+  batch.set(glickoDoc(uid, aId), sanitize(aRatingBefore), { merge: true });
+  batch.set(glickoDoc(uid, bId), sanitize(bRatingBefore), { merge: true });
+  await batch.commit();
+}
+
+/**
  * Retorna ratings para uma lista de projetos, usando o default para os
  * que ainda não têm rating persistido. Não persiste — útil para ler e
  * ordenar sem efeitos colaterais.

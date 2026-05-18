@@ -16,6 +16,7 @@ import {
 import { reorderProjects } from '../repositories/projectsRepo';
 import {
   recordDuelAndPersist,
+  revertDuelAndPersist,
   subscribeToGlickoRatings,
   type GlickoMap,
 } from '../repositories/glickoRepo';
@@ -24,6 +25,15 @@ import type { Project } from '../types';
 const INACTIVE_STATUSES = new Set(['Concluído', 'Cancelado']);
 
 type Phase = 'dueling' | 'summary';
+
+type UndoSnapshot = {
+  pair: Pair;
+  winnerId: string;
+  loserId: string;
+  winnerRatingBefore: GlickoRating;
+  loserRatingBefore: GlickoRating;
+  prevLastPair: Pair | null;
+};
 
 export function ProjectDuelView({
   uid,
@@ -41,6 +51,7 @@ export function ProjectDuelView({
   const [closing, setClosing] = useState(false);
   const [phase, setPhase] = useState<Phase>('dueling');
   const [summary, setSummary] = useState<DuelSummary | null>(null);
+  const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
   const lastPairRef = useRef<Pair | null>(null);
   /** Snapshot dos ativos no momento em que a sessão começa — base do diff final. */
   const initialOrderRef = useRef<string[] | null>(null);
@@ -99,6 +110,8 @@ export function ProjectDuelView({
     const loserId = pair[0] === winnerId ? pair[1] : pair[0];
     const winnerRating = ratings[winnerId] ?? { ...DEFAULT_RATING };
     const loserRating = ratings[loserId] ?? { ...DEFAULT_RATING };
+    const pickedPair = pair;
+    const prevLastPair = lastPairRef.current;
     setBusy(true);
     try {
       const result = await recordDuelAndPersist(
@@ -108,10 +121,18 @@ export function ProjectDuelView({
         loserId,
         loserRating,
       );
-      lastPairRef.current = pair;
+      lastPairRef.current = pickedPair;
       const nextCount = duelCount + 1;
       setDuelCount(nextCount);
       setPair(null);
+      setUndoSnapshot({
+        pair: pickedPair,
+        winnerId,
+        loserId,
+        winnerRatingBefore: winnerRating,
+        loserRatingBefore: loserRating,
+        prevLastPair,
+      });
       if (nextCount >= limitRef.current) {
         // Usa os ratings recém-aplicados (snapshot ainda não chegou via listener).
         const mergedRatings: GlickoMap = {
@@ -136,10 +157,35 @@ export function ProjectDuelView({
     }
   }
 
+  async function handleUndo() {
+    if (!undoSnapshot || busy) return;
+    setBusy(true);
+    try {
+      await revertDuelAndPersist(
+        uid,
+        undoSnapshot.winnerId,
+        undoSnapshot.winnerRatingBefore,
+        undoSnapshot.loserId,
+        undoSnapshot.loserRatingBefore,
+      );
+      lastPairRef.current = undoSnapshot.prevLastPair;
+      setDuelCount((c) => Math.max(0, c - 1));
+      setPair(undoSnapshot.pair);
+      setSummary(null);
+      setPhase('dueling');
+      setUndoSnapshot(null);
+    } catch (err) {
+      console.error('Falha ao desfazer duelo', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   function handleSkip() {
     if (phase !== 'dueling') return;
     lastPairRef.current = pair;
     setPair(null);
+    setUndoSnapshot(null);
     generateNextPair();
   }
 
@@ -192,6 +238,8 @@ export function ProjectDuelView({
           projectById={projectById}
           onClose={handleClose}
           closing={closing}
+          onUndo={undoSnapshot ? handleUndo : undefined}
+          undoing={busy}
         />
       </section>
     );
@@ -234,6 +282,17 @@ export function ProjectDuelView({
       )}
 
       <div className="duel-actions">
+        {undoSnapshot && (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={handleUndo}
+            disabled={busy}
+            aria-label="desfazer último duelo"
+          >
+            desfazer
+          </button>
+        )}
         <button
           type="button"
           className="btn-secondary"
@@ -341,12 +400,16 @@ function DuelSummaryView({
   projectById,
   onClose,
   closing,
+  onUndo,
+  undoing,
 }: {
   summary: DuelSummary;
   duelCount: number;
   projectById: Record<string, Project>;
   onClose: () => void;
   closing: boolean;
+  onUndo?: () => void;
+  undoing: boolean;
 }) {
   const nameOf = (id: string) => projectById[id]?.name ?? id;
   const nothingMoved = summary.risers.length === 0 && summary.fallers.length === 0;
@@ -408,6 +471,17 @@ function DuelSummaryView({
       )}
 
       <div className="duel-actions">
+        {onUndo && (
+          <button
+            type="button"
+            className="btn-secondary"
+            onClick={onUndo}
+            disabled={undoing || closing}
+            aria-label="desfazer último duelo"
+          >
+            desfazer último
+          </button>
+        )}
         <button
           type="button"
           className="btn-primary"
