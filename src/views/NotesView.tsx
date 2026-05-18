@@ -1,3 +1,5 @@
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { NewNoteFab } from '../components/NewNoteFab';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import type { Note } from '../types';
@@ -17,7 +19,11 @@ function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
       <p className="note-card-title">
         {note.title || <span className="muted">(sem título)</span>}
       </p>
-      {note.note && <p className="note-card-preview">{note.note}</p>}
+      {note.note && (
+        <div className="note-card-preview markdown-note-preview">
+          <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.note}</ReactMarkdown>
+        </div>
+      )}
       {hasItems && (
         <p className="note-card-items muted">
           Lista: {checkedCount}/{note.items.length}
