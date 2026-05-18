@@ -31,7 +31,7 @@ import { TaskDetailView } from './views/TaskDetailView';
 import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
 import { createProject } from './repositories/projectsRepo';
-import { subscribeToNotes } from './repositories/notesRepo';
+import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
 import type { Note } from './types';
 
@@ -177,6 +177,55 @@ function AppShell({
   useEffect(() => {
     const unsub = subscribeToNotes(uid, setNotes);
     return unsub;
+  }, [uid]);
+
+  useEffect(() => {
+    const raw = sessionStorage.getItem('pendingShare');
+    if (!raw) return;
+    sessionStorage.removeItem('pendingShare');
+
+    let cancelled = false;
+
+    async function processShare() {
+      let share: { title: string; text: string; url: string };
+      try {
+        share = JSON.parse(raw!);
+      } catch {
+        return;
+      }
+
+      const sharedUrl = share.url || share.text;
+      if (!sharedUrl) return;
+
+      let title = share.title;
+      if (!title) {
+        try {
+          const res = await fetch(
+            `https://api.microlink.io?url=${encodeURIComponent(sharedUrl)}`,
+          );
+          const json = await res.json();
+          title = json?.data?.title ?? '';
+        } catch {
+          // microlink indisponível — usa a URL como título
+        }
+      }
+
+      if (cancelled) return;
+
+      const note = await createNote(uid);
+      await patchNote(uid, note.id, {
+        title: title || sharedUrl,
+        note: sharedUrl,
+      });
+
+      if (cancelled) return;
+      setTab('notes');
+      setSelectedNoteId(note.id);
+    }
+
+    processShare();
+    return () => { cancelled = true; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
 
   const taskNavValue = useMemo(
