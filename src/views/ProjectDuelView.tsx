@@ -7,7 +7,12 @@ import {
   type DuelSummary,
   type Pair,
 } from '../lib/duelPairing';
-import { classifyVolatility, DEFAULT_RATING, type GlickoRating } from '../lib/glicko2';
+import {
+  classifyConfidence,
+  classifyVolatility,
+  DEFAULT_RATING,
+  type GlickoRating,
+} from '../lib/glicko2';
 import { reorderProjects } from '../repositories/projectsRepo';
 import {
   recordDuelAndPersist,
@@ -300,7 +305,8 @@ function DuelCard({
   disabled: boolean;
 }) {
   const effective = rating ?? DEFAULT_RATING;
-  const level = classifyVolatility(effective.sigma);
+  const volLevel = classifyVolatility(effective.sigma);
+  const confLevel = classifyConfidence(effective.rd);
   return (
     <button
       type="button"
@@ -314,10 +320,16 @@ function DuelCard({
         {Math.round(effective.r)} ± {Math.round(effective.rd)}
       </span>
       <span
-        className={`duel-card-volatility duel-card-volatility--${level}`}
-        title={`volatilidade σ=${effective.sigma.toFixed(3)}`}
+        className={`duel-card-badge duel-card-badge--${volLevel}`}
+        title={`σ=${effective.sigma.toFixed(3)}`}
       >
-        volatilidade: {level}
+        {volLevel} volatilidade
+      </span>
+      <span
+        className={`duel-card-badge duel-card-badge--${confLevel}-conf`}
+        title={`RD=${Math.round(effective.rd)}`}
+      >
+        {confLevel} confiança
       </span>
     </button>
   );

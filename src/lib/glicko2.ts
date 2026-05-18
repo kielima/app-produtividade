@@ -173,3 +173,19 @@ export function classifyVolatility(sigma: number): VolatilityLevel {
   if (sigma < 0.075) return 'média';
   return 'alta';
 }
+
+export type ConfidenceLevel = 'baixa' | 'média' | 'alta';
+
+/**
+ * Classifica a confiança no rating com base no RD (rating deviation).
+ * RD vive entre ~30 (clamp inferior) e 350 (default máximo); menor RD
+ * = posição mais bem estabelecida.
+ *   - alta  : rd ≤ 80   → muitos duelos, posição estável
+ *   - média : 80 < rd ≤ 200 → sinal razoável, ainda oscila
+ *   - baixa : rd > 200  → poucos duelos / projeto novo
+ */
+export function classifyConfidence(rd: number): ConfidenceLevel {
+  if (rd <= 80) return 'alta';
+  if (rd <= 200) return 'média';
+  return 'baixa';
+}
