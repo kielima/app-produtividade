@@ -1377,6 +1377,10 @@ a:focus-visible {
   gap: 0.3rem;
   flex-shrink: 0;
 }
+@media (max-width: 600px) {
+  .project-line { flex-wrap: wrap; }
+  .project-glicko-badges { order: 3; width: 100%; margin-top: 0.25rem; }
+}
 
 .badge.status-a-iniciar { background: #e2e8f0; color: #1f2937; }
 .badge.status-em-planejamento { background: #ddd6fe; color: #1f2937; }
