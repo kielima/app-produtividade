@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
 import type { ProjectFiltersState } from '../components/ProjectFiltersBar';
+import { subscribeToGlickoRatings, type GlickoMap } from '../repositories/glickoRepo';
 import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import type { Project, Task } from '../types';
@@ -14,6 +15,7 @@ export function ProjectsView({
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [glickoMap, setGlickoMap] = useState<GlickoMap>({});
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
@@ -22,9 +24,11 @@ export function ProjectsView({
     const onErr = (e: Error) => setError(e.message);
     const unsubProjects = subscribeToProjects(uid, setProjects, onErr);
     const unsubTasks = subscribeToTasks(uid, setTasks, onErr);
+    const unsubGlicko = subscribeToGlickoRatings(uid, setGlickoMap, onErr);
     return () => {
       unsubProjects();
       unsubTasks();
+      unsubGlicko();
     };
   }, [uid]);
 
@@ -69,6 +73,7 @@ export function ProjectsView({
             key={p.id}
             project={p}
             taskCount={taskCountByProject[p.id] ?? 0}
+            glickoRating={glickoMap[p.id]}
           />
         ))}
       </div>

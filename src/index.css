@@ -1372,6 +1372,11 @@ a:focus-visible {
   border-radius: 3px;
 }
 .project-task-count-btn:hover { background: var(--surface-2); }
+.project-glicko-badges {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
 
 .badge.status-a-iniciar { background: #e2e8f0; color: #1f2937; }
 .badge.status-em-planejamento { background: #ddd6fe; color: #1f2937; }
