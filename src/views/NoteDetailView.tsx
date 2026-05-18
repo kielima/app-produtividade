@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { InlineEdit } from '../components/InlineEdit';
+import { MarkdownNote } from '../components/MarkdownNote';
 import { SubtaskList } from '../components/SubtaskList';
 import { deleteNote, patchNote } from '../repositories/notesRepo';
 import type { Note, Subtask } from '../types';
@@ -90,12 +91,10 @@ export function NoteDetailView({
 
         <section className="task-detail-section">
           <h3>Nota</h3>
-          <InlineEdit
+          <MarkdownNote
             value={note.note}
             onSave={setNoteText}
             placeholder="(sem nota)"
-            multiline
-            className="task-detail-note"
           />
         </section>
 
