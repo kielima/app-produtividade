@@ -64,7 +64,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
 
 export function App() {
   const [user, loading, error] = useAuthState(auth);
-  const [tab, setTab] = useState<Tab>('tasks');
+  const [tab, setTab] = useState<Tab>('projects');
   const [menuOpen, setMenuOpen] = useState(false);
   const [taskView, setTaskView] = useState<TaskView>(() => {
     const stored = localStorage.getItem(TASK_VIEW_KEY);
