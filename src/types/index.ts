@@ -57,6 +57,14 @@ export interface Project {
   order?: number;
 }
 
+export interface Note {
+  id: string;
+  title: string;
+  note: string;
+  items: Subtask[];
+  addedDate: string;
+}
+
 export interface DependencyEntry {
   blockedByIds: string[];
   unlocksIds: string[];

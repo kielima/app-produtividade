@@ -19,6 +19,7 @@ import {
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
+import { NoteNavigationContext } from './lib/noteNavigation';
 import { ProjectNavigationContext } from './lib/projectNavigation';
 import { TaskNavigationContext } from './lib/taskNavigation';
 import { useUserData } from './lib/useUserData';
@@ -27,8 +28,12 @@ import { ProjectDuelView } from './views/ProjectDuelView';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
 import { TaskDetailView } from './views/TaskDetailView';
+import { NoteDetailView } from './views/NoteDetailView';
+import { NotesView } from './views/NotesView';
 import { createProject } from './repositories/projectsRepo';
+import { subscribeToNotes } from './repositories/notesRepo';
 import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
+import type { Note } from './types';
 
 const TASK_VIEW_KEY = 'app-produtividade:task-view';
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
@@ -54,9 +59,10 @@ function loadProjectFilters(): ProjectFiltersState {
   }
 }
 
-type Tab = 'tasks' | 'projects' | 'settings';
+type Tab = 'notes' | 'tasks' | 'projects' | 'settings';
 
 const TABS: Array<{ key: Tab; label: string }> = [
+  { key: 'notes', label: 'Anotações' },
   { key: 'tasks', label: 'Tarefas' },
   { key: 'projects', label: 'Projetos' },
   { key: 'settings', label: 'Configurações' },
@@ -64,7 +70,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
 
 export function App() {
   const [user, loading, error] = useAuthState(auth);
-  const [tab, setTab] = useState<Tab>('projects');
+  const [tab, setTab] = useState<Tab>('notes');
   const [menuOpen, setMenuOpen] = useState(false);
   const [taskView, setTaskView] = useState<TaskView>(() => {
     const stored = localStorage.getItem(TASK_VIEW_KEY);
@@ -164,7 +170,14 @@ function AppShell({
   const data = useUserData(uid);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
+  const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  const [notes, setNotes] = useState<Note[]>([]);
   const [duelOpen, setDuelOpen] = useState(false);
+
+  useEffect(() => {
+    const unsub = subscribeToNotes(uid, setNotes);
+    return unsub;
+  }, [uid]);
 
   const taskNavValue = useMemo(
     () => ({ openTask: (taskId: string) => setSelectedTaskId(taskId) }),
@@ -183,12 +196,19 @@ function AppShell({
     }),
     [setFilters, setTaskView, setTab],
   );
+  const noteNavValue = useMemo(
+    () => ({ openNote: (noteId: string) => setSelectedNoteId(noteId) }),
+    [],
+  );
 
   const selectedTask = selectedTaskId
     ? data.tasks.find((t) => t.id === selectedTaskId) ?? null
     : null;
   const selectedProject = selectedProjectId
     ? data.projects.find((p) => p.id === selectedProjectId) ?? null
+    : null;
+  const selectedNote = selectedNoteId
+    ? notes.find((n) => n.id === selectedNoteId) ?? null
     : null;
 
   useEffect(() => {
@@ -203,10 +223,33 @@ function AppShell({
     }
   }, [selectedProjectId, selectedProject, data.projects.length]);
 
+  useEffect(() => {
+    if (selectedNoteId && !selectedNote && notes.length > 0) {
+      setSelectedNoteId(null);
+    }
+  }, [selectedNoteId, selectedNote, notes.length]);
+
   const selectedProjectTaskCount = useMemo(() => {
     if (!selectedProject) return 0;
     return data.tasks.filter((t) => t.section === selectedProject.id).length;
   }, [selectedProject, data.tasks]);
+
+  if (selectedNote) {
+    return (
+      <NoteNavigationContext.Provider value={noteNavValue}>
+        <div className="app app--detail">
+          <main role="main">
+            <NoteDetailView
+              uid={uid}
+              note={selectedNote}
+              onClose={() => setSelectedNoteId(null)}
+            />
+          </main>
+          <UpdatePrompt />
+        </div>
+      </NoteNavigationContext.Provider>
+    );
+  }
 
   if (selectedTask) {
     return (
@@ -272,6 +315,7 @@ function AppShell({
   }
 
   return (
+    <NoteNavigationContext.Provider value={noteNavValue}>
     <TaskNavigationContext.Provider value={taskNavValue}>
     <ProjectNavigationContext.Provider value={projectNavValue}>
     <div className="app">
@@ -371,6 +415,7 @@ function AppShell({
       />
 
       <main role="main">
+        {tab === 'notes' && <NotesView uid={uid} notes={notes} />}
         {tab === 'tasks' && (
           <TasksRoot uid={uid} view={taskView} data={data} filters={filters} />
         )}
@@ -384,5 +429,6 @@ function AppShell({
     </div>
     </ProjectNavigationContext.Provider>
     </TaskNavigationContext.Provider>
+    </NoteNavigationContext.Provider>
   );
 }
