@@ -5,6 +5,8 @@ import { NewNoteFab } from '../components/NewNoteFab';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import type { Note } from '../types';
 
+const HIDDEN_BY_DEFAULT_TAG = 'porno';
+
 function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
   const hasItems = note.items.length > 0;
   const checkedCount = note.items.filter((i) => i.checked).length;
@@ -59,8 +61,10 @@ export function NotesView({
   const filteredNotes = useMemo(() => {
     const q = searchQuery.trim().toLowerCase();
     const required = selectedTags.length > 0 ? new Set(selectedTags) : null;
-    if (!q && !required) return notes;
+    // Oculta notas com a tag 'porno' a menos que ela tenha sido selecionada no filtro.
+    const hideHidden = !required || !required.has(HIDDEN_BY_DEFAULT_TAG);
     return notes.filter((n) => {
+      if (hideHidden && n.tags.includes(HIDDEN_BY_DEFAULT_TAG)) return false;
       if (required) {
         const noteTags = new Set(n.tags);
         for (const t of required) if (!noteTags.has(t)) return false;
