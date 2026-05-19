@@ -1,3 +1,4 @@
+import { useMemo, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { NewNoteFab } from '../components/NewNoteFab';
@@ -29,20 +30,89 @@ function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
           Lista: {checkedCount}/{note.items.length}
         </p>
       )}
+      {note.tags.length > 0 && (
+        <div className="note-card-tags">
+          {note.tags.map((tag) => (
+            <span key={tag} className="tag-chip tag-chip-static">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
     </article>
   );
 }
 
 export function NotesView({ uid, notes }: { uid: string; notes: Note[] }) {
   const { openNote } = useNoteNavigation();
+  const [selectedTags, setSelectedTags] = useState<string[]>([]);
+
+  const allTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of notes) {
+      for (const tag of n.tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [notes]);
+
+  const filteredNotes = useMemo(() => {
+    if (selectedTags.length === 0) return notes;
+    const required = new Set(selectedTags);
+    return notes.filter((n) => {
+      const noteTags = new Set(n.tags);
+      for (const t of required) if (!noteTags.has(t)) return false;
+      return true;
+    });
+  }, [notes, selectedTags]);
+
+  function toggleTag(tag: string) {
+    setSelectedTags((prev) =>
+      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+    );
+  }
 
   return (
     <>
-      {notes.length === 0 ? (
-        <p className="muted notes-empty">Nenhuma anotação ainda. Toque em + para criar.</p>
+      {allTags.length > 0 && (
+        <div className="notes-tags-filter" role="group" aria-label="filtrar por tags">
+          {allTags.map((tag) => {
+            const active = selectedTags.includes(tag);
+            return (
+              <button
+                key={tag}
+                type="button"
+                className={`tag-chip tag-chip-toggle${active ? ' active' : ''}`}
+                onClick={() => toggleTag(tag)}
+                aria-pressed={active}
+              >
+                {tag}
+              </button>
+            );
+          })}
+          {selectedTags.length > 0 && (
+            <button
+              type="button"
+              className="btn-link notes-tags-clear"
+              onClick={() => setSelectedTags([])}
+            >
+              limpar
+            </button>
+          )}
+        </div>
+      )}
+      {filteredNotes.length === 0 ? (
+        <p className="muted notes-empty">
+          {notes.length === 0
+            ? 'Nenhuma anotação ainda. Toque em + para criar.'
+            : 'Nenhuma anotação corresponde às tags selecionadas.'}
+        </p>
       ) : (
         <div className="note-list">
-          {notes.map((n) => (
+          {filteredNotes.map((n) => (
             <NoteCard key={n.id} note={n} onClick={() => openNote(n.id)} />
           ))}
         </div>

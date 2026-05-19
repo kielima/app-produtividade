@@ -1803,6 +1803,127 @@ a:focus-visible {
   font-size: 0.8rem;
 }
 
+.note-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+  pointer-events: none;
+}
+
+/* ===== Tags (chips + editor) ===== */
+.notes-tags-filter {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  margin: 0.25rem 0 0.75rem;
+}
+.notes-tags-clear {
+  margin-left: 0.25rem;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.2rem 0.55rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--fg);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  max-width: 100%;
+  word-break: break-word;
+}
+.tag-chip-label {
+  display: inline-block;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.tag-chip-remove {
+  border: none;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 0.1rem;
+  opacity: 0.7;
+}
+.tag-chip-remove:hover { opacity: 1; }
+
+.tag-chip-static {
+  background: rgba(74, 144, 226, 0.12);
+  color: #2a5a8a;
+  border-color: rgba(74, 144, 226, 0.25);
+}
+
+.tag-chip-toggle {
+  cursor: pointer;
+  color: var(--muted);
+  background: var(--bg);
+}
+.tag-chip-toggle:hover { border-color: var(--accent); }
+.tag-chip-toggle.active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: white;
+}
+
+.tag-chip-suggestion {
+  cursor: pointer;
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+.tag-chip-suggestion:hover { border-color: var(--accent); color: var(--fg); }
+
+.tags-editor {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+}
+.tags-editor-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  align-items: center;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  min-height: 2.25rem;
+}
+.tags-editor-row:focus-within {
+  border-color: var(--accent);
+}
+.tag-input {
+  flex: 1;
+  min-width: 8rem;
+  border: none;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  padding: 0.15rem 0.1rem;
+}
+.tags-editor-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+@media (prefers-color-scheme: dark) {
+  .tag-chip-static {
+    background: rgba(74, 144, 226, 0.2);
+    color: #9cc3ed;
+    border-color: rgba(74, 144, 226, 0.35);
+  }
+}
+
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #1a1a1a;
