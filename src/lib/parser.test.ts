@@ -157,14 +157,14 @@ describe('serializeTitle', () => {
     expect(
       serializeTitle('Sem nada', {
         taskId: null,
-        modo: '',
+        modo: 'manual',
         moscow: '',
         esforco: '',
         deadline: '',
         addedDate: '',
         dependsOn: [],
       }),
-    ).toBe('Sem nada');
+    ).toBe('Sem nada [Manual]');
   });
 
   it('roundtrips: getDisplayTitle(serializeTitle(d, t)) === d', () => {
@@ -185,14 +185,14 @@ describe('serializeTitle', () => {
   it("uses Won't with apostrophe for wont MoSCoW", () => {
     const out = serializeTitle('X', {
       taskId: null,
-      modo: '',
+      modo: 'manual',
       moscow: 'wont',
       esforco: '',
       deadline: '',
       addedDate: '',
       dependsOn: [],
     });
-    expect(out).toBe("X [Won't]");
+    expect(out).toBe("X [Manual] [Won't]");
   });
 });
 

@@ -38,7 +38,7 @@ export function NewTaskFab({
         taskId,
         title: serializeTitle('', {
           taskId,
-          modo: '',
+          modo: 'manual',
           moscow: '',
           esforco: '',
           deadline: '',
@@ -49,7 +49,7 @@ export function NewTaskFab({
         checked: false,
         inProgress: false,
         moscow: '',
-        modo: '',
+        modo: 'manual',
         esforco: '',
         deadline: '',
         addedDate: today,
