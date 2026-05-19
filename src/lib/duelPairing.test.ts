@@ -100,21 +100,28 @@ describe('reorderByRating', () => {
 });
 
 describe('recommendedDuelLimit', () => {
-  it('returns at least 10', () => {
-    expect(recommendedDuelLimit(0)).toBe(10);
-    expect(recommendedDuelLimit(3)).toBe(10);
-    expect(recommendedDuelLimit(5)).toBe(10);
+  it('returns the minimum (5) when average confidence is high (avg RD ≤ 80)', () => {
+    const ratings = { a: fresh(1500, 50), b: fresh(1500, 80) };
+    expect(recommendedDuelLimit(['a', 'b'], ratings)).toBe(5);
   });
 
-  it('scales as N × 2', () => {
-    expect(recommendedDuelLimit(8)).toBe(16);
-    expect(recommendedDuelLimit(10)).toBe(20);
-    expect(recommendedDuelLimit(12)).toBe(24);
+  it('returns the maximum (15) when average confidence is low (avg RD ≥ 200)', () => {
+    const ratings = { a: fresh(1500, 250), b: fresh(1500, 350) };
+    expect(recommendedDuelLimit(['a', 'b'], ratings)).toBe(15);
   });
 
-  it('caps at 25', () => {
-    expect(recommendedDuelLimit(13)).toBe(25);
-    expect(recommendedDuelLimit(50)).toBe(25);
+  it('interpolates linearly between the confidence anchors', () => {
+    // avgRd=140 → t=(140-80)/(200-80)=0.5 → 5 + 0.5*10 = 10
+    const ratings = { a: fresh(1500, 140), b: fresh(1500, 140) };
+    expect(recommendedDuelLimit(['a', 'b'], ratings)).toBe(10);
+  });
+
+  it('treats missing ratings as default (rd=350) and caps at 15', () => {
+    expect(recommendedDuelLimit(['a', 'b'], {})).toBe(15);
+  });
+
+  it('returns the minimum when there are no active ids', () => {
+    expect(recommendedDuelLimit([], {})).toBe(5);
   });
 });
 
