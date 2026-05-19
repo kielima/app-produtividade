@@ -33,7 +33,11 @@ export function parseTagsInput(input: string): string[] {
 /** Tag aplicada automaticamente a notas que contêm pelo menos um link. */
 export const LINK_TAG = 'link';
 
+/** Tag aplicada automaticamente a notas com lista (items ou bullets/markdown). */
+export const LIST_TAG = 'lista';
+
 const URL_RE = /(?:\bhttps?:\/\/|\bwww\.)\S+/i;
+const MD_LIST_RE = /^[ \t]*(?:[-*+]|\d+\.)\s+\S/m;
 
 /**
  * Detecta se um texto contém pelo menos uma URL (http(s)://… ou www.…).
@@ -42,4 +46,14 @@ const URL_RE = /(?:\bhttps?:\/\/|\bwww\.)\S+/i;
 export function hasLink(text: string): boolean {
   if (!text) return false;
   return URL_RE.test(text);
+}
+
+/**
+ * Detecta se a nota tem uma lista — seja pelos `items` (campo Lista da UI)
+ * ou por uma lista em Markdown no corpo (bullets `-`/`*`/`+` ou numerada).
+ */
+export function hasList(items: readonly unknown[], noteText: string): boolean {
+  if (items.length > 0) return true;
+  if (!noteText) return false;
+  return MD_LIST_RE.test(noteText);
 }

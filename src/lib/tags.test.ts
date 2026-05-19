@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { hasLink, normalizeTag, normalizeTags, parseTagsInput } from './tags';
+import { hasLink, hasList, normalizeTag, normalizeTags, parseTagsInput } from './tags';
 
 describe('normalizeTag', () => {
   it('trims, lowercases and collapses spaces', () => {
@@ -53,5 +53,32 @@ describe('hasLink', () => {
     expect(hasLink('apenas texto comum')).toBe(false);
     expect(hasLink('')).toBe(false);
     expect(hasLink('algo.com sem prefixo')).toBe(false);
+  });
+});
+
+describe('hasList', () => {
+  it('retorna true quando há items', () => {
+    expect(hasList([{ text: 'a', checked: false }], '')).toBe(true);
+  });
+
+  it('detecta lista com bullets em markdown', () => {
+    expect(hasList([], '- comprar leite\n- pegar pão')).toBe(true);
+    expect(hasList([], 'intro\n\n* item a\n* item b')).toBe(true);
+    expect(hasList([], '+ item único')).toBe(true);
+  });
+
+  it('detecta lista numerada em markdown', () => {
+    expect(hasList([], '1. primeiro\n2. segundo')).toBe(true);
+  });
+
+  it('detecta checklist em markdown', () => {
+    expect(hasList([], '- [ ] fazer x\n- [x] feito y')).toBe(true);
+  });
+
+  it('retorna false sem items e sem lista no texto', () => {
+    expect(hasList([], 'apenas texto comum')).toBe(false);
+    expect(hasList([], '')).toBe(false);
+    expect(hasList([], '- ')).toBe(false); // bullet sem conteúdo
+    expect(hasList([], '1.sem espaço')).toBe(false);
   });
 });
