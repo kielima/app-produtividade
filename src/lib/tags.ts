@@ -29,3 +29,17 @@ export function normalizeTags(raws: readonly string[]): string[] {
 export function parseTagsInput(input: string): string[] {
   return normalizeTags(input.split(/[,;]/));
 }
+
+/** Tag aplicada automaticamente a notas que contêm pelo menos um link. */
+export const LINK_TAG = 'link';
+
+const URL_RE = /(?:\bhttps?:\/\/|\bwww\.)\S+/i;
+
+/**
+ * Detecta se um texto contém pelo menos uma URL (http(s)://… ou www.…).
+ * Suficiente para cobrir links Markdown `[label](url)` e URLs cruas.
+ */
+export function hasLink(text: string): boolean {
+  if (!text) return false;
+  return URL_RE.test(text);
+}
