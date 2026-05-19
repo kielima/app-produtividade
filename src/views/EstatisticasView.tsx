@@ -2,11 +2,12 @@ import { useEffect, useMemo, useState } from 'react';
 import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
 import type { CompletedTask, MoSCoW, Esforco } from '../types';
 
-type RangeKey = '30' | '90' | '365';
+type RangeKey = '7' | '30' | '90' | '365';
 type Metric = 'count' | 'score';
 type MoSCoWBucket = 'must' | 'should' | 'could' | 'wont';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
+  '7': '7 dias',
   '30': '30 dias',
   '90': '90 dias',
   '365': '1 ano',
@@ -220,7 +221,8 @@ function DailyBars({ buckets, metric }: BarsProps) {
     ...buckets.map((b) => (metric === 'count' ? b.count : b.score)),
   );
   // Mostra labels só em alguns dias pra não poluir
-  const labelEvery = buckets.length > 60 ? 14 : buckets.length > 30 ? 7 : 3;
+  const labelEvery =
+    buckets.length > 60 ? 14 : buckets.length > 30 ? 7 : buckets.length > 14 ? 3 : 1;
   const unit = metric === 'count' ? 'tarefas' : 'pts';
   const digits = metric === 'score' ? 1 : 0;
 
