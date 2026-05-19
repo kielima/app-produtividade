@@ -37,6 +37,7 @@ import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
 import { hasLink, hasList, LINK_TAG, LIST_TAG, normalizeTags } from './lib/tags';
 import { TasksRoot } from './views/TasksRoot';
+import { EstatisticasView } from './views/EstatisticasView';
 import type { Note } from './types';
 
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
@@ -62,12 +63,13 @@ function loadProjectFilters(): ProjectFiltersState {
   }
 }
 
-type Tab = 'notes' | 'tasks' | 'projects' | 'settings';
+type Tab = 'notes' | 'tasks' | 'projects' | 'stats' | 'settings';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'notes', label: 'Keep' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
+  { key: 'stats', label: 'Estatísticas' },
   { key: 'settings', label: 'Configurações' },
 ];
 
@@ -533,6 +535,9 @@ function AppShell({
         )}
         {tab === 'projects' && (
           <ProjectsView uid={uid} filters={projectFilters} />
+        )}
+        {tab === 'stats' && (
+          <EstatisticasView uid={uid} projectScoreMap={data.ctx.projectScoreMap} />
         )}
         {tab === 'settings' && <SettingsView uid={uid} />}
       </main>
