@@ -63,7 +63,7 @@ type Tab = 'notes' | 'tasks' | 'projects' | 'settings';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'notes', label: 'Anotações' },
-  { key: 'tasks', label: 'Tarefas' },
+  { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
   { key: 'settings', label: 'Configurações' },
 ];

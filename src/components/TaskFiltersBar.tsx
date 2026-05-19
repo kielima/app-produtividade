@@ -215,7 +215,7 @@ export function TaskFiltersBar({
     <div className="topbar-filter" ref={wrapRef}>
       <button
         type="button"
-        className="btn-secondary filters-toggle"
+        className={`btn-secondary filters-toggle${count > 0 ? ' filters-toggle--active' : ''}`}
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
         aria-haspopup="dialog"
@@ -237,7 +237,6 @@ export function TaskFiltersBar({
         >
           <path d="M16 18h480L320 240v206l-128 48V240L16 18z" />
         </svg>
-        {count > 0 ? <span className="filters-count">{count}</span> : null}
       </button>
       {open && (
         <div

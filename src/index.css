@@ -371,13 +371,11 @@ a:focus-visible {
   background: transparent;
   color: var(--accent, var(--fg));
 }
+.topbar-filter .filters-toggle.filters-toggle--active {
+  color: var(--accent);
+}
 .topbar-filter .filters-toggle svg {
   display: block;
-}
-.topbar-filter .filters-toggle .filters-count {
-  font-size: 0.75rem;
-  font-weight: 600;
-  line-height: 1;
 }
 .filters-panel-pop {
   position: fixed;
