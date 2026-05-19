@@ -17,6 +17,8 @@ export interface ImportStats {
   tasks: number;
   completedTasks: number;
   projects: number;
+  notes: number;
+  glicko: number;
   memoryProjects: number;
   memoryAutomations: number;
   memoryContext: number;
@@ -31,6 +33,8 @@ function emptyStats(): ImportStats {
     tasks: 0,
     completedTasks: 0,
     projects: 0,
+    notes: 0,
+    glicko: 0,
     memoryProjects: 0,
     memoryAutomations: 0,
     memoryContext: 0,
@@ -131,18 +135,24 @@ export async function importAllData(
   const tasksRef = collection(db, 'users', uid, 'tasks');
   const completedRef = collection(db, 'users', uid, 'completedTasks');
   const projectsRef = collection(db, 'users', uid, 'projects');
+  const notesRef = collection(db, 'users', uid, 'notes');
+  const glickoRef = collection(db, 'users', uid, 'glicko');
 
   if (mode === 'replace') {
     stats.deleted += await deleteAllDocs(sectionsRef);
     stats.deleted += await deleteAllDocs(tasksRef);
     stats.deleted += await deleteAllDocs(completedRef);
     stats.deleted += await deleteAllDocs(projectsRef);
+    stats.deleted += await deleteAllDocs(notesRef);
+    stats.deleted += await deleteAllDocs(glickoRef);
   }
 
   stats.sections = await writeDocs(sectionsRef, payload.sections);
   stats.tasks = await writeDocs(tasksRef, payload.tasks);
   stats.completedTasks = await writeDocs(completedRef, payload.completedTasks);
   stats.projects = await writeDocs(projectsRef, payload.projects);
+  stats.notes = await writeDocs(notesRef, payload.notes);
+  stats.glicko = await writeDocs(glickoRef, payload.glicko);
 
   stats.glossary = await writeMemoryDoc(
     doc(db, 'users', uid, 'memory', 'glossary'),

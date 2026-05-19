@@ -20,6 +20,8 @@ const IMPORT_STAT_LABELS: Record<keyof ImportStats, string> = {
   tasks: 'tasks',
   completedTasks: 'completedTasks',
   projects: 'projects',
+  notes: 'notes',
+  glicko: 'glicko',
   memoryProjects: 'memoryProjects',
   memoryAutomations: 'memoryAutomations',
   memoryContext: 'memoryContext',

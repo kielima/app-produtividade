@@ -1,10 +1,15 @@
-import type { Project, Section, Task } from '../types';
+import type { Note, Project, Section, Task } from '../types';
+import type { GlickoRating } from './glicko2';
 
-export const EXPORT_VERSION = 1;
+export const EXPORT_VERSION = 2;
 
 export interface MemoryDoc {
   id: string;
   content: string;
+}
+
+export interface GlickoEntry extends GlickoRating {
+  id: string;
 }
 
 export interface ExportPayload {
@@ -15,6 +20,8 @@ export interface ExportPayload {
   tasks: Task[];
   completedTasks: Task[];
   projects: Project[];
+  notes: Note[];
+  glicko: GlickoEntry[];
   memory: {
     glossary: string | null;
     claude: string | null;
@@ -55,6 +62,8 @@ export function summarize(payload: ExportPayload): Record<string, number> {
     tasks: payload.tasks.length,
     completedTasks: payload.completedTasks.length,
     projects: payload.projects.length,
+    notes: payload.notes.length,
+    glicko: payload.glicko.length,
     memoryProjects: payload.memory.projectsContext.length,
     memoryAutomations: payload.memory.automations.length,
     memoryContext: payload.memory.context.length,
