@@ -1,15 +1,15 @@
 import { useEffect, useRef } from 'react';
 
-function SearchIcon() {
+function SearchIcon({ size = 22 }: { size?: number }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
       viewBox="0 0 24 24"
-      width="18"
-      height="18"
+      width={size}
+      height={size}
       fill="none"
       stroke="currentColor"
-      strokeWidth="2"
+      strokeWidth="2.2"
       strokeLinecap="round"
       strokeLinejoin="round"
       aria-hidden="true"
@@ -105,7 +105,7 @@ export function SearchInput({
       </button>
       <div className="topbar-searchbar-input-wrap">
         <span className="topbar-searchbar-icon" aria-hidden="true">
-          <SearchIcon />
+          <SearchIcon size={18} />
         </span>
         <input
           ref={inputRef}
