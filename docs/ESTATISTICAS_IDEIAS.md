@@ -27,11 +27,16 @@ Score usado para tarefas arquivadas: **valor intrínseco**
 `projectScore × moscowPts / effortDiv` (sem bônus de deadline/idade, que
 só fazem sentido para tarefas ativas).
 
+## v2 (implementado)
+
+- **Stacked bar por MoSCoW** — cada barra diária dividida em
+  must/should/could/wont, com legenda. Diferencia "produtivo" de
+  "ocupado": revela se o foco está no que importa ou só em tarefas
+  triviais. MoSCoW vazio é agrupado em "could" (mesmo peso de 1 pt,
+  mesma cor — evita 5ª categoria visual).
+
 ## Backlog — composição / breakdown
 
-- **Stacked bar por MoSCoW** — cada barra do dia dividida em
-  must/should/could/wont. Diferencia "produtivo" de "ocupado": revela
-  se o foco está no que importa ou só em tarefas triviais.
 - **Stacked bar por esforço** — rapido/medio/longo. Mostra o perfil de
   carga de trabalho.
 - **Stacked bar por modo** — manual/colaborar/delegar. Você está
