@@ -5,17 +5,9 @@ const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
   colaborar: 'Colaborar',
   delegar: 'Delegar',
-  automatizar: 'Automatizar',
-  '': 'Sem modo',
 };
 
-export const MODO_VALUES: Modo[] = [
-  'manual',
-  'colaborar',
-  'delegar',
-  'automatizar',
-  '',
-];
+export const MODO_VALUES: Modo[] = ['manual', 'colaborar', 'delegar'];
 
 const MOSCOW_LABEL: Record<MoSCoW, string> = {
   must: 'Must',
@@ -315,7 +307,7 @@ export function TaskFiltersBar({
             <div className="chip-group">
               {MODO_VALUES.map((m) => (
                 <button
-                  key={m || 'empty'}
+                  key={m}
                   type="button"
                   className={`chip${state.modoFilter.has(m) ? ' active' : ''}`}
                   onClick={() => toggleModo(m)}
