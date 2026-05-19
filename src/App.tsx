@@ -12,6 +12,7 @@ import { SidebarMenu } from './components/SidebarMenu';
 import {
   defaultFiltersState,
   deserializeFiltersState,
+  ProjectCombobox,
   serializeFiltersState,
   TaskFiltersBar,
   type TaskFiltersState,
@@ -389,16 +390,26 @@ function AppShell({
           {TABS.find((t) => t.key === tab)?.label}
         </span>
         {tab === 'tasks' && (
-          <TaskFiltersBar
-            state={filters}
-            setState={setFilters}
-            projects={data.projects}
-            showHideZero={true}
-            onCreateProject={async (name) => {
-              const p = await createProject(uid, name, data.projects.length);
-              return p.id;
-            }}
-          />
+          <>
+            <div className="topbar-project-picker">
+              <ProjectCombobox
+                value={filters.projectFilter}
+                onChange={(next) =>
+                  setFilters({ ...filters, projectFilter: next })
+                }
+                projects={data.projects}
+                onCreateProject={async (name) => {
+                  const p = await createProject(uid, name, data.projects.length);
+                  return p.id;
+                }}
+              />
+            </div>
+            <TaskFiltersBar
+              state={filters}
+              setState={setFilters}
+              showHideZero={true}
+            />
+          </>
         )}
         {tab === 'projects' && (
           <>

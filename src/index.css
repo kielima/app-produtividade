@@ -365,6 +365,24 @@ a:focus-visible {
   margin-bottom: 0;
 }
 
+/* Combobox de projeto na topbar (ao lado do menu e do filtro) */
+.topbar-project-picker {
+  flex: 1;
+  min-width: 0;
+  margin-left: 0.25rem;
+  display: flex;
+  align-items: center;
+}
+.topbar-project-picker .combobox {
+  width: 100%;
+  max-width: 16rem;
+  min-width: 0;
+}
+.topbar-project-picker .combobox-input {
+  font-size: 0.85rem;
+  padding: 0.35rem 2.25rem 0.35rem 0.55rem;
+}
+
 /* Botão de filtro fixo no canto direito do topbar */
 .topbar-filter {
   position: relative;
