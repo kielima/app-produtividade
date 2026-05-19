@@ -4,12 +4,30 @@ import type { CompletedTask, MoSCoW, Esforco } from '../types';
 
 type RangeKey = '30' | '90' | '365';
 type Metric = 'count' | 'score';
+type MoSCoWBucket = 'must' | 'should' | 'could' | 'wont';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   '30': '30 dias',
   '90': '90 dias',
   '365': '1 ano',
 };
+
+// Ordem visual de baixo pra cima na barra empilhada — must é a base.
+const MOSCOW_ORDER: MoSCoWBucket[] = ['must', 'should', 'could', 'wont'];
+
+const MOSCOW_LABELS: Record<MoSCoWBucket, string> = {
+  must: 'Must',
+  should: 'Should',
+  could: 'Could',
+  wont: "Won't",
+};
+
+// MoSCoW vazio cai em "could" — mesmo peso (1 pt) no score, sem precisar
+// de um 5º bucket com cor própria.
+function bucketize(m: MoSCoW): MoSCoWBucket {
+  if (m === '' || m == null) return 'could';
+  return m;
+}
 
 const MOSCOW_PTS: Record<MoSCoW, number> = {
   must: 3,
@@ -54,11 +72,26 @@ function intrinsicValue(
   return (projectScore * moscowPts) / effortDiv;
 }
 
+interface MoscowSlot {
+  count: number;
+  score: number;
+}
+
 interface DayBucket {
   date: Date;
   key: string;
   count: number;
   score: number;
+  byMoscow: Record<MoSCoWBucket, MoscowSlot>;
+}
+
+function emptySlots(): Record<MoSCoWBucket, MoscowSlot> {
+  return {
+    must: { count: 0, score: 0 },
+    should: { count: 0, score: 0 },
+    could: { count: 0, score: 0 },
+    wont: { count: 0, score: 0 },
+  };
 }
 
 function buildDailyBuckets(
@@ -72,7 +105,13 @@ function buildDailyBuckets(
   for (let i = rangeDays - 1; i >= 0; i--) {
     const d = new Date(today);
     d.setDate(d.getDate() - i);
-    const b: DayBucket = { date: d, key: dayKey(d), count: 0, score: 0 };
+    const b: DayBucket = {
+      date: d,
+      key: dayKey(d),
+      count: 0,
+      score: 0,
+      byMoscow: emptySlots(),
+    };
     buckets.push(b);
     index.set(b.key, b);
   }
@@ -81,8 +120,12 @@ function buildDailyBuckets(
     const k = dayKey(startOfDay(t.archivedAt));
     const b = index.get(k);
     if (!b) continue;
+    const value = intrinsicValue(t, projectScoreMap);
+    const slot = b.byMoscow[bucketize(t.moscow)];
     b.count += 1;
-    b.score += intrinsicValue(t, projectScoreMap);
+    b.score += value;
+    slot.count += 1;
+    slot.score += value;
   }
   return buckets;
 }
@@ -167,6 +210,10 @@ interface BarsProps {
   metric: Metric;
 }
 
+function slotValue(slot: MoscowSlot, metric: Metric): number {
+  return metric === 'count' ? slot.count : slot.score;
+}
+
 function DailyBars({ buckets, metric }: BarsProps) {
   const max = Math.max(
     1,
@@ -174,6 +221,8 @@ function DailyBars({ buckets, metric }: BarsProps) {
   );
   // Mostra labels só em alguns dias pra não poluir
   const labelEvery = buckets.length > 60 ? 14 : buckets.length > 30 ? 7 : 3;
+  const unit = metric === 'count' ? 'tarefas' : 'pts';
+  const digits = metric === 'score' ? 1 : 0;
 
   return (
     <div
@@ -182,19 +231,34 @@ function DailyBars({ buckets, metric }: BarsProps) {
       aria-label="Gráfico de barras por dia"
     >
       {buckets.map((b, i) => {
-        const value = metric === 'count' ? b.count : b.score;
-        const heightPct = (value / max) * 100;
+        const total = metric === 'count' ? b.count : b.score;
+        const heightPct = (total / max) * 100;
         const showLabel = i % labelEvery === 0 || i === buckets.length - 1;
-        const title = `${formatBR(b.date)} — ${value.toFixed(
-          metric === 'score' ? 1 : 0,
-        )} ${metric === 'count' ? 'tarefas' : 'pts'}`;
+        const breakdown = MOSCOW_ORDER.map((m) => {
+          const v = slotValue(b.byMoscow[m], metric);
+          return v > 0 ? `\n  ${MOSCOW_LABELS[m]}: ${v.toFixed(digits)}` : '';
+        }).join('');
+        const title =
+          `${formatBR(b.date)} — ${total.toFixed(digits)} ${unit}` + breakdown;
         return (
           <div key={b.key} className="stats-bar-col" title={title}>
             <div className="stats-bar-track">
               <div
-                className="stats-bar-fill"
+                className="stats-bar-stack"
                 style={{ height: `${heightPct}%` }}
-              />
+              >
+                {MOSCOW_ORDER.map((m) => {
+                  const v = slotValue(b.byMoscow[m], metric);
+                  if (v <= 0) return null;
+                  return (
+                    <div
+                      key={m}
+                      className={`stats-bar-seg stats-bar-seg--${m}`}
+                      style={{ flexGrow: v }}
+                    />
+                  );
+                })}
+              </div>
             </div>
             <div className="stats-bar-label">
               {showLabel
@@ -208,6 +272,22 @@ function DailyBars({ buckets, metric }: BarsProps) {
         );
       })}
     </div>
+  );
+}
+
+function MoscowLegend() {
+  return (
+    <ul className="stats-legend" aria-label="Legenda MoSCoW">
+      {MOSCOW_ORDER.map((m) => (
+        <li key={m} className="stats-legend-item">
+          <span
+            className={`stats-legend-swatch stats-legend-swatch--${m}`}
+            aria-hidden="true"
+          />
+          {MOSCOW_LABELS[m]}
+        </li>
+      ))}
+    </ul>
   );
 }
 
@@ -366,6 +446,7 @@ export function EstatisticasView({ uid, projectScoreMap }: EstatisticasViewProps
               {metric === 'count' ? 'Tarefas por dia' : 'Score por dia'}
             </h3>
             <DailyBars buckets={buckets} metric={metric} />
+            <MoscowLegend />
           </div>
         </>
       )}
