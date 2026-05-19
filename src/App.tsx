@@ -34,6 +34,7 @@ import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
 import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
+import { hasLink, LINK_TAG, normalizeTags } from './lib/tags';
 import { TasksRoot } from './views/TasksRoot';
 import type { Note } from './types';
 
@@ -166,6 +167,17 @@ function AppShell({
     const unsub = subscribeToNotes(uid, setNotes);
     return unsub;
   }, [uid]);
+
+  // Automação: garante a tag `link` em toda nota com URL no texto. Roda sempre
+  // que a lista é atualizada — cobre notas existentes (backfill) e novas
+  // edições, sem custo extra quando a tag já está presente.
+  useEffect(() => {
+    for (const n of notes) {
+      if (!hasLink(n.note)) continue;
+      if (n.tags.includes(LINK_TAG)) continue;
+      patchNote(uid, n.id, { tags: normalizeTags([...n.tags, LINK_TAG]) });
+    }
+  }, [notes, uid]);
 
   useEffect(() => {
     const raw = sessionStorage.getItem('pendingShare');
