@@ -30,8 +30,6 @@ const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
   colaborar: 'Colaborar',
   delegar: 'Delegar',
-  automatizar: 'Automatizar',
-  '': 'Sem modo',
 };
 
 const ESFORCO_LABEL: Record<Esforco, string> = {
@@ -51,7 +49,7 @@ const STATUS_LABEL: Record<KanbanStatus, string> = {
 
 const STATUS_OPTS: KanbanStatus[] = ['todo', 'doing', 'done'];
 const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
-const MODO_OPTS: Modo[] = ['manual', 'colaborar', 'delegar', 'automatizar', ''];
+const MODO_OPTS: Modo[] = ['manual', 'colaborar', 'delegar'];
 const ESFORCO_OPTS: Esforco[] = ['rapido', 'medio', 'longo', ''];
 
 function taskStatus(task: Task): KanbanStatus {
@@ -151,7 +149,7 @@ export function TaskDetailView({
   const currentModo: Modo = task.modo;
   const currentEsforco: Esforco = task.esforco;
   const moscowClass = currentMoscow ? `moscow-${currentMoscow}` : 'moscow-none';
-  const modoClass = currentModo ? `modo-${currentModo}` : 'modo-none';
+  const modoClass = `modo-${currentModo}`;
   const esforcoClass = currentEsforco ? `esforco-${currentEsforco}` : 'esforco-none';
 
   return (
@@ -315,7 +313,7 @@ export function TaskDetailView({
             {(close) => (
               <ul className="picker-list">
                 {MODO_OPTS.map((v) => (
-                  <li key={v || 'none'}>
+                  <li key={v}>
                     <button
                       type="button"
                       className={v === currentModo ? 'active' : ''}
