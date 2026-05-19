@@ -351,7 +351,7 @@ a:focus-visible {
 .topbar:not(.topbar--with-subtabs) .topbar-search {
   margin-left: auto;
 }
-.topbar-search + .topbar-filter {
+.topbar:not(.topbar--with-subtabs) .topbar-search + .topbar-filter {
   margin-left: -0.4rem;
   padding-left: 0;
 }
