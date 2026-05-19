@@ -10,44 +10,24 @@ import {
 import type { UserData } from '../lib/useUserData';
 import { archiveCompletedTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
-import { EsforcoView } from './EsforcoView';
-import { KanbanView } from './KanbanView';
-import { ModoView } from './ModoView';
-import { MoscowView } from './MoscowView';
 import { PrioridadeView } from './PrioridadeView';
 
-export type TaskView =
-  | 'prioridade'
-  | 'kanban'
-  | 'moscow'
-  | 'modo'
-  | 'esforco';
+export type TaskView = 'prioridade';
 
 export const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
   { key: 'prioridade', label: 'Prioridade' },
-  { key: 'kanban', label: 'Kanban' },
-  { key: 'moscow', label: 'MoSCoW' },
-  { key: 'modo', label: 'Modo' },
-  { key: 'esforco', label: 'Esforço' },
 ];
 
-// Cada visão "colunada" usa um campo como coluna; aplicar o filtro
-// correspondente nessa visão esvaziaria as próprias colunas.
 function applyFilters(
   tasks: Task[],
-  view: TaskView,
   filters: TaskFiltersState,
 ): Task[] {
-  const applyHideCompleted = filters.hideCompleted && view !== 'kanban';
+  const applyHideCompleted = filters.hideCompleted;
   const applyOnlyWithoutDeadline = filters.onlyWithoutDeadline;
-  const applyModo =
-    view !== 'modo' && filters.modoFilter.size !== MODO_VALUES.length;
-  const applyMoscow =
-    view !== 'moscow' && filters.moscowFilter.size !== MOSCOW_VALUES.length;
-  const applyEsforco =
-    view !== 'esforco' && filters.esforcoFilter.size !== ESFORCO_VALUES.length;
-  const applyStatus =
-    view !== 'kanban' && filters.statusFilter.size !== STATUS_VALUES.length;
+  const applyModo = filters.modoFilter.size !== MODO_VALUES.length;
+  const applyMoscow = filters.moscowFilter.size !== MOSCOW_VALUES.length;
+  const applyEsforco = filters.esforcoFilter.size !== ESFORCO_VALUES.length;
+  const applyStatus = filters.statusFilter.size !== STATUS_VALUES.length;
   const applyProject = !!filters.projectFilter;
   if (
     !applyHideCompleted &&
@@ -81,12 +61,10 @@ function applyFilters(
 
 export function TasksRoot({
   uid,
-  view,
   data,
   filters,
 }: {
   uid: string;
-  view: TaskView;
   data: UserData;
   filters: TaskFiltersState;
 }) {
@@ -101,35 +79,21 @@ export function TasksRoot({
   }, [uid]);
 
   const filteredTasks = useMemo(
-    () => applyFilters(data.tasks, view, filters),
-    [data.tasks, view, filters],
+    () => applyFilters(data.tasks, filters),
+    [data.tasks, filters],
   );
 
   if (data.error) return <p className="error">Erro: {data.error.message}</p>;
 
   return (
     <>
-      {view === 'prioridade' && (
-        <PrioridadeView
-          uid={uid}
-          tasks={filteredTasks}
-          projectMap={data.projectMap}
-          ctx={data.ctx}
-          hideZero={filters.hideZero}
-        />
-      )}
-      {view === 'kanban' && (
-        <KanbanView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
-      )}
-      {view === 'moscow' && (
-        <MoscowView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
-      )}
-      {view === 'modo' && (
-        <ModoView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
-      )}
-      {view === 'esforco' && (
-        <EsforcoView uid={uid} tasks={filteredTasks} ctx={data.ctx} />
-      )}
+      <PrioridadeView
+        uid={uid}
+        tasks={filteredTasks}
+        projectMap={data.projectMap}
+        ctx={data.ctx}
+        hideZero={filters.hideZero}
+      />
       <NewTaskFab
         uid={uid}
         projects={data.projects}

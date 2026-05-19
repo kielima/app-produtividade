@@ -32,10 +32,9 @@ import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
 import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
-import { TasksRoot, TaskView, VIEW_TABS } from './views/TasksRoot';
+import { TasksRoot } from './views/TasksRoot';
 import type { Note } from './types';
 
-const TASK_VIEW_KEY = 'app-produtividade:task-view';
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
 const PROJECT_FILTERS_KEY = 'app-produtividade:project-filters';
 
@@ -72,18 +71,10 @@ export function App() {
   const [user, loading, error] = useAuthState(auth);
   const [tab, setTab] = useState<Tab>('notes');
   const [menuOpen, setMenuOpen] = useState(false);
-  const [taskView, setTaskView] = useState<TaskView>(() => {
-    const stored = localStorage.getItem(TASK_VIEW_KEY);
-    return (VIEW_TABS.find((v) => v.key === stored)?.key ?? 'prioridade') as TaskView;
-  });
   const [filters, setFilters] = useState<TaskFiltersState>(loadTaskFilters);
   const [projectFilters, setProjectFilters] = useState<ProjectFiltersState>(
     loadProjectFilters,
   );
-
-  useEffect(() => {
-    localStorage.setItem(TASK_VIEW_KEY, taskView);
-  }, [taskView]);
 
   useEffect(() => {
     localStorage.setItem(
@@ -133,8 +124,6 @@ export function App() {
     setTab={setTab}
     menuOpen={menuOpen}
     setMenuOpen={setMenuOpen}
-    taskView={taskView}
-    setTaskView={setTaskView}
     filters={filters}
     setFilters={setFilters}
     projectFilters={projectFilters}
@@ -148,8 +137,6 @@ function AppShell({
   setTab,
   menuOpen,
   setMenuOpen,
-  taskView,
-  setTaskView,
   filters,
   setFilters,
   projectFilters,
@@ -160,8 +147,6 @@ function AppShell({
   setTab: (t: Tab) => void;
   menuOpen: boolean;
   setMenuOpen: (v: boolean) => void;
-  taskView: TaskView;
-  setTaskView: (v: TaskView) => void;
   filters: TaskFiltersState;
   setFilters: (f: TaskFiltersState) => void;
   projectFilters: ProjectFiltersState;
@@ -239,11 +224,10 @@ function AppShell({
         setSelectedProjectId(null);
         setSelectedTaskId(null);
         setFilters({ ...defaultFiltersState(), projectFilter: projectId });
-        setTaskView('prioridade');
         setTab('tasks');
       },
     }),
-    [setFilters, setTaskView, setTab],
+    [setFilters, setTab],
   );
   const noteNavValue = useMemo(
     () => ({ openNote: (noteId: string) => setSelectedNoteId(noteId) }),
@@ -369,7 +353,7 @@ function AppShell({
     <ProjectNavigationContext.Provider value={projectNavValue}>
     <div className="app">
       <header
-        className={`topbar${tab === 'tasks' ? ' topbar--with-subtabs' : ''}`}
+        className="topbar"
         role="banner"
       >
         <button
@@ -388,31 +372,20 @@ function AppShell({
             />
           </svg>
         </button>
+        <span className="topbar-section-name">
+          {TABS.find((t) => t.key === tab)?.label}
+        </span>
         {tab === 'tasks' && (
-          <>
-            <nav className="subtabs" aria-label="Visualizações de tarefas">
-              {VIEW_TABS.map((v) => (
-                <button
-                  key={v.key}
-                  type="button"
-                  className={taskView === v.key ? 'subtab active' : 'subtab'}
-                  onClick={() => setTaskView(v.key)}
-                >
-                  {v.label}
-                </button>
-              ))}
-            </nav>
-            <TaskFiltersBar
-              state={filters}
-              setState={setFilters}
-              projects={data.projects}
-              showHideZero={taskView === 'prioridade'}
-              onCreateProject={async (name) => {
-                const p = await createProject(uid, name, data.projects.length);
-                return p.id;
-              }}
-            />
-          </>
+          <TaskFiltersBar
+            state={filters}
+            setState={setFilters}
+            projects={data.projects}
+            showHideZero={true}
+            onCreateProject={async (name) => {
+              const p = await createProject(uid, name, data.projects.length);
+              return p.id;
+            }}
+          />
         )}
         {tab === 'projects' && (
           <>
@@ -466,7 +439,7 @@ function AppShell({
       <main role="main">
         {tab === 'notes' && <NotesView uid={uid} notes={notes} />}
         {tab === 'tasks' && (
-          <TasksRoot uid={uid} view={taskView} data={data} filters={filters} />
+          <TasksRoot uid={uid} data={data} filters={filters} />
         )}
         {tab === 'projects' && (
           <ProjectsView uid={uid} filters={projectFilters} />
