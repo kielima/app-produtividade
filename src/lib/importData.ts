@@ -1,5 +1,10 @@
-import { EXPORT_VERSION, type ExportPayload, type MemoryDoc } from './exportData';
-import type { Project, Section, Task } from '../types';
+import {
+  EXPORT_VERSION,
+  type ExportPayload,
+  type GlickoEntry,
+  type MemoryDoc,
+} from './exportData';
+import type { Note, Project, Section, Task } from '../types';
 
 export class ImportParseError extends Error {
   constructor(message: string) {
@@ -45,6 +50,28 @@ function parseMemoryDocs(v: unknown, label: string): MemoryDoc[] {
   });
 }
 
+function assertNumber(v: unknown, label: string): number {
+  if (typeof v !== 'number' || Number.isNaN(v)) {
+    throw new ImportParseError(`Campo "${label}" precisa ser número.`);
+  }
+  return v;
+}
+
+function parseGlickoEntries(v: unknown, label: string): GlickoEntry[] {
+  const arr = assertArray(v, label);
+  return arr.map((item, i) => {
+    if (!isObject(item)) {
+      throw new ImportParseError(`"${label}[${i}]" precisa ser objeto.`);
+    }
+    return {
+      id: assertString(item.id, `${label}[${i}].id`),
+      r: assertNumber(item.r, `${label}[${i}].r`),
+      rd: assertNumber(item.rd, `${label}[${i}].rd`),
+      sigma: assertNumber(item.sigma, `${label}[${i}].sigma`),
+    };
+  });
+}
+
 /**
  * Parseia o texto bruto do arquivo e valida o formato. Não escreve nada —
  * só garante que o payload tem a forma esperada por `importAllData`.
@@ -78,6 +105,11 @@ export function parseImportPayload(text: string): ExportPayload {
     throw new ImportParseError('Campo "memory" precisa ser objeto.');
   }
 
+  const notes =
+    raw.notes === undefined ? [] : (assertArray(raw.notes, 'notes') as Note[]);
+  const glicko =
+    raw.glicko === undefined ? [] : parseGlickoEntries(raw.glicko, 'glicko');
+
   return {
     exportedAt: assertString(raw.exportedAt, 'exportedAt'),
     uid: assertString(raw.uid, 'uid'),
@@ -86,6 +118,8 @@ export function parseImportPayload(text: string): ExportPayload {
     tasks: assertArray(raw.tasks, 'tasks') as Task[],
     completedTasks: assertArray(raw.completedTasks, 'completedTasks') as Task[],
     projects: assertArray(raw.projects, 'projects') as Project[],
+    notes,
+    glicko,
     memory: {
       glossary: assertStringOrNull(memory.glossary, 'memory.glossary'),
       claude: assertStringOrNull(memory.claude, 'memory.claude'),

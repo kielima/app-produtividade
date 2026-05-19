@@ -1,7 +1,13 @@
 import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
 import { db } from './firebase';
-import { EXPORT_VERSION, type ExportPayload, type MemoryDoc } from './exportData';
-import type { Project, Section, Task } from '../types';
+import {
+  EXPORT_VERSION,
+  type ExportPayload,
+  type GlickoEntry,
+  type MemoryDoc,
+} from './exportData';
+import { DEFAULT_RATING } from './glicko2';
+import type { Note, Project, Section, Task } from '../types';
 
 async function fetchCollection<T>(uid: string, path: string): Promise<T[]> {
   const snap = await getDocs(collection(db, 'users', uid, ...path.split('/')));
@@ -33,12 +39,27 @@ async function fetchMemorySubcollection(uid: string, subcoll: string): Promise<M
  * Anti-lock-in: roda no client, escreve em disco local — o usuário sai
  * do Firebase sem nada preso na nuvem.
  */
+async function fetchGlicko(uid: string): Promise<GlickoEntry[]> {
+  const snap = await getDocs(collection(db, 'users', uid, 'glicko'));
+  return snap.docs.map((d) => {
+    const data = d.data() as Partial<GlickoEntry>;
+    return {
+      id: d.id,
+      r: typeof data.r === 'number' ? data.r : DEFAULT_RATING.r,
+      rd: typeof data.rd === 'number' ? data.rd : DEFAULT_RATING.rd,
+      sigma: typeof data.sigma === 'number' ? data.sigma : DEFAULT_RATING.sigma,
+    };
+  });
+}
+
 export async function exportAllData(uid: string): Promise<ExportPayload> {
-  const [sections, tasks, completedTasks, projects] = await Promise.all([
+  const [sections, tasks, completedTasks, projects, notes, glicko] = await Promise.all([
     fetchCollection<Section>(uid, 'sections'),
     fetchCollection<Task>(uid, 'tasks'),
     fetchCollection<Task>(uid, 'completedTasks'),
     fetchCollection<Project>(uid, 'projects'),
+    fetchCollection<Note>(uid, 'notes'),
+    fetchGlicko(uid),
   ]);
 
   const [glossary, claude, projectsContext, automations, context] = await Promise.all([
@@ -57,6 +78,8 @@ export async function exportAllData(uid: string): Promise<ExportPayload> {
     tasks,
     completedTasks,
     projects,
+    notes,
+    glicko,
     memory: { glossary, claude, projectsContext, automations, context },
   };
 }

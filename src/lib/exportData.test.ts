@@ -4,7 +4,7 @@ import { defaultFilename, summarize, type ExportPayload } from './exportData';
 const SAMPLE: ExportPayload = {
   exportedAt: '2026-05-15T12:34:56.789Z',
   uid: 'user-123',
-  version: 1,
+  version: 2,
   sections: [
     { id: 's1', name: 'A', moscow: 'must' },
     { id: 's2', name: 'B', moscow: '' },
@@ -29,6 +29,13 @@ const SAMPLE: ExportPayload = {
   ],
   completedTasks: [],
   projects: [],
+  notes: [
+    { id: 'n1', title: 'Nota 1', note: 'corpo', items: [], addedDate: '2026-05-15', tags: [] },
+    { id: 'n2', title: '', note: '', items: [{ text: 'item', checked: false }], addedDate: '2026-05-15', tags: ['idea'] },
+  ],
+  glicko: [
+    { id: 'p1', r: 1520, rd: 200, sigma: 0.06 },
+  ],
   memory: {
     glossary: null,
     claude: null,
@@ -51,6 +58,8 @@ describe('summarize', () => {
       tasks: 1,
       completedTasks: 0,
       projects: 0,
+      notes: 2,
+      glicko: 1,
       memoryProjects: 1,
       memoryAutomations: 0,
       memoryContext: 2,
