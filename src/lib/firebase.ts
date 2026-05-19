@@ -1,6 +1,6 @@
 import { initializeApp, type FirebaseApp } from 'firebase/app';
 import {
-  browserSessionPersistence,
+  browserLocalPersistence,
   connectAuthEmulator,
   getAuth,
   setPersistence,
@@ -35,11 +35,11 @@ export const db: Firestore = initializeFirestore(app, {
 
 export const auth: Auth = getAuth(app);
 
-// Sessão dura apenas enquanto a aba/janela estiver aberta — fechou e abriu,
-// pede o PIN de novo. Fire-and-forget: setPersistence é async mas não bloqueia
-// a inicialização; a primeira chamada de signIn vai re-aplicar isso de qualquer jeito.
-setPersistence(auth, browserSessionPersistence).catch((err) => {
-  console.error('Falha ao configurar persistência de sessão:', err);
+// Login com Google é via popup OAuth — manter sessão entre visitas evita
+// re-fazer o fluxo toda vez. Fire-and-forget: a primeira chamada de signIn
+// vai re-aplicar isso de qualquer jeito.
+setPersistence(auth, browserLocalPersistence).catch((err) => {
+  console.error('Falha ao configurar persistência:', err);
 });
 
 if (useEmulator) {
