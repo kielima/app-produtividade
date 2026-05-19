@@ -77,7 +77,7 @@ export function NewTaskFab({
           : 'adicionar tarefa'
       }
     >
-      +
+      <span style={{ lineHeight: 0 }}>+</span>
     </button>
   );
 }
