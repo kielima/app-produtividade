@@ -34,7 +34,7 @@ import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
 import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
-import { hasLink, LINK_TAG, normalizeTags } from './lib/tags';
+import { hasLink, hasList, LINK_TAG, LIST_TAG, normalizeTags } from './lib/tags';
 import { TasksRoot } from './views/TasksRoot';
 import type { Note } from './types';
 
@@ -168,14 +168,16 @@ function AppShell({
     return unsub;
   }, [uid]);
 
-  // Automação: garante a tag `link` em toda nota com URL no texto. Roda sempre
-  // que a lista é atualizada — cobre notas existentes (backfill) e novas
-  // edições, sem custo extra quando a tag já está presente.
+  // Automação: garante tags automáticas (`link` para URLs, `lista` para listas)
+  // em toda nota. Roda sempre que a lista é atualizada — cobre notas existentes
+  // (backfill) e novas edições, sem custo extra quando as tags já estão presentes.
   useEffect(() => {
     for (const n of notes) {
-      if (!hasLink(n.note)) continue;
-      if (n.tags.includes(LINK_TAG)) continue;
-      patchNote(uid, n.id, { tags: normalizeTags([...n.tags, LINK_TAG]) });
+      const additions: string[] = [];
+      if (hasLink(n.note) && !n.tags.includes(LINK_TAG)) additions.push(LINK_TAG);
+      if (hasList(n.items, n.note) && !n.tags.includes(LIST_TAG)) additions.push(LIST_TAG);
+      if (additions.length === 0) continue;
+      patchNote(uid, n.id, { tags: normalizeTags([...n.tags, ...additions]) });
     }
   }, [notes, uid]);
 
