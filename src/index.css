@@ -342,6 +342,113 @@ a:focus-visible {
   padding: 0.35rem 2.25rem 0.35rem 0.55rem;
 }
 
+/* Botão de pesquisa — mesmo padrão visual do filtro, fica à esquerda dele */
+.topbar-search {
+  position: relative;
+  flex-shrink: 0;
+  align-self: center;
+}
+.topbar:not(.topbar--with-subtabs) .topbar-search {
+  margin-left: auto;
+}
+.topbar:not(.topbar--with-subtabs) .topbar-search + .topbar-filter {
+  margin-left: 0;
+}
+.topbar-search .search-toggle {
+  white-space: nowrap;
+  font-size: 0.85rem;
+  padding: 0.4rem 0.55rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  line-height: 1;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+}
+.topbar-search .search-toggle:hover {
+  background: transparent;
+  color: var(--accent, var(--fg));
+}
+.topbar-search .search-toggle.search-toggle--active {
+  color: var(--accent);
+}
+.topbar-search .search-toggle svg {
+  display: block;
+}
+
+/* Barra de pesquisa expandida — substitui o conteúdo do topbar enquanto ativa */
+.topbar-searchbar {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex: 1;
+  min-width: 0;
+}
+.topbar-searchbar-close {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  padding: 0.5rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
+}
+.topbar-searchbar-close:hover { background: var(--surface-2); }
+.topbar-searchbar-input-wrap {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+}
+.topbar-searchbar-icon {
+  position: absolute;
+  left: 0.55rem;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--muted);
+  display: inline-flex;
+  line-height: 0;
+  pointer-events: none;
+}
+.topbar-searchbar-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: inherit;
+  border-radius: 999px;
+  padding: 0.45rem 2rem 0.45rem 2rem;
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+}
+.topbar-searchbar-input:focus {
+  border-color: var(--accent);
+}
+/* Remove o ícone nativo de "clear" do <input type="search"> nos navegadores */
+.topbar-searchbar-input::-webkit-search-cancel-button {
+  -webkit-appearance: none;
+  appearance: none;
+}
+.topbar-searchbar-clear {
+  position: absolute;
+  right: 0.4rem;
+  top: 50%;
+  transform: translateY(-50%);
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 0 0.3rem;
+  font-size: 1.4rem;
+  line-height: 1;
+}
+.topbar-searchbar-clear:hover { color: var(--accent); }
+
 /* Botão de filtro fixo no canto direito do topbar */
 .topbar-filter {
   position: relative;

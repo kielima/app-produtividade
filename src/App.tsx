@@ -21,6 +21,7 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
 import { NotesFiltersBar } from './components/NotesFiltersBar';
+import { SearchInput, SearchToggle } from './components/SearchBar';
 import { NoteNavigationContext } from './lib/noteNavigation';
 import { ProjectNavigationContext } from './lib/projectNavigation';
 import { TaskNavigationContext } from './lib/taskNavigation';
@@ -162,6 +163,13 @@ function AppShell({
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteTags, setSelectedNoteTags] = useState<string[]>([]);
   const [duelOpen, setDuelOpen] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [taskSearchQuery, setTaskSearchQuery] = useState('');
+  const [noteSearchQuery, setNoteSearchQuery] = useState('');
+
+  useEffect(() => {
+    setSearchOpen(false);
+  }, [tab]);
 
   useEffect(() => {
     const unsub = subscribeToNotes(uid, setNotes);
@@ -386,6 +394,17 @@ function AppShell({
         className="topbar"
         role="banner"
       >
+        {searchOpen && (tab === 'notes' || tab === 'tasks') ? (
+          <SearchInput
+            query={tab === 'notes' ? noteSearchQuery : taskSearchQuery}
+            setQuery={tab === 'notes' ? setNoteSearchQuery : setTaskSearchQuery}
+            onClose={() => setSearchOpen(false)}
+            placeholder={
+              tab === 'notes' ? 'Pesquisar anotações...' : 'Pesquisar tarefas...'
+            }
+          />
+        ) : (
+          <>
         <button
           type="button"
           className="menu-toggle"
@@ -406,11 +425,17 @@ function AppShell({
           {TABS.find((t) => t.key === tab)?.label}
         </span>
         {tab === 'notes' && (
-          <NotesFiltersBar
-            allTags={allNoteTags}
-            selectedTags={selectedNoteTags}
-            setSelectedTags={setSelectedNoteTags}
-          />
+          <>
+            <SearchToggle
+              active={noteSearchQuery.length > 0}
+              onClick={() => setSearchOpen(true)}
+            />
+            <NotesFiltersBar
+              allTags={allNoteTags}
+              selectedTags={selectedNoteTags}
+              setSelectedTags={setSelectedNoteTags}
+            />
+          </>
         )}
         {tab === 'tasks' && (
           <>
@@ -427,6 +452,10 @@ function AppShell({
                 }}
               />
             </div>
+            <SearchToggle
+              active={taskSearchQuery.length > 0}
+              onClick={() => setSearchOpen(true)}
+            />
             <TaskFiltersBar
               state={filters}
               setState={setFilters}
@@ -472,6 +501,8 @@ function AppShell({
             />
           </>
         )}
+          </>
+        )}
       </header>
 
       <SidebarMenu
@@ -489,10 +520,16 @@ function AppShell({
             uid={uid}
             notes={notes}
             selectedTags={selectedNoteTags}
+            searchQuery={noteSearchQuery}
           />
         )}
         {tab === 'tasks' && (
-          <TasksRoot uid={uid} data={data} filters={filters} />
+          <TasksRoot
+            uid={uid}
+            data={data}
+            filters={filters}
+            searchQuery={taskSearchQuery}
+          />
         )}
         {tab === 'projects' && (
           <ProjectsView uid={uid} filters={projectFilters} />

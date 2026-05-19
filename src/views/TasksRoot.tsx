@@ -21,6 +21,7 @@ export const VIEW_TABS: Array<{ key: TaskView; label: string }> = [
 function applyFilters(
   tasks: Task[],
   filters: TaskFiltersState,
+  searchQuery: string,
 ): Task[] {
   const applyHideCompleted = filters.hideCompleted;
   const applyOnlyWithoutDeadline = filters.onlyWithoutDeadline;
@@ -29,6 +30,8 @@ function applyFilters(
   const applyEsforco = filters.esforcoFilter.size !== ESFORCO_VALUES.length;
   const applyStatus = filters.statusFilter.size !== STATUS_VALUES.length;
   const applyProject = !!filters.projectFilter;
+  const q = searchQuery.trim().toLowerCase();
+  const applySearch = q.length > 0;
   if (
     !applyHideCompleted &&
     !applyOnlyWithoutDeadline &&
@@ -36,7 +39,8 @@ function applyFilters(
     !applyMoscow &&
     !applyEsforco &&
     !applyStatus &&
-    !applyProject
+    !applyProject &&
+    !applySearch
   )
     return tasks;
 
@@ -55,6 +59,12 @@ function applyFilters(
           : 'todo';
       if (!filters.statusFilter.has(status)) return false;
     }
+    if (applySearch) {
+      const haystack = [t.title, t.note, ...t.subtasks.map((s) => s.text)]
+        .join('\n')
+        .toLowerCase();
+      if (!haystack.includes(q)) return false;
+    }
     return true;
   });
 }
@@ -63,10 +73,12 @@ export function TasksRoot({
   uid,
   data,
   filters,
+  searchQuery,
 }: {
   uid: string;
   data: UserData;
   filters: TaskFiltersState;
+  searchQuery: string;
 }) {
   const archivedOnLoad = useRef(false);
 
@@ -79,8 +91,8 @@ export function TasksRoot({
   }, [uid]);
 
   const filteredTasks = useMemo(
-    () => applyFilters(data.tasks, filters),
-    [data.tasks, filters],
+    () => applyFilters(data.tasks, filters, searchQuery),
+    [data.tasks, filters, searchQuery],
   );
 
   if (data.error) return <p className="error">Erro: {data.error.message}</p>;
