@@ -7,11 +7,12 @@ import {
   onSnapshot,
   serverTimestamp,
   setDoc,
+  Timestamp,
   writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import type { Task } from '../types';
+import type { CompletedTask, Task } from '../types';
 
 function tasksCol(uid: string) {
   return collection(db, 'users', uid, 'tasks');
@@ -92,6 +93,31 @@ export async function archiveCompletedTasks(uid: string): Promise<number> {
     await batch.commit();
   }
   return toArchive.length;
+}
+
+export function subscribeToCompletedTasks(
+  uid: string,
+  cb: (tasks: CompletedTask[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    collection(db, 'users', uid, 'completedTasks'),
+    (snap) => {
+      const tasks: CompletedTask[] = snap.docs.map((d) => {
+        const data = d.data() as Omit<CompletedTask, 'id'>;
+        const raw = (data as { archivedAt?: unknown }).archivedAt;
+        const archivedAt =
+          raw instanceof Timestamp
+            ? raw.toDate()
+            : raw && typeof raw === 'object' && 'seconds' in (raw as object)
+              ? new Date((raw as { seconds: number }).seconds * 1000)
+              : null;
+        return { ...data, id: d.id, archivedAt };
+      });
+      cb(tasks);
+    },
+    (err) => onError?.(err),
+  );
 }
 
 export async function restoreCompletedTask(uid: string, taskId: string): Promise<void> {
