@@ -37,11 +37,10 @@ const MOSCOW_TAG: Record<Exclude<MoSCoW, ''>, string> = {
   wont: "Won't",
 };
 
-const MODO_TAG: Record<Exclude<Modo, ''>, string> = {
+const MODO_TAG: Record<Modo, string> = {
   manual: 'Manual',
   colaborar: 'Colaborar',
   delegar: 'Delegar',
-  automatizar: 'Automatizar',
 };
 
 const ESFORCO_TAG: Record<Exclude<Esforco, ''>, string> = {
@@ -66,7 +65,7 @@ export function serializeTitle(
 ): string {
   const parts: string[] = [displayTitle.trim()];
   if (task.taskId != null) parts.push(`[#${String(task.taskId).padStart(4, '0')}]`);
-  if (task.modo) parts.push(`[${MODO_TAG[task.modo]}]`);
+  parts.push(`[${MODO_TAG[task.modo]}]`);
   if (task.moscow) parts.push(`[${MOSCOW_TAG[task.moscow]}]`);
   if (task.esforco) parts.push(`[${ESFORCO_TAG[task.esforco]}]`);
   if (task.deadline) parts.push(`[prazo: ${task.deadline}]`);
@@ -96,8 +95,8 @@ function normalizeEsforco(raw: string): Esforco {
 
 function normalizeModo(raw: string): Modo {
   const v = raw.toLowerCase();
-  if (v === 'manual' || v === 'colaborar' || v === 'delegar' || v === 'automatizar') return v;
-  return '';
+  if (v === 'colaborar' || v === 'delegar') return v;
+  return 'manual';
 }
 
 export interface ParseTasksResult {
@@ -154,7 +153,7 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
       const moscow: MoSCoW = moscowMatch ? normalizeMoscow(moscowMatch[1]!) : '';
 
       const modoMatch = title.match(/\[(Delegar|Colaborar|Automatizar|Manual)\]/i);
-      const modo: Modo = modoMatch ? normalizeModo(modoMatch[1]!) : '';
+      const modo: Modo = modoMatch ? normalizeModo(modoMatch[1]!) : 'manual';
 
       const esforcoMatch = title.match(/\[(R[áa]pido|M[ée]dio|Longo)\]/i);
       const esforco: Esforco = esforcoMatch ? normalizeEsforco(esforcoMatch[1]!) : '';
