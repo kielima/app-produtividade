@@ -339,6 +339,13 @@ a:focus-visible {
 }
 .menu-toggle:hover { background: var(--surface-2); }
 
+.topbar-section-name {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--fg);
+  flex-shrink: 0;
+}
+
 /* Topbar com subtabs inline: menu fixo à esquerda, abas rolando à direita */
 .topbar--with-subtabs {
   border-bottom: 1px solid var(--border);
