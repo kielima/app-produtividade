@@ -149,15 +149,11 @@ export function activeFilterCount(
 export function TaskFiltersBar({
   state,
   setState,
-  projects,
   showHideZero,
-  onCreateProject,
 }: {
   state: TaskFiltersState;
   setState: (next: TaskFiltersState) => void;
-  projects: Project[];
   showHideZero: boolean;
-  onCreateProject?: (name: string) => Promise<string>;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -316,18 +312,6 @@ export function TaskFiltersBar({
           </fieldset>
 
           <fieldset>
-            <legend>Projeto</legend>
-            <ProjectCombobox
-              value={state.projectFilter}
-              onChange={(next) =>
-                setState({ ...state, projectFilter: next })
-              }
-              projects={projects}
-              onCreateProject={onCreateProject}
-            />
-          </fieldset>
-
-          <fieldset>
             <legend>Modo</legend>
             <div className="chip-group">
               {MODO_VALUES.map((m) => (
@@ -413,7 +397,7 @@ type ComboOption =
   | { kind: 'select'; id: string; name: string }
   | { kind: 'create'; name: string };
 
-function ProjectCombobox({
+export function ProjectCombobox({
   value,
   onChange,
   projects,
