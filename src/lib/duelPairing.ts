@@ -96,12 +96,35 @@ export function reorderByRating(
   return [...active, ...inactive];
 }
 
+/** Faixa de duelos por sessão, modulada pela confiança média. */
+export const MIN_DUEL_LIMIT = 5;
+export const MAX_DUEL_LIMIT = 15;
+/** Âncoras de RD para a interpolação linear (ver `classifyConfidence`). */
+const HIGH_CONFIDENCE_RD = 80;
+const LOW_CONFIDENCE_RD = 200;
+
 /**
- * Limite recomendado de duelos por sessão: `N × 2`, clampado entre 10 e 25.
- * Garante movimento mínimo (10) e evita cansar o usuário com listas grandes (25).
+ * Limite recomendado de duelos por sessão na faixa
+ * [`MIN_DUEL_LIMIT`, `MAX_DUEL_LIMIT`], em função do RD médio dos projetos
+ * ativos (proxy da confiança nos ratings):
+ *   - RD médio ≤ 80  (alta confiança)  → mínimo (poucos duelos bastam)
+ *   - RD médio ≥ 200 (baixa confiança) → máximo (precisa duelar mais)
+ *   - Entre 80 e 200: interpolação linear.
+ *
+ * Projetos sem rating persistido entram com o `DEFAULT_RATING` (rd=350),
+ * o que naturalmente puxa o limite pro topo da faixa em cold start.
  */
-export function recommendedDuelLimit(activeCount: number): number {
-  return Math.min(Math.max(activeCount * 2, 10), 25);
+export function recommendedDuelLimit(
+  activeIds: ReadonlyArray<string>,
+  ratings: Readonly<Record<string, GlickoRating>>,
+): number {
+  if (activeIds.length === 0) return MIN_DUEL_LIMIT;
+  let total = 0;
+  for (const id of activeIds) total += ratingOf(ratings, id).rd;
+  const avgRd = total / activeIds.length;
+  const span = LOW_CONFIDENCE_RD - HIGH_CONFIDENCE_RD;
+  const t = Math.min(1, Math.max(0, (avgRd - HIGH_CONFIDENCE_RD) / span));
+  return Math.round(MIN_DUEL_LIMIT + t * (MAX_DUEL_LIMIT - MIN_DUEL_LIMIT));
 }
 
 export interface DuelSummary {

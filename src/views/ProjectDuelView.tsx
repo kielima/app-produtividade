@@ -52,11 +52,11 @@ export function ProjectDuelView({
   const [phase, setPhase] = useState<Phase>('dueling');
   const [summary, setSummary] = useState<DuelSummary | null>(null);
   const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
+  /** Limite recalculado enquanto nenhum duelo aconteceu; congela após o 1º. */
+  const [limit, setLimit] = useState(0);
   const lastPairRef = useRef<Pair | null>(null);
   /** Snapshot dos ativos no momento em que a sessão começa — base do diff final. */
   const initialOrderRef = useRef<string[] | null>(null);
-  /** Limite calculado uma vez, no início. */
-  const limitRef = useRef<number>(0);
 
   useEffect(() => {
     const unsub = subscribeToGlickoRatings(uid, setRatings);
@@ -74,12 +74,17 @@ export function ProjectDuelView({
     return m;
   }, [projects]);
 
-  // Captura o snapshot inicial + limite uma única vez (no primeiro render
-  // em que tem ativos suficientes). Refs não disparam re-render.
-  if (initialOrderRef.current === null && activeIds.length >= 2) {
-    initialOrderRef.current = [...activeIds];
-    limitRef.current = recommendedDuelLimit(activeIds.length);
-  }
+  // Captura o snapshot inicial + limite. O limite continua sendo recalculado
+  // enquanto nenhum duelo aconteceu pra acomodar o snapshot de ratings que
+  // chega via listener depois do primeiro render. Após o 1º duelo, congela.
+  useEffect(() => {
+    if (duelCount > 0) return;
+    if (activeIds.length < 2) return;
+    if (initialOrderRef.current === null) {
+      initialOrderRef.current = [...activeIds];
+    }
+    setLimit(recommendedDuelLimit(activeIds, ratings));
+  }, [activeIds, ratings, duelCount]);
 
   const generateNextPair = () => {
     const next = pickNextPair({
@@ -133,7 +138,7 @@ export function ProjectDuelView({
         loserRatingBefore: loserRating,
         prevLastPair,
       });
-      if (nextCount >= limitRef.current) {
+      if (nextCount >= limit) {
         // Usa os ratings recém-aplicados (snapshot ainda não chegou via listener).
         const mergedRatings: GlickoMap = {
           ...ratings,
@@ -211,7 +216,7 @@ export function ProjectDuelView({
       <section className="duel-view">
         <DuelTopbar
           duelCount={duelCount}
-          limit={limitRef.current}
+          limit={limit}
           onClose={handleClose}
           closing={closing}
           showCount={false}
@@ -228,7 +233,7 @@ export function ProjectDuelView({
       <section className="duel-view">
         <DuelTopbar
           duelCount={duelCount}
-          limit={limitRef.current}
+          limit={limit}
           onClose={handleClose}
           closing={closing}
         />
@@ -252,7 +257,7 @@ export function ProjectDuelView({
     <section className="duel-view">
       <DuelTopbar
         duelCount={duelCount}
-        limit={limitRef.current}
+        limit={limit}
         onClose={handleClose}
         closing={closing}
       />
