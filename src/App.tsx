@@ -20,6 +20,7 @@ import {
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
+import { NotesFiltersBar } from './components/NotesFiltersBar';
 import { NoteNavigationContext } from './lib/noteNavigation';
 import { ProjectNavigationContext } from './lib/projectNavigation';
 import { TaskNavigationContext } from './lib/taskNavigation';
@@ -62,7 +63,7 @@ function loadProjectFilters(): ProjectFiltersState {
 type Tab = 'notes' | 'tasks' | 'projects' | 'settings';
 
 const TABS: Array<{ key: Tab; label: string }> = [
-  { key: 'notes', label: 'Anotações' },
+  { key: 'notes', label: 'Keep' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
   { key: 'settings', label: 'Configurações' },
@@ -158,6 +159,7 @@ function AppShell({
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
+  const [selectedNoteTags, setSelectedNoteTags] = useState<string[]>([]);
   const [duelOpen, setDuelOpen] = useState(false);
 
   useEffect(() => {
@@ -389,6 +391,13 @@ function AppShell({
         <span className="topbar-section-name">
           {TABS.find((t) => t.key === tab)?.label}
         </span>
+        {tab === 'notes' && (
+          <NotesFiltersBar
+            allTags={allNoteTags}
+            selectedTags={selectedNoteTags}
+            setSelectedTags={setSelectedNoteTags}
+          />
+        )}
         {tab === 'tasks' && (
           <>
             <div className="topbar-project-picker">
@@ -461,7 +470,13 @@ function AppShell({
       />
 
       <main role="main">
-        {tab === 'notes' && <NotesView uid={uid} notes={notes} />}
+        {tab === 'notes' && (
+          <NotesView
+            uid={uid}
+            notes={notes}
+            selectedTags={selectedNoteTags}
+          />
+        )}
         {tab === 'tasks' && (
           <TasksRoot uid={uid} data={data} filters={filters} />
         )}

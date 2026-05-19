@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { NewNoteFab } from '../components/NewNoteFab';
@@ -43,21 +43,16 @@ function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
   );
 }
 
-export function NotesView({ uid, notes }: { uid: string; notes: Note[] }) {
+export function NotesView({
+  uid,
+  notes,
+  selectedTags,
+}: {
+  uid: string;
+  notes: Note[];
+  selectedTags: string[];
+}) {
   const { openNote } = useNoteNavigation();
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-
-  const allTags = useMemo(() => {
-    const counts = new Map<string, number>();
-    for (const n of notes) {
-      for (const tag of n.tags) {
-        counts.set(tag, (counts.get(tag) ?? 0) + 1);
-      }
-    }
-    return [...counts.entries()]
-      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
-      .map(([tag]) => tag);
-  }, [notes]);
 
   const filteredNotes = useMemo(() => {
     if (selectedTags.length === 0) return notes;
@@ -69,41 +64,8 @@ export function NotesView({ uid, notes }: { uid: string; notes: Note[] }) {
     });
   }, [notes, selectedTags]);
 
-  function toggleTag(tag: string) {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
-    );
-  }
-
   return (
     <>
-      {allTags.length > 0 && (
-        <div className="notes-tags-filter" role="group" aria-label="filtrar por tags">
-          {allTags.map((tag) => {
-            const active = selectedTags.includes(tag);
-            return (
-              <button
-                key={tag}
-                type="button"
-                className={`tag-chip tag-chip-toggle${active ? ' active' : ''}`}
-                onClick={() => toggleTag(tag)}
-                aria-pressed={active}
-              >
-                {tag}
-              </button>
-            );
-          })}
-          {selectedTags.length > 0 && (
-            <button
-              type="button"
-              className="btn-link notes-tags-clear"
-              onClick={() => setSelectedTags([])}
-            >
-              limpar
-            </button>
-          )}
-        </div>
-      )}
       {filteredNotes.length === 0 ? (
         <p className="muted notes-empty">
           {notes.length === 0
