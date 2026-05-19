@@ -24,6 +24,11 @@ export interface Task {
   section: string;
 }
 
+export interface CompletedTask extends Task {
+  archivedAt: Date | null;
+  archivedFromSection?: string;
+}
+
 export interface Section {
   id: string;
   name: string;
