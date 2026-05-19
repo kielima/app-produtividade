@@ -1780,17 +1780,6 @@ a:focus-visible {
 }
 
 /* ===== Tags (chips + editor) ===== */
-.notes-tags-filter {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.35rem;
-  align-items: center;
-  margin: 0.25rem 0 0.75rem;
-}
-.notes-tags-clear {
-  margin-left: 0.25rem;
-}
-
 .tag-chip {
   display: inline-flex;
   align-items: center;
