@@ -178,7 +178,7 @@ export function TaskDetailView({
         </span>
         <span className="task-detail-topbar-right">
           <span className="badge score" title="score calculado">
-            ⚡ {score.toFixed(2)}
+            {score.toFixed(2)}
           </span>
           <button
             type="button"
