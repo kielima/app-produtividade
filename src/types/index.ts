@@ -63,6 +63,7 @@ export interface Note {
   note: string;
   items: Subtask[];
   addedDate: string;
+  tags: string[];
 }
 
 export interface DependencyEntry {

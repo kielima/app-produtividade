@@ -2,16 +2,20 @@ import { useEffect } from 'react';
 import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { SubtaskList } from '../components/SubtaskList';
+import { TagsEditor } from '../components/TagsEditor';
+import { normalizeTags } from '../lib/tags';
 import { deleteNote, patchNote } from '../repositories/notesRepo';
 import type { Note, Subtask } from '../types';
 
 export function NoteDetailView({
   uid,
   note,
+  allTags = [],
   onClose,
 }: {
   uid: string;
   note: Note;
+  allTags?: string[];
   onClose: () => void;
 }) {
   useEffect(() => {
@@ -32,6 +36,10 @@ export function NoteDetailView({
 
   async function setItems(items: Subtask[]) {
     await patchNote(uid, note.id, { items });
+  }
+
+  async function setTags(tags: string[]) {
+    await patchNote(uid, note.id, { tags: normalizeTags(tags) });
   }
 
   async function handleDelete() {
@@ -88,6 +96,15 @@ export function NoteDetailView({
             multiline
           />
         </div>
+
+        <section className="task-detail-section">
+          <h3>Tags</h3>
+          <TagsEditor
+            tags={note.tags}
+            onChange={setTags}
+            suggestions={allTags}
+          />
+        </section>
 
         <section className="task-detail-section">
           <h3>Nota</h3>
