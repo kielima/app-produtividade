@@ -549,9 +549,6 @@ export function ProjectCombobox({
           ×
         </button>
       )}
-      <span className="combobox-chevron" aria-hidden="true">
-        ▾
-      </span>
       {open && (
         <ul
           id="project-combobox-list"

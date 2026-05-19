@@ -1494,20 +1494,11 @@ a:focus-visible {
 }
 .combobox-input {
   width: 100%;
-  padding-right: 2.5rem;
-}
-.combobox-chevron {
-  position: absolute;
-  right: 0.55rem;
-  top: 50%;
-  transform: translateY(-50%);
-  color: var(--muted);
-  pointer-events: none;
-  font-size: 0.75rem;
+  padding-right: 1.75rem;
 }
 .combobox-clear {
   position: absolute;
-  right: 1.65rem;
+  right: 0.4rem;
   top: 50%;
   transform: translateY(-50%);
   background: transparent;
