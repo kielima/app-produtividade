@@ -1315,19 +1315,12 @@ a:focus-visible {
   border-radius: 6px;
   padding: 0.7rem 0.9rem;
 }
-.project-card.status-a-iniciar { background: #e2e8f0; color: #1f2937; }
-.project-card.status-em-planejamento { background: #ddd6fe; color: #1f2937; }
-.project-card.status-em-andamento { background: #bfdbfe; color: #1f2937; }
-.project-card.status-pausado { background: #fef3c7; color: #1f2937; }
-.project-card.status-concluido { background: #bbf7d0; color: #1f2937; }
-.project-card.status-cancelado { background: #fecaca; color: #1f2937; }
-.project-card[class*="status-"] .project-title-btn:hover,
-.project-card[class*="status-"] .project-task-count-btn:hover {
-  background: rgba(0, 0, 0, 0.08);
-}
-.project-card[class*="status-"] .project-task-count.muted {
-  color: #4b5563;
-}
+.project-card.status-a-iniciar { border-left: 4px solid #94a3b8; }
+.project-card.status-em-planejamento { border-left: 4px solid #a78bfa; }
+.project-card.status-em-andamento { border-left: 4px solid #60a5fa; }
+.project-card.status-pausado { border-left: 4px solid #fbbf24; }
+.project-card.status-concluido { border-left: 4px solid #34d399; }
+.project-card.status-cancelado { border-left: 4px solid #f87171; }
 .project-card.done { opacity: 0.55; }
 .project-card .project-line {
   display: flex;
