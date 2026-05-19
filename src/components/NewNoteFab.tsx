@@ -26,7 +26,7 @@ export function NewNoteFab({ uid }: { uid: string }) {
       aria-label="adicionar anotação"
       title="adicionar anotação"
     >
-      +
+      <span style={{ lineHeight: 0 }}>+</span>
     </button>
   );
 }
