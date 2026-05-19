@@ -22,8 +22,15 @@ export function subscribeToNotes(
     notesCol(uid),
     (snap) => {
       const notes: Note[] = snap.docs.map((d) => {
-        const data = d.data() as Omit<Note, 'id'>;
-        return { ...data, id: d.id };
+        const data = d.data() as Partial<Note>;
+        return {
+          id: d.id,
+          title: data.title ?? '',
+          note: data.note ?? '',
+          items: data.items ?? [],
+          addedDate: data.addedDate ?? '',
+          tags: Array.isArray(data.tags) ? data.tags : [],
+        };
       });
       notes.sort((a, b) => b.addedDate.localeCompare(a.addedDate) || b.id.localeCompare(a.id));
       cb(notes);
@@ -53,6 +60,7 @@ export async function createNote(uid: string): Promise<Note> {
     note: '',
     items: [],
     addedDate: today,
+    tags: [],
   };
   await upsertNote(uid, note);
   return note;

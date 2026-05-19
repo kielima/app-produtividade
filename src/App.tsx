@@ -234,6 +234,18 @@ function AppShell({
     [],
   );
 
+  const allNoteTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const n of notes) {
+      for (const tag of n.tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [notes]);
+
   const selectedTask = selectedTaskId
     ? data.tasks.find((t) => t.id === selectedTaskId) ?? null
     : null;
@@ -275,6 +287,7 @@ function AppShell({
             <NoteDetailView
               uid={uid}
               note={selectedNote}
+              allTags={allNoteTags}
               onClose={() => setSelectedNoteId(null)}
             />
           </main>
