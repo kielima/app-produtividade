@@ -47,22 +47,40 @@ export function NotesView({
   uid,
   notes,
   selectedTags,
+  searchQuery,
 }: {
   uid: string;
   notes: Note[];
   selectedTags: string[];
+  searchQuery: string;
 }) {
   const { openNote } = useNoteNavigation();
 
   const filteredNotes = useMemo(() => {
-    if (selectedTags.length === 0) return notes;
-    const required = new Set(selectedTags);
+    const q = searchQuery.trim().toLowerCase();
+    const required = selectedTags.length > 0 ? new Set(selectedTags) : null;
+    if (!q && !required) return notes;
     return notes.filter((n) => {
-      const noteTags = new Set(n.tags);
-      for (const t of required) if (!noteTags.has(t)) return false;
+      if (required) {
+        const noteTags = new Set(n.tags);
+        for (const t of required) if (!noteTags.has(t)) return false;
+      }
+      if (q) {
+        const haystack = [
+          n.title,
+          n.note,
+          ...n.items.map((i) => i.text),
+          ...n.tags,
+        ]
+          .join('\n')
+          .toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
-  }, [notes, selectedTags]);
+  }, [notes, selectedTags, searchQuery]);
+
+  const hasSearch = searchQuery.trim().length > 0;
 
   return (
     <>
@@ -70,7 +88,9 @@ export function NotesView({
         <p className="muted notes-empty">
           {notes.length === 0
             ? 'Nenhuma anotação ainda. Toque em + para criar.'
-            : 'Nenhuma anotação corresponde às tags selecionadas.'}
+            : hasSearch
+              ? 'Nenhuma anotação corresponde à pesquisa.'
+              : 'Nenhuma anotação corresponde às tags selecionadas.'}
         </p>
       ) : (
         <div className="note-list">
