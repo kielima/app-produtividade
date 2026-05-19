@@ -351,8 +351,9 @@ a:focus-visible {
 .topbar:not(.topbar--with-subtabs) .topbar-search {
   margin-left: auto;
 }
-.topbar:not(.topbar--with-subtabs) .topbar-search + .topbar-filter {
-  margin-left: 0;
+.topbar-search + .topbar-filter {
+  margin-left: -0.4rem;
+  padding-left: 0;
 }
 .topbar-search .search-toggle {
   white-space: nowrap;
