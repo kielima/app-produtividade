@@ -3,17 +3,17 @@ import { getDisplayTitle } from '../lib/parser';
 import { patchTask } from '../lib/taskMutations';
 import type { Esforco, MoSCoW, Task } from '../types';
 
-const MOSCOW_OPTIONS: Array<{ key: Exclude<MoSCoW, ''>; label: string; badgeClass: string }> = [
-  { key: 'must', label: 'Must', badgeClass: 'col-must' },
-  { key: 'should', label: 'Should', badgeClass: 'col-should' },
-  { key: 'could', label: 'Could', badgeClass: 'col-could' },
-  { key: 'wont', label: "Won't", badgeClass: 'col-wont' },
+const MOSCOW_OPTIONS: Array<{ key: Exclude<MoSCoW, ''>; label: string }> = [
+  { key: 'must', label: 'Must' },
+  { key: 'should', label: 'Should' },
+  { key: 'could', label: 'Could' },
+  { key: 'wont', label: "Won't" },
 ];
 
-const ESFORCO_OPTIONS: Array<{ key: Exclude<Esforco, ''>; label: string; badgeClass: string }> = [
-  { key: 'rapido', label: 'Rápido', badgeClass: 'col-esforco-rapido' },
-  { key: 'medio', label: 'Médio', badgeClass: 'col-esforco-medio' },
-  { key: 'longo', label: 'Longo', badgeClass: 'col-esforco-longo' },
+const ESFORCO_OPTIONS: Array<{ key: Exclude<Esforco, ''>; label: string }> = [
+  { key: 'rapido', label: 'Rápido' },
+  { key: 'medio', label: 'Médio' },
+  { key: 'longo', label: 'Longo' },
 ];
 
 function needsClassification(t: Task): boolean {
@@ -162,47 +162,51 @@ export function ClassifyView({
           <p className="classify-prompt">Classifique:</p>
           <h2 className="classify-title">{getDisplayTitle(currentTask.title)}</h2>
 
-          <fieldset className="classify-section">
-            <legend>MoSCoW</legend>
-            <div className="classify-chips">
-              {MOSCOW_OPTIONS.map((opt) => {
-                const active = effMoscow === opt.key;
-                return (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    className={`classify-chip ${opt.badgeClass}${active ? ' active' : ''}`}
-                    onClick={() => handlePickMoscow(opt.key)}
-                    disabled={busy}
-                    aria-pressed={active}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
+          <label className="classify-field">
+            <span className="classify-field-label">MoSCoW</span>
+            <select
+              className="classify-select"
+              value={effMoscow}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v) handlePickMoscow(v as Exclude<MoSCoW, ''>);
+              }}
+              disabled={busy}
+              aria-label="MoSCoW"
+            >
+              <option value="" disabled>
+                Selecione…
+              </option>
+              {MOSCOW_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
-          <fieldset className="classify-section">
-            <legend>Esforço</legend>
-            <div className="classify-chips">
-              {ESFORCO_OPTIONS.map((opt) => {
-                const active = effEsforco === opt.key;
-                return (
-                  <button
-                    key={opt.key}
-                    type="button"
-                    className={`classify-chip ${opt.badgeClass}${active ? ' active' : ''}`}
-                    onClick={() => handlePickEsforco(opt.key)}
-                    disabled={busy}
-                    aria-pressed={active}
-                  >
-                    {opt.label}
-                  </button>
-                );
-              })}
-            </div>
-          </fieldset>
+          <label className="classify-field">
+            <span className="classify-field-label">Esforço</span>
+            <select
+              className="classify-select"
+              value={effEsforco}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v) handlePickEsforco(v as Exclude<Esforco, ''>);
+              }}
+              disabled={busy}
+              aria-label="Esforço"
+            >
+              <option value="" disabled>
+                Selecione…
+              </option>
+              {ESFORCO_OPTIONS.map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
 
           <div className="classify-actions">
             <button
