@@ -66,16 +66,28 @@ export async function nextTaskId(uid: string): Promise<number> {
 
 /**
  * Move tarefas com `checked=true` para `completedTasks/`, removendo de `tasks/`.
- * Idempotente. Retorna o número de tarefas arquivadas.
+ * Idempotente. Retorna o número de tarefas arquivadas. Persiste também o
+ * nome do projeto naquele momento (`archivedFromSectionName`) pra que a
+ * aba Estatísticas consiga mostrar o nome mesmo depois que o projeto for
+ * deletado.
  */
 export async function archiveCompletedTasks(uid: string): Promise<number> {
-  const snap = await getDocs(tasksCol(uid));
+  const [tasksSnap, projectsSnap] = await Promise.all([
+    getDocs(tasksCol(uid)),
+    getDocs(collection(db, 'users', uid, 'projects')),
+  ]);
   const toArchive: Task[] = [];
-  snap.forEach((d) => {
+  tasksSnap.forEach((d) => {
     const t = { ...(d.data() as Omit<Task, 'id'>), id: d.id } as Task;
     if (t.checked) toArchive.push(t);
   });
   if (toArchive.length === 0) return 0;
+
+  const projectName = new Map<string, string>();
+  projectsSnap.forEach((d) => {
+    const p = d.data() as { name?: string };
+    if (p.name) projectName.set(d.id, p.name);
+  });
 
   const BATCH_LIMIT = 200; // cada doc gera 2 ops (write + delete)
   for (let i = 0; i < toArchive.length; i += BATCH_LIMIT) {
@@ -83,9 +95,16 @@ export async function archiveCompletedTasks(uid: string): Promise<number> {
     const batch = writeBatch(db);
     for (const t of slice) {
       const id = taskDocId(t);
+      const sectionName = t.section ? projectName.get(t.section) ?? null : null;
       batch.set(
         doc(db, 'users', uid, 'completedTasks', id),
-        { ...t, id, archivedAt: serverTimestamp(), archivedFromSection: t.section },
+        {
+          ...t,
+          id,
+          archivedAt: serverTimestamp(),
+          archivedFromSection: t.section,
+          archivedFromSectionName: sectionName,
+        },
         { merge: true },
       );
       batch.delete(doc(db, 'users', uid, 'tasks', id));

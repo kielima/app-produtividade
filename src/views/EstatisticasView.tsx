@@ -321,13 +321,14 @@ function DailyBars({ buckets, metric, dimension }: BarsProps) {
     1,
     ...buckets.map((b) => (metric === 'count' ? b.count : b.score)),
   );
+  // Labels horizontais ocupam mais espaço que rotacionados — mais espaçamento.
   const labelEvery =
     buckets.length > 60
-      ? 14
+      ? 30
       : buckets.length > 30
-        ? 7
+        ? 10
         : buckets.length > 14
-          ? 3
+          ? 5
           : 1;
   const unit = metric === 'count' ? 'tarefas' : 'pts';
   const digits = metric === 'score' ? 1 : 0;
@@ -431,16 +432,28 @@ function ProjectBreakdown({
 }: ProjectBreakdownProps) {
   const aggs = useMemo<ProjectAgg[]>(() => {
     const m = new Map<string, ProjectAgg>();
+    const snapshotName = new Map<string, string>();
     for (const t of tasks) {
       const id = t.archivedFromSection || t.section || '';
-      const name = id
-        ? projectNameById.get(id) ?? '(projeto removido)'
-        : 'Sem projeto';
       const v = intrinsicValue(t, projectScoreMap);
-      const entry = m.get(id) ?? { id, name, count: 0, score: 0 };
+      const entry = m.get(id) ?? { id, name: '', count: 0, score: 0 };
       entry.count += 1;
       entry.score += v;
       m.set(id, entry);
+      if (id && t.archivedFromSectionName && !snapshotName.has(id)) {
+        snapshotName.set(id, t.archivedFromSectionName);
+      }
+    }
+    // Resolve nome final: projeto ativo > snapshot do arquivamento > placeholder
+    for (const entry of m.values()) {
+      if (!entry.id) {
+        entry.name = 'Sem projeto';
+      } else {
+        entry.name =
+          projectNameById.get(entry.id) ??
+          snapshotName.get(entry.id) ??
+          '(projeto removido)';
+      }
     }
     return [...m.values()]
       .sort((a, b) => {
