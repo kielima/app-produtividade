@@ -42,10 +42,24 @@ function daysLabel(days: number): { value: string; label: string } {
 
 type LoadState =
   | { kind: 'idle' }
-  | { kind: 'needs-auth' }
+  | { kind: 'needs-auth'; message?: string }
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
   | { kind: 'ready' };
+
+function describeError(err: unknown): string {
+  if (err instanceof Error) {
+    const code = (err as { code?: string }).code;
+    if (code === 'auth/popup-closed-by-user' || code === 'auth/cancelled-popup-request') {
+      return 'Popup do Google foi fechado antes de aprovar. Tente novamente.';
+    }
+    if (code === 'auth/popup-blocked') {
+      return 'O navegador bloqueou o popup do Google. Permita popups e tente novamente.';
+    }
+    return err.message;
+  }
+  return String(err);
+}
 
 export function CountdownView({ uid }: { uid: string }) {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
@@ -74,11 +88,13 @@ export function CountdownView({ uid }: { uid: string }) {
       setEvents(list);
       setState({ kind: 'ready' });
     } catch (err) {
+      console.error('[Countdown] falha ao listar eventos:', err);
+      const message = describeError(err);
       if (err instanceof CalendarAuthError) {
-        setState({ kind: 'needs-auth' });
+        // Token foi rejeitado pela API — pede para reconectar e mostra o porquê.
+        setState({ kind: 'needs-auth', message });
         return;
       }
-      const message = err instanceof Error ? err.message : String(err);
       setState({ kind: 'error', message });
     }
   }, [uid]);
@@ -92,13 +108,15 @@ export function CountdownView({ uid }: { uid: string }) {
   }, [uid, load]);
 
   async function handleConnect() {
+    setState({ kind: 'loading' });
     try {
       await grantCalendarAccess(uid);
-      await load(false);
     } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setState({ kind: 'error', message });
+      console.error('[Countdown] falha ao conectar Google Calendar:', err);
+      setState({ kind: 'needs-auth', message: describeError(err) });
+      return;
     }
+    await load(false);
   }
 
   function handleDisconnect() {
@@ -132,6 +150,11 @@ export function CountdownView({ uid }: { uid: string }) {
           <button type="button" className="btn-primary" onClick={handleConnect}>
             Conectar Google Calendar
           </button>
+          {state.message && (
+            <p className="error countdown-connect-error" role="alert">
+              {state.message}
+            </p>
+          )}
         </div>
       )}
 

@@ -2676,6 +2676,14 @@ a:focus-visible {
   text-align: center;
 }
 
+.countdown-connect-error {
+  max-width: 32rem;
+  margin: 0;
+  font-size: 0.85rem;
+  line-height: 1.4;
+  word-break: break-word;
+}
+
 .countdown-status {
   margin-top: 2rem;
   text-align: center;
