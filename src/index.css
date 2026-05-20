@@ -2288,6 +2288,19 @@ a:focus-visible {
   width: 100%;
   aspect-ratio: auto;
 }
+/* Range curto (≤ 7 dias): linha horizontal — uma célula por dia.
+   Centraliza pra não esticar células gigantes em viewports largas. */
+.stats-heatmap--row {
+  display: flex;
+  flex-direction: row;
+  grid-template-rows: none;
+  grid-template-columns: none;
+  justify-content: flex-start;
+  max-width: 28rem;
+}
+.stats-heatmap--row .stats-heatmap-cell {
+  flex: 1 1 0;
+}
 .stats-heatmap-cell {
   aspect-ratio: 1 / 1;
   border-radius: 2px;
