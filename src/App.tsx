@@ -40,6 +40,7 @@ import { TasksRoot } from './views/TasksRoot';
 import { ClassifyView } from './views/ClassifyView';
 import { CountdownView } from './views/CountdownView';
 import { EstatisticasView } from './views/EstatisticasView';
+import { TodayView } from './views/TodayView';
 import type { Note } from './types';
 
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
@@ -65,9 +66,17 @@ function loadProjectFilters(): ProjectFiltersState {
   }
 }
 
-type Tab = 'notes' | 'tasks' | 'projects' | 'countdown' | 'stats' | 'settings';
+type Tab =
+  | 'today'
+  | 'notes'
+  | 'tasks'
+  | 'projects'
+  | 'countdown'
+  | 'stats'
+  | 'settings';
 
 const TABS: Array<{ key: Tab; label: string }> = [
+  { key: 'today', label: 'Hoje' },
   { key: 'notes', label: 'Keep' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
@@ -78,7 +87,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
 
 export function App() {
   const [user, loading, error] = useAuthState(auth);
-  const [tab, setTab] = useState<Tab>('notes');
+  const [tab, setTab] = useState<Tab>('today');
   const [menuOpen, setMenuOpen] = useState(false);
   const [filters, setFilters] = useState<TaskFiltersState>(loadTaskFilters);
   const [projectFilters, setProjectFilters] = useState<ProjectFiltersState>(
@@ -550,6 +559,15 @@ function AppShell({
       />
 
       <main role="main">
+        {tab === 'today' && (
+          <TodayView
+            uid={uid}
+            tasks={data.tasks}
+            projects={data.projects}
+            projectMap={data.projectMap}
+            ctx={data.ctx}
+          />
+        )}
         {tab === 'notes' && (
           <NotesView
             uid={uid}
