@@ -2369,8 +2369,8 @@ a:focus-visible {
 
 .stats-legend {
   list-style: none;
-  /* margem superior cobre os rótulos rotacionados das barras (~1.8rem) */
-  margin: 2rem 0 0;
+  /* margem superior dá clearance dos rótulos horizontais das barras (~1.1rem) */
+  margin: 1.5rem 0 0;
   padding: 0;
   display: flex;
   flex-wrap: wrap;
@@ -2471,16 +2471,15 @@ a:focus-visible {
 }
 .stats-bar-label {
   position: absolute;
-  bottom: -1.4rem;
+  bottom: -1.1rem;
   font-size: 0.65rem;
   color: var(--muted);
   white-space: nowrap;
-  transform: rotate(-45deg);
-  transform-origin: top left;
   left: 50%;
+  transform: translateX(-50%);
 }
 .estatisticas-view .stats-section:has(.stats-bars) {
-  padding-bottom: 2.4rem;
+  padding-bottom: 1.6rem;
 }
 
 @media (max-width: 480px) {
