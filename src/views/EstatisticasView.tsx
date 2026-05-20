@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
+import { ProjectCombobox } from '../components/TaskFiltersBar';
 import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
-import type { CompletedTask, MoSCoW, Esforco } from '../types';
+import type { CompletedTask, Esforco, MoSCoW, Project } from '../types';
 
 type RangeKey = '7' | '30' | '90' | '365';
 type Metric = 'count' | 'score';
@@ -295,15 +296,21 @@ function MoscowLegend() {
 
 interface EstatisticasViewProps {
   uid: string;
+  projects: Project[];
   projectScoreMap: Record<string, number>;
 }
 
-export function EstatisticasView({ uid, projectScoreMap }: EstatisticasViewProps) {
+export function EstatisticasView({
+  uid,
+  projects,
+  projectScoreMap,
+}: EstatisticasViewProps) {
   const [tasks, setTasks] = useState<CompletedTask[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>('90');
   const [metric, setMetric] = useState<Metric>('count');
+  const [projectFilter, setProjectFilter] = useState<string>('');
 
   useEffect(() => {
     setLoading(true);
@@ -321,9 +328,16 @@ export function EstatisticasView({ uid, projectScoreMap }: EstatisticasViewProps
     return unsub;
   }, [uid]);
 
+  const filteredTasks = useMemo(() => {
+    if (!projectFilter) return tasks;
+    return tasks.filter(
+      (t) => (t.archivedFromSection || t.section) === projectFilter,
+    );
+  }, [tasks, projectFilter]);
+
   const buckets = useMemo(
-    () => buildDailyBuckets(tasks, projectScoreMap, parseInt(range, 10)),
-    [tasks, projectScoreMap, range],
+    () => buildDailyBuckets(filteredTasks, projectScoreMap, parseInt(range, 10)),
+    [filteredTasks, projectScoreMap, range],
   );
 
   const totals = useMemo(() => {
@@ -392,6 +406,13 @@ export function EstatisticasView({ uid, projectScoreMap }: EstatisticasViewProps
             Score
           </button>
         </div>
+        <div className="stats-project-filter" aria-label="Filtrar por projeto">
+          <ProjectCombobox
+            value={projectFilter}
+            onChange={setProjectFilter}
+            projects={projects}
+          />
+        </div>
       </div>
 
       <div className="stats-summary">
@@ -435,6 +456,10 @@ export function EstatisticasView({ uid, projectScoreMap }: EstatisticasViewProps
         <p className="muted">
           Você ainda não concluiu nenhuma tarefa. Conclua uma e ela aparece
           aqui no próximo carregamento.
+        </p>
+      ) : filteredTasks.length === 0 ? (
+        <p className="muted">
+          Nenhuma tarefa concluída neste projeto.
         </p>
       ) : (
         <>

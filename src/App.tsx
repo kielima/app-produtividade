@@ -537,7 +537,11 @@ function AppShell({
           <ProjectsView uid={uid} filters={projectFilters} />
         )}
         {tab === 'stats' && (
-          <EstatisticasView uid={uid} projectScoreMap={data.ctx.projectScoreMap} />
+          <EstatisticasView
+            uid={uid}
+            projects={data.projects}
+            projectScoreMap={data.ctx.projectScoreMap}
+          />
         )}
         {tab === 'settings' && <SettingsView uid={uid} />}
       </main>

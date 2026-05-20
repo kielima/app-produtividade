@@ -2201,6 +2201,17 @@ a:focus-visible {
   padding: 2px;
   gap: 2px;
 }
+.stats-project-filter {
+  flex: 1 1 12rem;
+  min-width: 12rem;
+  max-width: 18rem;
+  display: flex;
+  align-items: center;
+}
+.stats-project-filter .combobox {
+  width: 100%;
+  min-width: 0;
+}
 .stats-chip {
   appearance: none;
   background: transparent;
