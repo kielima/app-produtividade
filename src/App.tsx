@@ -44,6 +44,7 @@ import type { Note } from './types';
 
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
 const PROJECT_FILTERS_KEY = 'app-produtividade:project-filters';
+const MENU_ORDER_KEY = 'app-produtividade:menu-order';
 
 function loadTaskFilters(): TaskFiltersState {
   try {
@@ -76,10 +77,32 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'settings', label: 'Configurações' },
 ];
 
+function loadMenuOrder(): Tab[] {
+  const defaults = TABS.map((t) => t.key);
+  try {
+    const raw = localStorage.getItem(MENU_ORDER_KEY);
+    if (!raw) return defaults;
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return defaults;
+    const valid = parsed.filter((k): k is Tab =>
+      defaults.includes(k as Tab),
+    );
+    // Acrescenta entradas que podem ter sido introduzidas após persistir
+    // a ordem (ex: novo separador) mantendo a posição relativa do utilizador.
+    for (const k of defaults) {
+      if (!valid.includes(k)) valid.push(k);
+    }
+    return valid;
+  } catch {
+    return defaults;
+  }
+}
+
 export function App() {
   const [user, loading, error] = useAuthState(auth);
   const [tab, setTab] = useState<Tab>('notes');
   const [menuOpen, setMenuOpen] = useState(false);
+  const [menuOrder, setMenuOrder] = useState<Tab[]>(loadMenuOrder);
   const [filters, setFilters] = useState<TaskFiltersState>(loadTaskFilters);
   const [projectFilters, setProjectFilters] = useState<ProjectFiltersState>(
     loadProjectFilters,
@@ -98,6 +121,10 @@ export function App() {
       JSON.stringify(serializeProjectFiltersState(projectFilters)),
     );
   }, [projectFilters]);
+
+  useEffect(() => {
+    localStorage.setItem(MENU_ORDER_KEY, JSON.stringify(menuOrder));
+  }, [menuOrder]);
 
   if (loading) {
     return (
@@ -133,6 +160,8 @@ export function App() {
     setTab={setTab}
     menuOpen={menuOpen}
     setMenuOpen={setMenuOpen}
+    menuOrder={menuOrder}
+    setMenuOrder={setMenuOrder}
     filters={filters}
     setFilters={setFilters}
     projectFilters={projectFilters}
@@ -146,6 +175,8 @@ function AppShell({
   setTab,
   menuOpen,
   setMenuOpen,
+  menuOrder,
+  setMenuOrder,
   filters,
   setFilters,
   projectFilters,
@@ -156,6 +187,8 @@ function AppShell({
   setTab: (t: Tab) => void;
   menuOpen: boolean;
   setMenuOpen: (v: boolean) => void;
+  menuOrder: Tab[];
+  setMenuOrder: (order: Tab[]) => void;
   filters: TaskFiltersState;
   setFilters: (f: TaskFiltersState) => void;
   projectFilters: ProjectFiltersState;
@@ -318,6 +351,19 @@ function AppShell({
     [data.tasks],
   );
 
+  const orderedTabs = useMemo(() => {
+    const byKey = new Map(TABS.map((t) => [t.key, t]));
+    const ordered = menuOrder
+      .map((k) => byKey.get(k))
+      .filter((t): t is (typeof TABS)[number] => Boolean(t));
+    // Acrescenta no fim qualquer separador ainda não na ordem (defesa em
+    // profundidade — loadMenuOrder já trata disto).
+    for (const t of TABS) {
+      if (!ordered.find((o) => o.key === t.key)) ordered.push(t);
+    }
+    return ordered;
+  }, [menuOrder]);
+
   if (selectedNote) {
     return (
       <NoteNavigationContext.Provider value={noteNavValue}>
@@ -455,7 +501,7 @@ function AppShell({
           </svg>
         </button>
         <span className="topbar-section-name">
-          {TABS.find((t) => t.key === tab)?.label}
+          {orderedTabs.find((t) => t.key === tab)?.label}
         </span>
         {tab === 'notes' && (
           <>
@@ -543,9 +589,10 @@ function AppShell({
       <SidebarMenu
         open={menuOpen}
         onClose={() => setMenuOpen(false)}
-        items={TABS}
+        items={orderedTabs}
         activeKey={tab}
         onSelect={(key) => setTab(key as Tab)}
+        onReorder={(keys) => setMenuOrder(keys as Tab[])}
         onSignOut={signOutCurrent}
       />
 
