@@ -2554,6 +2554,23 @@ a:focus-visible {
   border-radius: 14px;
   background: var(--surface);
 }
+.classify-done-toggle {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 0.9rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 0.95rem;
+  cursor: pointer;
+  user-select: none;
+}
+.classify-done-toggle:hover { border-color: var(--accent, var(--fg)); }
+.classify-done-toggle input { cursor: pointer; }
+.classify-done-toggle input:disabled { cursor: wait; }
+
 .classify-field {
   display: flex;
   flex-direction: column;
