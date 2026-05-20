@@ -27,6 +27,9 @@ export interface Task {
 export interface CompletedTask extends Task {
   archivedAt: Date | null;
   archivedFromSection?: string;
+  // Snapshot do nome do projeto no momento do arquivamento. Permite
+  // mostrar o nome mesmo depois que o projeto for deletado.
+  archivedFromSectionName?: string | null;
 }
 
 export interface Section {
