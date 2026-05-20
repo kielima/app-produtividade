@@ -67,13 +67,13 @@ export function hasCalendarAccess(uid: string): boolean {
 export async function grantCalendarAccess(uid: string): Promise<string> {
   const provider = new GoogleAuthProvider();
   provider.addScope(CALENDAR_SCOPE);
-  // login_hint reduz a chance de o popup pedir escolha de conta quando o
-  // usuário já está logado com a conta esperada. Sem prompt=consent — Google
-  // pode auto-aprovar refresh de token quando o escopo já foi concedido.
+  // prompt=consent força a tela de consentimento — necessário ao adicionar
+  // um escopo novo, senão o Google pode reaproveitar a sessão sem o scope
+  // pedido e devolver token só com o escopo básico.
+  const customParams: Record<string, string> = { prompt: 'consent' };
   const currentEmail = auth.currentUser?.email;
-  if (currentEmail) {
-    provider.setCustomParameters({ login_hint: currentEmail });
-  }
+  if (currentEmail) customParams.login_hint = currentEmail;
+  provider.setCustomParameters(customParams);
 
   const result: UserCredential = await signInWithPopup(auth, provider);
   const credential = GoogleAuthProvider.credentialFromResult(result);
@@ -143,6 +143,34 @@ export class CalendarAuthError extends Error {
   }
 }
 
+type GoogleApiError = {
+  error?: {
+    code?: number;
+    message?: string;
+    status?: string;
+    errors?: Array<{ reason?: string; message?: string }>;
+  };
+};
+
+async function parseGoogleError(res: Response): Promise<{
+  message: string;
+  reason: string | null;
+}> {
+  try {
+    const json = (await res.clone().json()) as GoogleApiError;
+    const msg = json.error?.message ?? '';
+    const reason = json.error?.errors?.[0]?.reason ?? json.error?.status ?? null;
+    return { message: msg, reason };
+  } catch {
+    try {
+      const text = await res.text();
+      return { message: text, reason: null };
+    } catch {
+      return { message: res.statusText, reason: null };
+    }
+  }
+}
+
 async function callCalendarApi(
   uid: string,
   token: string,
@@ -157,19 +185,39 @@ async function callCalendarApi(
       ...(init?.headers ?? {}),
     },
   });
-  if (res.status === 401 || res.status === 403) {
-    clearCalendarToken();
-    throw new CalendarAuthError();
+  if (res.ok) {
+    void uid;
+    return res;
   }
-  if (!res.ok) {
-    const text = await res.text().catch(() => '');
-    throw new Error(
-      `Google Calendar API ${res.status}: ${text || res.statusText}`,
+
+  const { message, reason } = await parseGoogleError(res);
+
+  // 401 sempre é token inválido/expirado. 403 com reason "insufficientPermissions"
+  // ou "ACCESS_TOKEN_SCOPE_INSUFFICIENT" também significa que o token não tem
+  // o escopo certo — limpa cache e força nova autorização.
+  const isScopeIssue =
+    reason === 'insufficientPermissions' ||
+    reason === 'ACCESS_TOKEN_SCOPE_INSUFFICIENT' ||
+    reason === 'authError';
+  if (res.status === 401 || (res.status === 403 && isScopeIssue)) {
+    clearCalendarToken();
+    throw new CalendarAuthError(
+      message || 'Acesso ao Google Calendar expirou ou foi revogado.',
     );
   }
-  // marker p/ evitar warning "uid não usado"
-  void uid;
-  return res;
+
+  // 403 com reason "accessNotConfigured" = API não habilitada no projeto.
+  // Mensagem específica para o usuário poder agir.
+  if (res.status === 403 && reason === 'accessNotConfigured') {
+    throw new Error(
+      'A Google Calendar API não está habilitada neste projeto Firebase. ' +
+        'Habilite em https://console.cloud.google.com/apis/library/calendar-json.googleapis.com',
+    );
+  }
+
+  throw new Error(
+    `Google Calendar API ${res.status}${reason ? ` (${reason})` : ''}: ${message || res.statusText}`,
+  );
 }
 
 export async function listUpcomingPrimaryEvents(
