@@ -38,39 +38,34 @@ só fazem sentido para tarefas ativas).
 - **Filtro por projeto** via `ProjectCombobox` na barra de controles
   (`archivedFromSection`, com fallback pro `section` original).
 
-## Backlog — composição / breakdown
+## v3 (implementado)
 
-- **Stacked bar por esforço** — rapido/medio/longo. Mostra o perfil de
-  carga de trabalho.
-- **Stacked bar por modo** — manual/colaborar/delegar. Você está
-  delegando o que devia?
-- **Pizza / treemap por projeto** — visão complementar ao filtro:
-  mostra a distribuição do esforço entre projetos sem precisar
-  selecionar um.
+- **Toggle de dimensão do stack** — barras empilhadas alternam entre
+  MoSCoW, Esforço (rapido/medio/longo) e Modo (manual/colaborar/delegar).
+  Vazios caem na primeira categoria de mesmo peso (rapido para esforço,
+  manual para modo).
+- **Card de streak** — maior sequência de dias consecutivos com ≥ 1
+  conclusão dentro do período.
+- **Card de mediana de ciclo** — `archivedAt - addedDate` em dias,
+  mediana sobre as tarefas concluídas no período.
+- **Card "no prazo"** — % das tarefas com deadline concluídas até a
+  data, mais o N de tarefas que tinham deadline.
+- **Delta vs período anterior** — badge "+15% / -8%" no card de "Total
+  no período", comparando com período imediatamente anterior de mesmo
+  tamanho. Verde se sobe, vermelho se cai, oculto se prev = 0.
+- **Por projeto · top 10** — barras horizontais com nome, barra
+  proporcional e valor, sorteadas pela métrica ativa. Combina pizza +
+  throughput em uma visão. Oculto quando o filtro por projeto está
+  ativo (redundante).
 
-## Backlog — qualidade / saúde
+## Backlog (pulado por enquanto)
 
-- **Tempo de ciclo** — `archivedAt - addedDate` por tarefa.
-  Histograma + mediana. Tarefas estão envelhecendo no backlog antes
-  de serem concluídas?
-- **Cumprimento de deadline** — % concluídas antes vs depois do
-  `deadline`. Trend ao longo do tempo.
-- **Throughput por projeto** — quantas tarefas/semana cada projeto
-  fecha. Identifica projetos parados (sem completions há X semanas).
-- **Dependency unlocks** — tarefas que mais desbloquearam outras
-  (transitive unlocks).
-
-## Backlog — motivacional / reflexão
-
-- **Recordes pessoais** — melhor dia, melhor semana (por contagem e por
-  score). Já parcialmente no v1 (melhor dia).
-- **Streak** — dias consecutivos com ≥ N tarefas/score. Cuidado: pode
-  virar pressão tóxica; talvez exibir só se ≥ 3 dias.
-- **Resumo da semana** — card textual estilo Spotify Wrapped:
-  "Você concluiu 23 tarefas (+15% vs semana passada), 8 'must'.
-  Projeto X teve mais movimento."
-- **Comparativo período atual vs anterior** — % de mudança em todas
-  as métricas.
+- **Dependency unlocks** — tarefas que mais desbloquearam outras.
+  Muito nicho; depende do grafo de dependências computado no
+  `ScoreContext`. Volta se houver demanda.
+- **Resumo da semana (Spotify Wrapped)** — overlap forte com cards +
+  delta. Se voltar, vira página/modal separado de "retrospectiva",
+  não card.
 
 ## Notas técnicas
 

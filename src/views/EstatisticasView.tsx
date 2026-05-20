@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ProjectCombobox } from '../components/TaskFiltersBar';
 import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
-import type { CompletedTask, Esforco, MoSCoW, Project } from '../types';
+import type {
+  CompletedTask,
+  Esforco,
+  Modo,
+  MoSCoW,
+  Project,
+} from '../types';
 
 type RangeKey = '7' | '30' | '90' | '365';
 type Metric = 'count' | 'score';
-type MoSCoWBucket = 'must' | 'should' | 'could' | 'wont';
+type Dimension = 'moscow' | 'esforco' | 'modo';
 
 const RANGE_LABELS: Record<RangeKey, string> = {
   '7': '7 dias',
@@ -14,9 +20,14 @@ const RANGE_LABELS: Record<RangeKey, string> = {
   '365': '1 ano',
 };
 
-// Ordem visual de baixo pra cima na barra empilhada — must é a base.
-const MOSCOW_ORDER: MoSCoWBucket[] = ['must', 'should', 'could', 'wont'];
+const DIMENSION_LABELS: Record<Dimension, string> = {
+  moscow: 'MoSCoW',
+  esforco: 'Esforço',
+  modo: 'Modo',
+};
 
+type MoSCoWBucket = 'must' | 'should' | 'could' | 'wont';
+const MOSCOW_ORDER: MoSCoWBucket[] = ['must', 'should', 'could', 'wont'];
 const MOSCOW_LABELS: Record<MoSCoWBucket, string> = {
   must: 'Must',
   should: 'Should',
@@ -24,11 +35,30 @@ const MOSCOW_LABELS: Record<MoSCoWBucket, string> = {
   wont: "Won't",
 };
 
-// MoSCoW vazio cai em "could" — mesmo peso (1 pt) no score, sem precisar
-// de um 5º bucket com cor própria.
-function bucketize(m: MoSCoW): MoSCoWBucket {
-  if (m === '' || m == null) return 'could';
-  return m;
+type EsforcoBucket = 'rapido' | 'medio' | 'longo';
+const ESFORCO_ORDER: EsforcoBucket[] = ['rapido', 'medio', 'longo'];
+const ESFORCO_LABELS: Record<EsforcoBucket, string> = {
+  rapido: 'Rápido',
+  medio: 'Médio',
+  longo: 'Longo',
+};
+
+type ModoBucket = 'manual' | 'colaborar' | 'delegar';
+const MODO_ORDER: ModoBucket[] = ['manual', 'colaborar', 'delegar'];
+const MODO_LABELS: Record<ModoBucket, string> = {
+  manual: 'Manual',
+  colaborar: 'Colaborar',
+  delegar: 'Delegar',
+};
+
+function bucketMoscow(m: MoSCoW): MoSCoWBucket {
+  return !m ? 'could' : m;
+}
+function bucketEsforco(e: Esforco): EsforcoBucket {
+  return !e ? 'rapido' : e;
+}
+function bucketModo(m: Modo): ModoBucket {
+  return m || 'manual';
 }
 
 const MOSCOW_PTS: Record<MoSCoW, number> = {
@@ -74,7 +104,7 @@ function intrinsicValue(
   return (projectScore * moscowPts) / effortDiv;
 }
 
-interface MoscowSlot {
+interface Slot {
   count: number;
   score: number;
 }
@@ -84,16 +114,30 @@ interface DayBucket {
   key: string;
   count: number;
   score: number;
-  byMoscow: Record<MoSCoWBucket, MoscowSlot>;
+  byMoscow: Record<MoSCoWBucket, Slot>;
+  byEsforco: Record<EsforcoBucket, Slot>;
+  byModo: Record<ModoBucket, Slot>;
 }
 
-function emptySlots(): Record<MoSCoWBucket, MoscowSlot> {
+function emptySlot(): Slot {
+  return { count: 0, score: 0 };
+}
+
+function emptyMoscowSlots(): Record<MoSCoWBucket, Slot> {
   return {
-    must: { count: 0, score: 0 },
-    should: { count: 0, score: 0 },
-    could: { count: 0, score: 0 },
-    wont: { count: 0, score: 0 },
+    must: emptySlot(),
+    should: emptySlot(),
+    could: emptySlot(),
+    wont: emptySlot(),
   };
+}
+
+function emptyEsforcoSlots(): Record<EsforcoBucket, Slot> {
+  return { rapido: emptySlot(), medio: emptySlot(), longo: emptySlot() };
+}
+
+function emptyModoSlots(): Record<ModoBucket, Slot> {
+  return { manual: emptySlot(), colaborar: emptySlot(), delegar: emptySlot() };
 }
 
 function buildDailyBuckets(
@@ -112,7 +156,9 @@ function buildDailyBuckets(
       key: dayKey(d),
       count: 0,
       score: 0,
-      byMoscow: emptySlots(),
+      byMoscow: emptyMoscowSlots(),
+      byEsforco: emptyEsforcoSlots(),
+      byModo: emptyModoSlots(),
     };
     buckets.push(b);
     index.set(b.key, b);
@@ -122,14 +168,38 @@ function buildDailyBuckets(
     const k = dayKey(startOfDay(t.archivedAt));
     const b = index.get(k);
     if (!b) continue;
-    const value = intrinsicValue(t, projectScoreMap);
-    const slot = b.byMoscow[bucketize(t.moscow)];
+    const v = intrinsicValue(t, projectScoreMap);
     b.count += 1;
-    b.score += value;
-    slot.count += 1;
-    slot.score += value;
+    b.score += v;
+    const ms = b.byMoscow[bucketMoscow(t.moscow)];
+    ms.count += 1;
+    ms.score += v;
+    const es = b.byEsforco[bucketEsforco(t.esforco)];
+    es.count += 1;
+    es.score += v;
+    const mo = b.byModo[bucketModo(t.modo)];
+    mo.count += 1;
+    mo.score += v;
   }
   return buckets;
+}
+
+function dimensionSlots(b: DayBucket, dim: Dimension): Record<string, Slot> {
+  if (dim === 'moscow') return b.byMoscow;
+  if (dim === 'esforco') return b.byEsforco;
+  return b.byModo;
+}
+
+function dimensionOrder(dim: Dimension): readonly string[] {
+  if (dim === 'moscow') return MOSCOW_ORDER;
+  if (dim === 'esforco') return ESFORCO_ORDER;
+  return MODO_ORDER;
+}
+
+function dimensionCategoryLabel(dim: Dimension, cat: string): string {
+  if (dim === 'moscow') return MOSCOW_LABELS[cat as MoSCoWBucket];
+  if (dim === 'esforco') return ESFORCO_LABELS[cat as EsforcoBucket];
+  return MODO_LABELS[cat as ModoBucket];
 }
 
 interface HeatmapProps {
@@ -139,11 +209,9 @@ interface HeatmapProps {
 
 function Heatmap({ buckets, metric }: HeatmapProps) {
   const today = startOfDay(new Date());
-  // Domingo da semana atual como âncora à direita
   const anchor = new Date(today);
   anchor.setDate(anchor.getDate() - anchor.getDay());
 
-  // Quantas semanas mostrar (sempre múltiplo de 7 dias para fechar colunas)
   const weeksToShow = Math.ceil(buckets.length / 7);
   const byKey = new Map(buckets.map((b) => [b.key, b]));
 
@@ -167,7 +235,7 @@ function Heatmap({ buckets, metric }: HeatmapProps) {
   const max = Math.max(0, ...cells.map((c) => (c.value > 0 ? c.value : 0)));
 
   function level(value: number): number {
-    if (value < 0) return -1; // fora do range
+    if (value < 0) return -1;
     if (value === 0) return 0;
     if (max === 0) return 0;
     const ratio = value / max;
@@ -180,9 +248,7 @@ function Heatmap({ buckets, metric }: HeatmapProps) {
   return (
     <div
       className="stats-heatmap"
-      style={{
-        gridTemplateColumns: `repeat(${weeksToShow}, 1fr)`,
-      }}
+      style={{ gridTemplateColumns: `repeat(${weeksToShow}, 1fr)` }}
       role="grid"
       aria-label="Heatmap de tarefas concluídas"
     >
@@ -210,37 +276,50 @@ function Heatmap({ buckets, metric }: HeatmapProps) {
 interface BarsProps {
   buckets: DayBucket[];
   metric: Metric;
+  dimension: Dimension;
 }
 
-function slotValue(slot: MoscowSlot, metric: Metric): number {
+function slotValue(slot: Slot | undefined, metric: Metric): number {
+  if (!slot) return 0;
   return metric === 'count' ? slot.count : slot.score;
 }
 
-function DailyBars({ buckets, metric }: BarsProps) {
+function DailyBars({ buckets, metric, dimension }: BarsProps) {
   const max = Math.max(
     1,
     ...buckets.map((b) => (metric === 'count' ? b.count : b.score)),
   );
-  // Mostra labels só em alguns dias pra não poluir
   const labelEvery =
-    buckets.length > 60 ? 14 : buckets.length > 30 ? 7 : buckets.length > 14 ? 3 : 1;
+    buckets.length > 60
+      ? 14
+      : buckets.length > 30
+        ? 7
+        : buckets.length > 14
+          ? 3
+          : 1;
   const unit = metric === 'count' ? 'tarefas' : 'pts';
   const digits = metric === 'score' ? 1 : 0;
+  const order = dimensionOrder(dimension);
 
   return (
     <div
       className="stats-bars"
       role="img"
-      aria-label="Gráfico de barras por dia"
+      aria-label={`Gráfico de barras por dia, empilhado por ${DIMENSION_LABELS[dimension]}`}
     >
       {buckets.map((b, i) => {
         const total = metric === 'count' ? b.count : b.score;
         const heightPct = (total / max) * 100;
         const showLabel = i % labelEvery === 0 || i === buckets.length - 1;
-        const breakdown = MOSCOW_ORDER.map((m) => {
-          const v = slotValue(b.byMoscow[m], metric);
-          return v > 0 ? `\n  ${MOSCOW_LABELS[m]}: ${v.toFixed(digits)}` : '';
-        }).join('');
+        const slots = dimensionSlots(b, dimension);
+        const breakdown = order
+          .map((c) => {
+            const v = slotValue(slots[c], metric);
+            return v > 0
+              ? `\n  ${dimensionCategoryLabel(dimension, c)}: ${v.toFixed(digits)}`
+              : '';
+          })
+          .join('');
         const title =
           `${formatBR(b.date)} — ${total.toFixed(digits)} ${unit}` + breakdown;
         return (
@@ -250,13 +329,13 @@ function DailyBars({ buckets, metric }: BarsProps) {
                 className="stats-bar-stack"
                 style={{ height: `${heightPct}%` }}
               >
-                {MOSCOW_ORDER.map((m) => {
-                  const v = slotValue(b.byMoscow[m], metric);
+                {order.map((c) => {
+                  const v = slotValue(slots[c], metric);
                   if (v <= 0) return null;
                   return (
                     <div
-                      key={m}
-                      className={`stats-bar-seg stats-bar-seg--${m}`}
+                      key={c}
+                      className={`stats-bar-seg stats-bar-seg--${dimension}-${c}`}
                       style={{ flexGrow: v }}
                     />
                   );
@@ -278,20 +357,133 @@ function DailyBars({ buckets, metric }: BarsProps) {
   );
 }
 
-function MoscowLegend() {
+function DimensionLegend({ dimension }: { dimension: Dimension }) {
+  const order = dimensionOrder(dimension);
   return (
-    <ul className="stats-legend" aria-label="Legenda MoSCoW">
-      {MOSCOW_ORDER.map((m) => (
-        <li key={m} className="stats-legend-item">
+    <ul
+      className="stats-legend"
+      aria-label={`Legenda ${DIMENSION_LABELS[dimension]}`}
+    >
+      {order.map((c) => (
+        <li key={c} className="stats-legend-item">
           <span
-            className={`stats-legend-swatch stats-legend-swatch--${m}`}
+            className={`stats-legend-swatch stats-legend-swatch--${dimension}-${c}`}
             aria-hidden="true"
           />
-          {MOSCOW_LABELS[m]}
+          {dimensionCategoryLabel(dimension, c)}
         </li>
       ))}
     </ul>
   );
+}
+
+interface ProjectAgg {
+  id: string;
+  name: string;
+  count: number;
+  score: number;
+}
+
+interface ProjectBreakdownProps {
+  tasks: CompletedTask[];
+  projectNameById: Map<string, string>;
+  projectScoreMap: Record<string, number>;
+  metric: Metric;
+}
+
+function ProjectBreakdown({
+  tasks,
+  projectNameById,
+  projectScoreMap,
+  metric,
+}: ProjectBreakdownProps) {
+  const aggs = useMemo<ProjectAgg[]>(() => {
+    const m = new Map<string, ProjectAgg>();
+    for (const t of tasks) {
+      const id = t.archivedFromSection || t.section || '';
+      const name = id
+        ? projectNameById.get(id) ?? '(projeto removido)'
+        : 'Sem projeto';
+      const v = intrinsicValue(t, projectScoreMap);
+      const entry = m.get(id) ?? { id, name, count: 0, score: 0 };
+      entry.count += 1;
+      entry.score += v;
+      m.set(id, entry);
+    }
+    return [...m.values()]
+      .sort((a, b) => {
+        const av = metric === 'count' ? a.count : a.score;
+        const bv = metric === 'count' ? b.count : b.score;
+        return bv - av;
+      })
+      .slice(0, 10);
+  }, [tasks, projectNameById, projectScoreMap, metric]);
+
+  if (aggs.length === 0) return null;
+  const max = Math.max(
+    1,
+    ...aggs.map((a) => (metric === 'count' ? a.count : a.score)),
+  );
+  const digits = metric === 'score' ? 1 : 0;
+
+  return (
+    <ul className="stats-project-list">
+      {aggs.map((a) => {
+        const v = metric === 'count' ? a.count : a.score;
+        const pct = (v / max) * 100;
+        return (
+          <li key={a.id || '__nosec'} className="stats-project-row">
+            <div className="stats-project-name" title={a.name}>
+              {a.name}
+            </div>
+            <div className="stats-project-track">
+              <div
+                className="stats-project-fill"
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+            <div className="stats-project-value">{v.toFixed(digits)}</div>
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
+
+type DeltaSign = 'up' | 'down' | 'flat';
+interface Delta {
+  pct: number | null;
+  sign: DeltaSign;
+}
+
+function pctDelta(curr: number, prev: number): Delta {
+  if (prev === 0) return { pct: null, sign: 'flat' };
+  const d = ((curr - prev) / prev) * 100;
+  if (Math.abs(d) < 0.5) return { pct: 0, sign: 'flat' };
+  return { pct: d, sign: d > 0 ? 'up' : 'down' };
+}
+
+function DeltaBadge({ delta }: { delta: Delta }) {
+  if (delta.pct == null) return null;
+  const sign = delta.pct > 0 ? '+' : '';
+  return (
+    <span
+      className={`stats-card-delta stats-card-delta--${delta.sign}`}
+      title="Variação vs período anterior de mesmo tamanho"
+    >
+      {sign}
+      {delta.pct.toFixed(0)}%
+    </span>
+  );
+}
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 1
+    ? sorted[mid]!
+    : (sorted[mid - 1]! + sorted[mid]!) / 2;
 }
 
 interface EstatisticasViewProps {
@@ -310,6 +502,7 @@ export function EstatisticasView({
   const [loading, setLoading] = useState(true);
   const [range, setRange] = useState<RangeKey>('90');
   const [metric, setMetric] = useState<Metric>('count');
+  const [dimension, setDimension] = useState<Dimension>('moscow');
   const [projectFilter, setProjectFilter] = useState<string>('');
 
   useEffect(() => {
@@ -335,15 +528,24 @@ export function EstatisticasView({
     );
   }, [tasks, projectFilter]);
 
+  const rangeDays = parseInt(range, 10);
   const buckets = useMemo(
-    () => buildDailyBuckets(filteredTasks, projectScoreMap, parseInt(range, 10)),
-    [filteredTasks, projectScoreMap, range],
+    () => buildDailyBuckets(filteredTasks, projectScoreMap, rangeDays),
+    [filteredTasks, projectScoreMap, rangeDays],
   );
 
-  const totals = useMemo(() => {
+  const projectNameById = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const p of projects) m.set(p.id, p.name);
+    return m;
+  }, [projects]);
+
+  const stats = useMemo(() => {
     let count = 0;
     let score = 0;
     let bestDay: DayBucket | null = null;
+    let longestStreak = 0;
+    let current = 0;
     for (const b of buckets) {
       count += b.count;
       score += b.score;
@@ -354,10 +556,79 @@ export function EstatisticasView({
           : bestDay.score
         : -1;
       if (v > bestV) bestDay = b;
+      if (b.count > 0) {
+        current += 1;
+        if (current > longestStreak) longestStreak = current;
+      } else {
+        current = 0;
+      }
     }
-    const avgPerDay = count / buckets.length;
-    return { count, score, bestDay, avgPerDay };
-  }, [buckets, metric]);
+
+    const today = startOfDay(new Date());
+    const periodStart = new Date(today);
+    periodStart.setDate(periodStart.getDate() - rangeDays + 1);
+
+    const periodTasks: CompletedTask[] = [];
+    const cycleDays: number[] = [];
+    let withDeadline = 0;
+    let onTime = 0;
+    for (const t of filteredTasks) {
+      if (!t.archivedAt) continue;
+      const at = startOfDay(t.archivedAt);
+      if (at < periodStart || at > today) continue;
+      periodTasks.push(t);
+      if (t.addedDate) {
+        const added = startOfDay(new Date(t.addedDate));
+        const days = Math.round(
+          (at.getTime() - added.getTime()) / 86400000,
+        );
+        if (Number.isFinite(days) && days >= 0) cycleDays.push(days);
+      }
+      if (t.deadline) {
+        const dl = startOfDay(new Date(t.deadline));
+        if (!Number.isNaN(dl.getTime())) {
+          withDeadline += 1;
+          if (at <= dl) onTime += 1;
+        }
+      }
+    }
+
+    return {
+      count,
+      score,
+      bestDay,
+      avgPerDay: count / buckets.length,
+      longestStreak,
+      medianCycle: median(cycleDays),
+      onTimePct: withDeadline > 0 ? (onTime / withDeadline) * 100 : null,
+      withDeadline,
+      periodTasks,
+    };
+  }, [buckets, filteredTasks, metric, rangeDays]);
+
+  const prevTotals = useMemo(() => {
+    const today = startOfDay(new Date());
+    const currStart = new Date(today);
+    currStart.setDate(currStart.getDate() - rangeDays + 1);
+    const prevEnd = new Date(currStart);
+    prevEnd.setDate(prevEnd.getDate() - 1);
+    const prevStart = new Date(prevEnd);
+    prevStart.setDate(prevStart.getDate() - rangeDays + 1);
+    let count = 0;
+    let score = 0;
+    for (const t of filteredTasks) {
+      if (!t.archivedAt) continue;
+      const at = startOfDay(t.archivedAt);
+      if (at < prevStart || at > prevEnd) continue;
+      count += 1;
+      score += intrinsicValue(t, projectScoreMap);
+    }
+    return { count, score };
+  }, [filteredTasks, projectScoreMap, rangeDays]);
+
+  const currTotal = metric === 'count' ? stats.count : stats.score;
+  const prevTotal = metric === 'count' ? prevTotals.count : prevTotals.score;
+  const totalDelta = pctDelta(currTotal, prevTotal);
 
   if (error) {
     return (
@@ -369,10 +640,16 @@ export function EstatisticasView({
     );
   }
 
+  const showProjectBreakdown = !projectFilter && stats.periodTasks.length > 0;
+
   return (
     <section className="estatisticas-view">
       <div className="stats-controls" role="toolbar" aria-label="Controles">
-        <div className="stats-control-group" role="radiogroup" aria-label="Período">
+        <div
+          className="stats-control-group"
+          role="radiogroup"
+          aria-label="Período"
+        >
           {(Object.keys(RANGE_LABELS) as RangeKey[]).map((k) => (
             <button
               key={k}
@@ -386,7 +663,11 @@ export function EstatisticasView({
             </button>
           ))}
         </div>
-        <div className="stats-control-group" role="radiogroup" aria-label="Métrica">
+        <div
+          className="stats-control-group"
+          role="radiogroup"
+          aria-label="Métrica"
+        >
           <button
             type="button"
             role="radio"
@@ -406,6 +687,24 @@ export function EstatisticasView({
             Score
           </button>
         </div>
+        <div
+          className="stats-control-group"
+          role="radiogroup"
+          aria-label="Empilhar por"
+        >
+          {(Object.keys(DIMENSION_LABELS) as Dimension[]).map((d) => (
+            <button
+              key={d}
+              type="button"
+              role="radio"
+              aria-checked={dimension === d}
+              className={`stats-chip ${dimension === d ? 'stats-chip--active' : ''}`}
+              onClick={() => setDimension(d)}
+            >
+              {DIMENSION_LABELS[d]}
+            </button>
+          ))}
+        </div>
         <div className="stats-project-filter" aria-label="Filtrar por projeto">
           <ProjectCombobox
             value={projectFilter}
@@ -419,29 +718,67 @@ export function EstatisticasView({
         <div className="stats-card">
           <span className="stats-card-label">Total no período</span>
           <span className="stats-card-value">
-            {metric === 'count'
-              ? totals.count
-              : totals.score.toFixed(1)}
+            {metric === 'count' ? stats.count : stats.score.toFixed(1)}
             <small>{metric === 'count' ? ' tarefas' : ' pts'}</small>
+            <DeltaBadge delta={totalDelta} />
           </span>
         </div>
         <div className="stats-card">
           <span className="stats-card-label">Média / dia</span>
           <span className="stats-card-value">
             {metric === 'count'
-              ? totals.avgPerDay.toFixed(1)
-              : (totals.score / buckets.length).toFixed(1)}
+              ? stats.avgPerDay.toFixed(1)
+              : (stats.score / buckets.length).toFixed(1)}
           </span>
         </div>
         <div className="stats-card">
           <span className="stats-card-label">Melhor dia</span>
           <span className="stats-card-value">
-            {totals.bestDay && totals.bestDay.count > 0 ? (
+            {stats.bestDay && stats.bestDay.count > 0 ? (
               <>
                 {metric === 'count'
-                  ? totals.bestDay.count
-                  : totals.bestDay.score.toFixed(1)}
-                <small> · {formatBR(totals.bestDay.date)}</small>
+                  ? stats.bestDay.count
+                  : stats.bestDay.score.toFixed(1)}
+                <small> · {formatBR(stats.bestDay.date)}</small>
+              </>
+            ) : (
+              '—'
+            )}
+          </span>
+        </div>
+        <div className="stats-card">
+          <span className="stats-card-label">Maior streak</span>
+          <span className="stats-card-value">
+            {stats.longestStreak > 0 ? (
+              <>
+                {stats.longestStreak}
+                <small> dias seguidos</small>
+              </>
+            ) : (
+              '—'
+            )}
+          </span>
+        </div>
+        <div className="stats-card">
+          <span className="stats-card-label">Mediana de ciclo</span>
+          <span className="stats-card-value">
+            {stats.medianCycle != null ? (
+              <>
+                {stats.medianCycle.toFixed(stats.medianCycle < 10 ? 1 : 0)}
+                <small> dias</small>
+              </>
+            ) : (
+              '—'
+            )}
+          </span>
+        </div>
+        <div className="stats-card">
+          <span className="stats-card-label">No prazo</span>
+          <span className="stats-card-value">
+            {stats.onTimePct != null ? (
+              <>
+                {stats.onTimePct.toFixed(0)}
+                <small>% · {stats.withDeadline} c/ deadline</small>
               </>
             ) : (
               '—'
@@ -458,9 +795,7 @@ export function EstatisticasView({
           aqui no próximo carregamento.
         </p>
       ) : filteredTasks.length === 0 ? (
-        <p className="muted">
-          Nenhuma tarefa concluída neste projeto.
-        </p>
+        <p className="muted">Nenhuma tarefa concluída neste projeto.</p>
       ) : (
         <>
           <div className="stats-section">
@@ -471,10 +806,32 @@ export function EstatisticasView({
           <div className="stats-section">
             <h3 className="stats-section-title">
               {metric === 'count' ? 'Tarefas por dia' : 'Score por dia'}
+              <small className="stats-section-sub">
+                {' '}
+                · empilhado por {DIMENSION_LABELS[dimension]}
+              </small>
             </h3>
-            <DailyBars buckets={buckets} metric={metric} />
-            <MoscowLegend />
+            <DailyBars
+              buckets={buckets}
+              metric={metric}
+              dimension={dimension}
+            />
+            <DimensionLegend dimension={dimension} />
           </div>
+
+          {showProjectBreakdown && (
+            <div className="stats-section">
+              <h3 className="stats-section-title">
+                Por projeto · top 10
+              </h3>
+              <ProjectBreakdown
+                tasks={stats.periodTasks}
+                projectNameById={projectNameById}
+                projectScoreMap={projectScoreMap}
+                metric={metric}
+              />
+            </div>
+          )}
         </>
       )}
     </section>
