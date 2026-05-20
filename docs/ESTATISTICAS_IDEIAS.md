@@ -34,6 +34,9 @@ só fazem sentido para tarefas ativas).
   "ocupado": revela se o foco está no que importa ou só em tarefas
   triviais. MoSCoW vazio é agrupado em "could" (mesmo peso de 1 pt,
   mesma cor — evita 5ª categoria visual).
+- **Filtro de 7 dias** no toggle de período (além de 30 / 90 / 1 ano).
+- **Filtro por projeto** via `ProjectCombobox` na barra de controles
+  (`archivedFromSection`, com fallback pro `section` original).
 
 ## Backlog — composição / breakdown
 
@@ -41,8 +44,9 @@ só fazem sentido para tarefas ativas).
   carga de trabalho.
 - **Stacked bar por modo** — manual/colaborar/delegar. Você está
   delegando o que devia?
-- **Pizza / treemap por projeto** (`archivedFromSection`) — onde seu
-  esforço realmente foi nos últimos 30/90 dias.
+- **Pizza / treemap por projeto** — visão complementar ao filtro:
+  mostra a distribuição do esforço entre projetos sem precisar
+  selecionar um.
 
 ## Backlog — qualidade / saúde
 
