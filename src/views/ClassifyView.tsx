@@ -126,6 +126,20 @@ export function ClassifyView({
     setIndex((i) => Math.max(0, i - 1));
   }
 
+  async function handleMarkDone() {
+    if (!currentTask || busy) return;
+    setBusy(true);
+    try {
+      await patchTask(uid, currentTask, { checked: true });
+      setClassifiedCount((c) => c + 1);
+      advance();
+    } catch (err) {
+      console.error('Falha ao marcar como concluída', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const total = initialTotalRef.current;
   const done = index >= queue.length && queue.length > 0;
   const empty = queue.length === 0;
@@ -161,6 +175,16 @@ export function ClassifyView({
         <div className="classify-card">
           <p className="classify-prompt">Classifique:</p>
           <h2 className="classify-title">{getDisplayTitle(currentTask.title)}</h2>
+
+          <label className="classify-done-toggle">
+            <input
+              type="checkbox"
+              checked={false}
+              onChange={handleMarkDone}
+              disabled={busy}
+            />
+            <span>marcar como concluída</span>
+          </label>
 
           <label className="classify-field">
             <span className="classify-field-label">MoSCoW</span>
