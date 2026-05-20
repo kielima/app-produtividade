@@ -2838,3 +2838,176 @@ a:focus-visible {
   margin-top: 0.25rem;
 }
 
+/* Today / Hoje view */
+.today-view {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0.5rem 0 4rem;
+}
+
+.today-greeting {
+  margin: 0;
+  font-size: 1.6rem;
+  font-weight: 600;
+}
+
+.today-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: 0.85rem;
+}
+
+.today-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.95rem 1.05rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.today-card-label {
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.today-weather-main {
+  display: flex;
+  align-items: center;
+  gap: 0.85rem;
+}
+
+.today-weather-icon {
+  font-size: 2.6rem;
+  line-height: 1;
+}
+
+.today-weather-temps {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.today-weather-condition {
+  font-size: 0.95rem;
+  font-weight: 600;
+}
+
+.today-weather-range {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.today-uv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  background: var(--surface-2);
+}
+
+.today-uv-label {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.today-uv-value {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+
+.today-uv-value small {
+  font-weight: 400;
+  color: var(--muted);
+  font-size: 0.78rem;
+  margin-left: 0.25rem;
+}
+
+.today-uv--low { background: #d4f5dd; color: #1e6b34; }
+.today-uv--moderate { background: #fff3cf; color: #7a5a00; }
+.today-uv--high { background: #ffe1c2; color: #8a4500; }
+.today-uv--very-high { background: #ffd0d0; color: #8e2424; }
+.today-uv--extreme { background: #e6d0ff; color: #4a2270; }
+
+.today-streak-value {
+  font-size: 2rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1.1;
+}
+
+.today-streak-value small {
+  font-size: 0.85rem;
+  font-weight: 400;
+  color: var(--muted);
+  margin-left: 0.3rem;
+}
+
+.today-streak-hint {
+  margin: 0;
+  font-size: 0.82rem;
+}
+
+.today-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.today-section-title {
+  margin: 0;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.today-project-card {
+  appearance: none;
+  text-align: left;
+  cursor: pointer;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 0.9rem 1.05rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.75rem;
+  color: var(--fg);
+  font: inherit;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.today-project-card:hover {
+  border-color: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+}
+
+.today-project-name {
+  font-weight: 600;
+  font-size: 1rem;
+  word-break: break-word;
+}
+
+.today-project-score {
+  color: var(--accent);
+  font-weight: 700;
+  font-size: 1.1rem;
+  white-space: nowrap;
+}
+
+.today-project-score small {
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 0.2rem;
+}
+
