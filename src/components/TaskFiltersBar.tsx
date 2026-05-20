@@ -142,10 +142,14 @@ export function TaskFiltersBar({
   state,
   setState,
   showHideZero,
+  onOpenClassify,
+  classifyCount,
 }: {
   state: TaskFiltersState;
   setState: (next: TaskFiltersState) => void;
   showHideZero: boolean;
+  onOpenClassify?: () => void;
+  classifyCount?: number;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -263,6 +267,25 @@ export function TaskFiltersBar({
               </svg>
             </button>
           </div>
+          {onOpenClassify && (
+            <button
+              type="button"
+              className="classify-cta"
+              onClick={() => {
+                setOpen(false);
+                onOpenClassify();
+              }}
+              disabled={!classifyCount}
+            >
+              <span className="classify-cta-label">Classificar tarefas</span>
+              <span className="classify-cta-sub">
+                {classifyCount
+                  ? `${classifyCount} sem MoSCoW ou esforço`
+                  : 'Tudo classificado'}
+              </span>
+            </button>
+          )}
+
           <fieldset>
             <legend>Ocultar</legend>
             {showHideZero && (

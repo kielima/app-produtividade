@@ -2495,3 +2495,158 @@ a:focus-visible {
   }
 }
 
+/* ===== Classificação rápida (game) ===== */
+.classify-view {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 0 0 2rem;
+}
+.classify-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0;
+  position: sticky;
+  top: 0;
+  background: var(--bg);
+  z-index: 10;
+}
+.classify-close {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  padding: 0.5rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  cursor: pointer;
+}
+.classify-close:hover { background: var(--surface-2); }
+.classify-count {
+  color: var(--muted);
+  font-size: 0.9rem;
+  margin-left: auto;
+}
+.classify-card {
+  width: 100%;
+  max-width: 600px;
+  margin: 1rem auto 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+  padding: 0 1rem;
+}
+.classify-prompt {
+  text-align: center;
+  font-size: 1rem;
+  color: var(--muted);
+  margin: 1.5rem 0 0;
+}
+.classify-title {
+  margin: 0;
+  font-size: 1.4rem;
+  line-height: 1.35;
+  text-align: center;
+  padding: 1.25rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+}
+.classify-section {
+  border: none;
+  padding: 0;
+  margin: 0;
+}
+.classify-section legend {
+  padding: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-weight: 600;
+}
+.classify-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+.classify-chip {
+  flex: 1 1 5rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: transform 80ms ease, border-color 120ms ease, background 120ms ease;
+}
+.classify-chip:hover:not(:disabled) {
+  border-color: var(--accent, var(--fg));
+  transform: translateY(-1px);
+}
+.classify-chip:active:not(:disabled) { transform: translateY(0); }
+.classify-chip:disabled { opacity: 0.5; cursor: wait; }
+.classify-chip.active {
+  border-color: transparent;
+  filter: saturate(1.4) brightness(0.95);
+}
+.classify-actions {
+  display: flex;
+  justify-content: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+  margin-top: 0.5rem;
+}
+.classify-empty, .classify-done, .classify-loading {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--muted);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+.classify-done-title {
+  margin: 0;
+  font-size: 1.4rem;
+  color: var(--accent, var(--fg));
+}
+
+/* Banner CTA dentro do painel de filtros */
+.classify-cta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  width: 100%;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  color: var(--fg);
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.classify-cta:hover:not(:disabled) {
+  border-color: var(--accent, var(--fg));
+  background: var(--surface-2);
+}
+.classify-cta:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.classify-cta-label {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.classify-cta-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+

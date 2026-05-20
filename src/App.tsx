@@ -37,6 +37,7 @@ import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
 import { hasLink, hasList, LINK_TAG, LIST_TAG, normalizeTags } from './lib/tags';
 import { TasksRoot } from './views/TasksRoot';
+import { ClassifyView } from './views/ClassifyView';
 import { EstatisticasView } from './views/EstatisticasView';
 import type { Note } from './types';
 
@@ -165,6 +166,7 @@ function AppShell({
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteTags, setSelectedNoteTags] = useState<string[]>([]);
   const [duelOpen, setDuelOpen] = useState(false);
+  const [classifyOpen, setClassifyOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
@@ -306,6 +308,14 @@ function AppShell({
     return data.tasks.filter((t) => t.section === selectedProject.id).length;
   }, [selectedProject, data.tasks]);
 
+  const classifyCount = useMemo(
+    () =>
+      data.tasks.filter(
+        (t) => !t.checked && (t.moscow === '' || t.esforco === ''),
+      ).length,
+    [data.tasks],
+  );
+
   if (selectedNote) {
     return (
       <NoteNavigationContext.Provider value={noteNavValue}>
@@ -357,6 +367,25 @@ function AppShell({
                 uid={uid}
                 projects={data.projects}
                 onClose={() => setDuelOpen(false)}
+              />
+            </main>
+            <UpdatePrompt />
+          </div>
+        </ProjectNavigationContext.Provider>
+      </TaskNavigationContext.Provider>
+    );
+  }
+
+  if (classifyOpen) {
+    return (
+      <TaskNavigationContext.Provider value={taskNavValue}>
+        <ProjectNavigationContext.Provider value={projectNavValue}>
+          <div className="app app--detail">
+            <main role="main">
+              <ClassifyView
+                uid={uid}
+                tasks={data.tasks}
+                onClose={() => setClassifyOpen(false)}
               />
             </main>
             <UpdatePrompt />
@@ -462,6 +491,8 @@ function AppShell({
               state={filters}
               setState={setFilters}
               showHideZero={true}
+              onOpenClassify={() => setClassifyOpen(true)}
+              classifyCount={classifyCount}
             />
           </>
         )}
