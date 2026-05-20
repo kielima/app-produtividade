@@ -208,6 +208,55 @@ interface HeatmapProps {
 }
 
 function Heatmap({ buckets, metric }: HeatmapProps) {
+  const max = Math.max(
+    0,
+    ...buckets.map((b) => (metric === 'count' ? b.count : b.score)),
+  );
+
+  function level(value: number): number {
+    if (value < 0) return -1;
+    if (value === 0) return 0;
+    if (max === 0) return 0;
+    const ratio = value / max;
+    if (ratio > 0.66) return 4;
+    if (ratio > 0.33) return 3;
+    if (ratio > 0.1) return 2;
+    return 1;
+  }
+
+  function cellTitle(date: Date, value: number): string {
+    return `${formatBR(date)} — ${value.toFixed(metric === 'score' ? 1 : 0)} ${
+      metric === 'count' ? 'tarefas' : 'pts'
+    }`;
+  }
+
+  // Para ranges curtos (≤ 7 dias), uma linha horizontal é muito mais
+  // legível que o calendário 7-rows — que ficaria 1 coluna gigante.
+  if (buckets.length <= 7) {
+    return (
+      <div
+        className="stats-heatmap stats-heatmap--row"
+        role="grid"
+        aria-label="Heatmap de tarefas concluídas"
+      >
+        {buckets.map((b) => {
+          const v = metric === 'count' ? b.count : b.score;
+          const lvl = level(v);
+          const title = cellTitle(b.date, v);
+          return (
+            <div
+              key={b.key}
+              className={`stats-heatmap-cell stats-heatmap-cell--${lvl}`}
+              title={title}
+              aria-label={title}
+              role="gridcell"
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
   const today = startOfDay(new Date());
   const anchor = new Date(today);
   anchor.setDate(anchor.getDate() - anchor.getDay());
@@ -232,19 +281,6 @@ function Heatmap({ buckets, metric }: HeatmapProps) {
     }
   }
 
-  const max = Math.max(0, ...cells.map((c) => (c.value > 0 ? c.value : 0)));
-
-  function level(value: number): number {
-    if (value < 0) return -1;
-    if (value === 0) return 0;
-    if (max === 0) return 0;
-    const ratio = value / max;
-    if (ratio > 0.66) return 4;
-    if (ratio > 0.33) return 3;
-    if (ratio > 0.1) return 2;
-    return 1;
-  }
-
   return (
     <div
       className="stats-heatmap"
@@ -254,11 +290,7 @@ function Heatmap({ buckets, metric }: HeatmapProps) {
     >
       {cells.map((c) => {
         const lvl = level(c.value);
-        const title = c.date
-          ? `${formatBR(c.date)} — ${c.value.toFixed(metric === 'score' ? 1 : 0)} ${
-              metric === 'count' ? 'tarefas' : 'pts'
-            }`
-          : '';
+        const title = c.date ? cellTitle(c.date, c.value) : '';
         return (
           <div
             key={c.key}
