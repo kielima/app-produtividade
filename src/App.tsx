@@ -38,6 +38,7 @@ import { createNote, patchNote, subscribeToNotes } from './repositories/notesRep
 import { hasLink, hasList, LINK_TAG, LIST_TAG, normalizeTags } from './lib/tags';
 import { TasksRoot } from './views/TasksRoot';
 import { ClassifyView } from './views/ClassifyView';
+import { CountdownView } from './views/CountdownView';
 import { EstatisticasView } from './views/EstatisticasView';
 import type { Note } from './types';
 
@@ -64,12 +65,13 @@ function loadProjectFilters(): ProjectFiltersState {
   }
 }
 
-type Tab = 'notes' | 'tasks' | 'projects' | 'stats' | 'settings';
+type Tab = 'notes' | 'tasks' | 'projects' | 'countdown' | 'stats' | 'settings';
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'notes', label: 'Keep' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
+  { key: 'countdown', label: 'Contagem Regressiva' },
   { key: 'stats', label: 'Estatísticas' },
   { key: 'settings', label: 'Configurações' },
 ];
@@ -567,6 +569,7 @@ function AppShell({
         {tab === 'projects' && (
           <ProjectsView uid={uid} filters={projectFilters} />
         )}
+        {tab === 'countdown' && <CountdownView uid={uid} />}
         {tab === 'stats' && (
           <EstatisticasView
             uid={uid}
