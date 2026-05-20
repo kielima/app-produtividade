@@ -826,6 +826,15 @@ a:focus-visible {
   flex-direction: column;
   gap: 0.15rem;
 }
+.sidebar-row {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border-radius: 8px;
+}
+.sidebar-row.dragging {
+  background: var(--surface-2);
+}
 .sidebar-item {
   background: transparent;
   border: none;
@@ -835,13 +844,32 @@ a:focus-visible {
   border-radius: 8px;
   font-size: 0.95rem;
   font-weight: 500;
-  width: 100%;
+  flex: 1;
+  min-width: 0;
 }
 .sidebar-item:hover { background: var(--surface-2); }
 .sidebar-item.active {
   background: var(--surface-2);
   color: var(--fg);
 }
+.sidebar-drag-handle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0.5rem 0.4rem;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.sidebar-drag-handle:hover {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+.sidebar-drag-handle:active { cursor: grabbing; }
 
 .tabs {
   display: flex;
