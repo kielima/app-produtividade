@@ -21,6 +21,11 @@ export async function patchTask(
   displayOverride?: string,
 ): Promise<Task> {
   const merged: Task = { ...task, ...patch };
+  // Saneia `modo` — docs antigos podem vir com valor ausente/inválido e
+  // sem isso `serializeTitle` produziria `[undefined]` no título.
+  if (merged.modo !== 'manual' && merged.modo !== 'colaborar' && merged.modo !== 'delegar') {
+    merged.modo = 'manual';
+  }
   const display = displayOverride ?? getDisplayTitle(task.title);
   merged.title = serializeTitle(display, {
     taskId: merged.taskId,

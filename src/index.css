@@ -2555,46 +2555,41 @@ a:focus-visible {
   border-radius: 14px;
   background: var(--surface);
 }
-.classify-section {
-  border: none;
-  padding: 0;
-  margin: 0;
+.classify-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
 }
-.classify-section legend {
-  padding: 0 0 0.4rem;
+.classify-field-label {
   color: var(--muted);
   font-size: 0.85rem;
   text-transform: uppercase;
   letter-spacing: 0.05em;
   font-weight: 600;
 }
-.classify-chips {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-}
-.classify-chip {
-  flex: 1 1 5rem;
+.classify-select {
+  width: 100%;
   padding: 0.7rem 0.9rem;
   border-radius: 12px;
   border: 1.5px solid var(--border);
-  background: var(--surface);
+  background-color: var(--surface);
   color: var(--fg);
-  font-size: 0.95rem;
-  font-weight: 500;
+  font: inherit;
+  font-size: 1rem;
   cursor: pointer;
-  transition: transform 80ms ease, border-color 120ms ease, background 120ms ease;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='gray' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'><polyline points='6 9 12 15 18 9'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 0.75rem center;
+  background-size: 1rem;
+  padding-right: 2.25rem;
 }
-.classify-chip:hover:not(:disabled) {
+.classify-select:focus {
+  outline: none;
   border-color: var(--accent, var(--fg));
-  transform: translateY(-1px);
 }
-.classify-chip:active:not(:disabled) { transform: translateY(0); }
-.classify-chip:disabled { opacity: 0.5; cursor: wait; }
-.classify-chip.active {
-  border-color: transparent;
-  filter: saturate(1.4) brightness(0.95);
-}
+.classify-select:disabled { opacity: 0.6; cursor: wait; }
 .classify-actions {
   display: flex;
   justify-content: center;
