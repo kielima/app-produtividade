@@ -25,6 +25,7 @@ export function getDisplayTitle(title: string): string {
       /\s*\[(Must|Should|Could|Won't|Wont|Manual|Colaborar|Delegar|Automatizar|Rápido|Rapido|Médio|Medio|Longo)\]/gi,
       '',
     )
+    .replace(/\s*\[undefined\]/gi, '')
     .replace(/\s*\[prazo:[^\]]+\]/gi, '')
     .replace(/\s*\(adicionado:\s*\d{4}-\d{2}-\d{2}\)/gi, '')
     .trim();
@@ -65,9 +66,11 @@ export function serializeTitle(
 ): string {
   const parts: string[] = [displayTitle.trim()];
   if (task.taskId != null) parts.push(`[#${String(task.taskId).padStart(4, '0')}]`);
-  parts.push(`[${MODO_TAG[task.modo]}]`);
-  if (task.moscow) parts.push(`[${MOSCOW_TAG[task.moscow]}]`);
-  if (task.esforco) parts.push(`[${ESFORCO_TAG[task.esforco]}]`);
+  // Defesa contra docs antigos sem `modo` válido — evita gerar "[undefined]".
+  const modoTag = MODO_TAG[task.modo] ?? MODO_TAG.manual;
+  parts.push(`[${modoTag}]`);
+  if (task.moscow && MOSCOW_TAG[task.moscow]) parts.push(`[${MOSCOW_TAG[task.moscow]}]`);
+  if (task.esforco && ESFORCO_TAG[task.esforco]) parts.push(`[${ESFORCO_TAG[task.esforco]}]`);
   if (task.deadline) parts.push(`[prazo: ${task.deadline}]`);
   if (task.addedDate) parts.push(`(adicionado: ${task.addedDate})`);
   if (task.dependsOn && task.dependsOn.length > 0) {
