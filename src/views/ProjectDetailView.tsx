@@ -107,7 +107,7 @@ export function ProjectDetailView({
         <span className="task-detail-topbar-right">
           {typeof score === 'number' && (
             <span className="badge score" title="pontuação derivada da posição na lista">
-              ⚡ {score.toFixed(2)}
+              {score.toFixed(2)}
             </span>
           )}
           <button
