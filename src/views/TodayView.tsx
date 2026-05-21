@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useAuthState } from 'react-firebase-hooks/auth';
 import { TaskCard } from '../components/TaskCard';
 import {
   WeatherIcon,
@@ -6,6 +7,7 @@ import {
   weatherLabel,
   type WeatherKind,
 } from '../components/WeatherIcon';
+import { auth } from '../lib/firebase';
 import {
   CalendarAuthError,
   daysUntil,
@@ -45,6 +47,12 @@ function greetingFor(date: Date): string {
   if (h >= 5 && h < 12) return 'Bom dia';
   if (h >= 12 && h < 18) return 'Boa tarde';
   return 'Boa noite';
+}
+
+function firstNameOf(displayName: string | null | undefined): string | null {
+  if (!displayName) return null;
+  const first = displayName.trim().split(/\s+/)[0];
+  return first || null;
 }
 
 // Calcula a sequência atual: dias consecutivos com pelo menos uma tarefa
@@ -291,6 +299,7 @@ export function TodayView({
   ctx,
 }: TodayViewProps) {
   const { openProject } = useProjectNavigation();
+  const [user] = useAuthState(auth);
   const [now, setNow] = useState(() => new Date());
 
   // Atualiza a cada minuto para a saudação trocar ao virar a hora.
@@ -300,6 +309,7 @@ export function TodayView({
   }, []);
 
   const greeting = useMemo(() => greetingFor(now), [now]);
+  const firstName = useMemo(() => firstNameOf(user?.displayName), [user?.displayName]);
 
   const [completed, setCompleted] = useState<CompletedTask[]>([]);
   useEffect(() => {
@@ -385,7 +395,9 @@ export function TodayView({
 
   return (
     <section className="today-view">
-      <h1 className="today-greeting">{greeting}!</h1>
+      <h1 className="today-greeting">
+        {firstName ? `${greeting}, ${firstName}!` : `${greeting}!`}
+      </h1>
 
       <div className="today-grid">
         <WeatherCarousel locations={WEATHER_LOCATIONS} />
