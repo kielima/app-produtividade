@@ -2963,6 +2963,27 @@ a:focus-visible {
 .today-uv--very-high { background: #ffd0d0; color: #8e2424; }
 .today-uv--extreme { background: #e6d0ff; color: #4a2270; }
 
+.today-streak-main {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.today-streak-flame {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
+  transition: color 200ms ease, filter 200ms ease, opacity 200ms ease;
+}
+
+.today-streak-flame--off {
+  color: var(--muted);
+  filter: grayscale(1);
+  opacity: 0.5;
+}
+
 .today-streak-value {
   font-size: 2rem;
   font-weight: 700;
