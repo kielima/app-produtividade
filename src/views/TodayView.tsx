@@ -555,17 +555,36 @@ function ArchivedTaskCard({ task }: { task: Task }) {
 }
 
 function StreakCard({ streak }: { streak: number }) {
+  const active = streak > 0;
   return (
     <div className="today-card today-streak">
       <div className="today-card-label">Sequência atual</div>
-      <div className="today-streak-value">
-        {streak}
-        <small>
-          {' '}
-          dia{streak === 1 ? '' : 's'} seguido{streak === 1 ? '' : 's'}
-        </small>
+      <div className="today-streak-main">
+        <span
+          className={`today-streak-flame${active ? '' : ' today-streak-flame--off'}`}
+          aria-hidden="true"
+        >
+          <svg width="34" height="34" viewBox="0 0 24 24" fill="none">
+            <path
+              d="M12 2c.5 3.2-1.3 4.6-2.7 6.1C7.9 9.6 6.5 11.2 6.5 14a5.5 5.5 0 0 0 11 0c0-2.3-1.2-3.6-2.3-4.9-.9-1-1.7-2-1.7-3.6 0-1 .3-2 .7-2.7-1.2.6-2 1.6-2.2 3.1-.9-1.2-1-2.8 0-3.9z"
+              fill="currentColor"
+            />
+            <path
+              d="M12 11c.4 1.6-.6 2.4-1.3 3.2-.7.8-1.2 1.6-1.2 2.8a2.5 2.5 0 0 0 5 0c0-1.2-.5-2-1.2-2.8-.7-.8-1.3-1.6-1.3-3.2z"
+              fill="currentColor"
+              opacity="0.45"
+            />
+          </svg>
+        </span>
+        <div className="today-streak-value">
+          {streak}
+          <small>
+            {' '}
+            dia{streak === 1 ? '' : 's'} seguido{streak === 1 ? '' : 's'}
+          </small>
+        </div>
       </div>
-      {streak === 0 && (
+      {!active && (
         <p className="muted today-streak-hint">
           Conclua uma tarefa hoje para começar.
         </p>
