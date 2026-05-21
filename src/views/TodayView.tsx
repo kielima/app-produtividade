@@ -626,6 +626,8 @@ function WeatherCard({
   city: string;
   onRetry: () => void;
 }) {
+  const [uvExpanded, setUvExpanded] = useState(false);
+
   if (state.kind === 'loading') {
     return (
       <div className="today-card today-weather">
@@ -668,23 +670,35 @@ function WeatherCard({
             {Math.round(state.tempMin)}° / {Math.round(state.tempMax)}°C
           </div>
         </div>
+        <button
+          type="button"
+          className={`today-uv-toggle ${uvNow.className}`}
+          aria-expanded={uvExpanded}
+          aria-label={`Índice UV: ${state.uvNow.toFixed(1)}, ${uvNow.level}. Toque para ${uvExpanded ? 'recolher' : 'ver'} detalhes.`}
+          title={`UV agora: ${state.uvNow.toFixed(1)} (${uvNow.level})`}
+          onClick={() => setUvExpanded((v) => !v)}
+        >
+          {Math.round(state.uvNow)}
+        </button>
       </div>
-      <div className="today-uv-row">
-        <div className={`today-uv ${uvNow.className}`}>
-          <span className="today-uv-label">UV agora</span>
-          <span className="today-uv-value">
-            {state.uvNow.toFixed(1)}
-            <small> · {uvNow.level}</small>
-          </span>
+      {uvExpanded && (
+        <div className="today-uv-row">
+          <div className={`today-uv ${uvNow.className}`}>
+            <span className="today-uv-label">UV agora</span>
+            <span className="today-uv-value">
+              {state.uvNow.toFixed(1)}
+              <small> · {uvNow.level}</small>
+            </span>
+          </div>
+          <div className={`today-uv ${uvMax.className}`}>
+            <span className="today-uv-label">UV máx. hoje</span>
+            <span className="today-uv-value">
+              {state.uvMax.toFixed(1)}
+              <small> · {uvMax.level}</small>
+            </span>
+          </div>
         </div>
-        <div className={`today-uv ${uvMax.className}`}>
-          <span className="today-uv-label">UV máx. hoje</span>
-          <span className="today-uv-value">
-            {state.uvMax.toFixed(1)}
-            <small> · {uvMax.level}</small>
-          </span>
-        </div>
-      </div>
+      )}
     </div>
   );
 }
