@@ -546,7 +546,6 @@ export function TodayView({
                   uid={uid}
                   task={task}
                   blocked={isTaskBlocked(task, ctx)}
-                  score={score}
                 />
               ) : (
                 <ArchivedTaskCard key={id} task={task} />
