@@ -1272,6 +1272,7 @@ a:focus-visible {
 .dep-candidate > span:not(.dep-tag) { flex: 1; min-width: 0; }
 .dep-candidate:hover:not(:disabled) { background: var(--surface-2); }
 .dep-candidate:disabled { opacity: 0.5; cursor: not-allowed; }
+.dep-project-select { cursor: pointer; }
 .dep-tag {
   font-family: ui-monospace, SFMono-Regular, monospace;
   color: var(--accent);
