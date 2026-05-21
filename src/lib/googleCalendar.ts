@@ -1,14 +1,10 @@
-import {
-  GoogleAuthProvider,
-  signInWithPopup,
-  type UserCredential,
-} from 'firebase/auth';
 import { auth } from './firebase';
 
 // Escopo de leitura/escrita de eventos. Cobre os dois usos da aba Contagem
 // Regressiva: listar próximos eventos e criar novos via FAB.
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
+const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const TOKEN_KEY = 'app-produtividade:gcal-token';
 
 type StoredToken = {
@@ -16,6 +12,40 @@ type StoredToken = {
   expiresAt: number;
   uid: string;
 };
+
+type GisTokenResponse = {
+  access_token?: string;
+  expires_in?: number;
+  scope?: string;
+  token_type?: string;
+  error?: string;
+  error_description?: string;
+};
+
+type GisTokenClient = {
+  callback: (resp: GisTokenResponse) => void;
+  error_callback?: (err: { type: string; message?: string }) => void;
+  requestAccessToken: (overrides?: { prompt?: string; hint?: string }) => void;
+};
+
+type GisOAuth2 = {
+  initTokenClient: (config: {
+    client_id: string;
+    scope: string;
+    callback: (resp: GisTokenResponse) => void;
+    error_callback?: (err: { type: string; message?: string }) => void;
+  }) => GisTokenClient;
+};
+
+declare global {
+  interface Window {
+    google?: {
+      accounts?: {
+        oauth2?: GisOAuth2;
+      };
+    };
+  }
+}
 
 function readStored(): StoredToken | null {
   try {
@@ -64,34 +94,125 @@ export function hasCalendarAccess(uid: string): boolean {
   return getCachedCalendarToken(uid) !== null;
 }
 
-export async function grantCalendarAccess(uid: string): Promise<string> {
-  const provider = new GoogleAuthProvider();
-  provider.addScope(CALENDAR_SCOPE);
-  // prompt=consent força a tela de consentimento — necessário ao adicionar
-  // um escopo novo, senão o Google pode reaproveitar a sessão sem o scope
-  // pedido e devolver token só com o escopo básico.
-  const customParams: Record<string, string> = { prompt: 'consent' };
-  const currentEmail = auth.currentUser?.email;
-  if (currentEmail) customParams.login_hint = currentEmail;
-  provider.setCustomParameters(customParams);
+let gisScriptPromise: Promise<void> | null = null;
 
-  const result: UserCredential = await signInWithPopup(auth, provider);
-  const credential = GoogleAuthProvider.credentialFromResult(result);
-  const accessToken = credential?.accessToken;
-  if (!accessToken) {
-    throw new Error('Google não devolveu token de acesso para o Calendar.');
+function loadGisScript(): Promise<void> {
+  if (window.google?.accounts?.oauth2) return Promise.resolve();
+  if (gisScriptPromise) return gisScriptPromise;
+  gisScriptPromise = new Promise<void>((resolve, reject) => {
+    const existing = document.querySelector<HTMLScriptElement>(
+      `script[src="${GIS_SCRIPT_URL}"]`,
+    );
+    const onLoad = () => {
+      if (window.google?.accounts?.oauth2) resolve();
+      else reject(new Error('Google Identity Services não inicializou.'));
+    };
+    const onError = () => {
+      gisScriptPromise = null;
+      reject(new Error('Falha ao carregar Google Identity Services.'));
+    };
+    if (existing) {
+      // Script já foi inserido (pelo index.html) — pode estar carregando ainda.
+      if (window.google?.accounts?.oauth2) {
+        resolve();
+        return;
+      }
+      existing.addEventListener('load', onLoad, { once: true });
+      existing.addEventListener('error', onError, { once: true });
+      return;
+    }
+    const s = document.createElement('script');
+    s.src = GIS_SCRIPT_URL;
+    s.async = true;
+    s.defer = true;
+    s.addEventListener('load', onLoad, { once: true });
+    s.addEventListener('error', onError, { once: true });
+    document.head.appendChild(s);
+  });
+  return gisScriptPromise;
+}
+
+let tokenClient: GisTokenClient | null = null;
+
+async function getTokenClient(): Promise<GisTokenClient> {
+  if (tokenClient) return tokenClient;
+  const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID;
+  if (!clientId) {
+    throw new Error(
+      'VITE_GOOGLE_OAUTH_CLIENT_ID não está configurado. Adicione o OAuth 2.0 Web Client ID no .env.local.',
+    );
   }
+  await loadGisScript();
+  const oauth2 = window.google?.accounts?.oauth2;
+  if (!oauth2) {
+    throw new Error('Google Identity Services indisponível.');
+  }
+  tokenClient = oauth2.initTokenClient({
+    client_id: clientId,
+    scope: CALENDAR_SCOPE,
+    callback: () => {
+      // Sobrescrito a cada chamada de requestToken.
+    },
+  });
+  return tokenClient;
+}
 
-  // Tokens OAuth do Google têm validade ~1h. Como o SDK não expõe expires_in
-  // diretamente aqui, cacheamos por 55min — suficiente para a sessão típica.
-  const expiresAt = Date.now() + 55 * 60 * 1000;
-  writeStored({ accessToken, expiresAt, uid });
-  return accessToken;
+async function requestToken(
+  uid: string,
+  prompt: '' | 'none' | 'consent',
+): Promise<string> {
+  const client = await getTokenClient();
+  return new Promise<string>((resolve, reject) => {
+    client.callback = (resp) => {
+      if (resp.error) {
+        reject(new Error(resp.error_description || resp.error));
+        return;
+      }
+      if (!resp.access_token) {
+        reject(new Error('Google não devolveu access_token.'));
+        return;
+      }
+      // expires_in vem em segundos; cacheamos com margem de 60s.
+      const ttlMs = (resp.expires_in ?? 3600) * 1000;
+      const expiresAt = Date.now() + ttlMs - 60_000;
+      writeStored({ accessToken: resp.access_token, expiresAt, uid });
+      resolve(resp.access_token);
+    };
+    client.error_callback = (err) => {
+      reject(new Error(err.message || err.type || 'Falha ao obter token.'));
+    };
+    const overrides: { prompt?: string; hint?: string } = { prompt };
+    const email = auth.currentUser?.email;
+    if (email) overrides.hint = email;
+    client.requestAccessToken(overrides);
+  });
+}
+
+// Renovação silenciosa: usa a sessão Google ativa no navegador via iframe
+// invisível. Se o usuário não estiver logado no Google ou nunca consentiu,
+// retorna null sem mostrar UI (não força popup).
+export async function tryRefreshCalendarToken(
+  uid: string,
+): Promise<string | null> {
+  try {
+    return await requestToken(uid, 'none');
+  } catch (err) {
+    console.debug('[gcal] silent refresh falhou:', err);
+    return null;
+  }
+}
+
+// Interativo: pode mostrar consent se for a primeira vez ou se o usuário
+// revogou o acesso. Se já consentiu antes, GIS resolve via iframe sem popup.
+export async function grantCalendarAccess(uid: string): Promise<string> {
+  return requestToken(uid, '');
 }
 
 export async function ensureCalendarToken(uid: string): Promise<string> {
   const cached = getCachedCalendarToken(uid);
   if (cached) return cached;
+  const silent = await tryRefreshCalendarToken(uid);
+  if (silent) return silent;
   return grantCalendarAccess(uid);
 }
 
