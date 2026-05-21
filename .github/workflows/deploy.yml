@@ -36,6 +36,7 @@ jobs:
           VITE_FIREBASE_STORAGE_BUCKET: app-produtividade-3ec9d.firebasestorage.app
           VITE_FIREBASE_MESSAGING_SENDER_ID: "739803156090"
           VITE_FIREBASE_APP_ID: 1:739803156090:web:c132479563bf01163135c3
+          VITE_GOOGLE_OAUTH_CLIENT_ID: 739803156090-n0f203p9io7276nm1uujsauntue6l644.apps.googleusercontent.com
 
       - name: Authenticate to Google Cloud
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' | base64 -d > /tmp/sa.json
