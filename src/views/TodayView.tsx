@@ -93,6 +93,7 @@ type WeatherState =
       kind: 'ready';
       tempMin: number;
       tempMax: number;
+      uvNow: number;
       uvMax: number;
       code: number;
     };
@@ -119,6 +120,7 @@ function useWeather(): { state: WeatherState; retry: () => void } {
           const params = new URLSearchParams({
             latitude: String(lat),
             longitude: String(lon),
+            current: 'uv_index',
             daily:
               'weather_code,temperature_2m_max,temperature_2m_min,uv_index_max',
             timezone: 'auto',
@@ -132,6 +134,7 @@ function useWeather(): { state: WeatherState; retry: () => void } {
             throw new Error(text || `HTTP ${res.status}`);
           }
           const json = (await res.json()) as {
+            current?: { uv_index?: number };
             daily?: {
               weather_code?: number[];
               temperature_2m_max?: number[];
@@ -142,12 +145,14 @@ function useWeather(): { state: WeatherState; retry: () => void } {
           const code = json.daily?.weather_code?.[0];
           const tMax = json.daily?.temperature_2m_max?.[0];
           const tMin = json.daily?.temperature_2m_min?.[0];
-          const uv = json.daily?.uv_index_max?.[0];
+          const uvMax = json.daily?.uv_index_max?.[0];
+          const uvNow = json.current?.uv_index;
           if (
             code == null ||
             tMax == null ||
             tMin == null ||
-            uv == null
+            uvMax == null ||
+            uvNow == null
           ) {
             throw new Error('Resposta de previsão inválida.');
           }
@@ -156,7 +161,8 @@ function useWeather(): { state: WeatherState; retry: () => void } {
             kind: 'ready',
             tempMin: tMin,
             tempMax: tMax,
-            uvMax: uv,
+            uvNow,
+            uvMax,
             code,
           });
         } catch (err) {
@@ -508,7 +514,8 @@ function WeatherCard({
     );
   }
   const desc = describeWeatherCode(state.code);
-  const uv = describeUv(state.uvMax);
+  const uvNow = describeUv(state.uvNow);
+  const uvMax = describeUv(state.uvMax);
   return (
     <div className="today-card today-weather">
       <div className="today-card-label">Clima de hoje</div>
@@ -523,12 +530,21 @@ function WeatherCard({
           </div>
         </div>
       </div>
-      <div className={`today-uv ${uv.className}`}>
-        <span className="today-uv-label">Índice UV</span>
-        <span className="today-uv-value">
-          {state.uvMax.toFixed(1)}
-          <small> · {uv.level}</small>
-        </span>
+      <div className="today-uv-row">
+        <div className={`today-uv ${uvNow.className}`}>
+          <span className="today-uv-label">UV agora</span>
+          <span className="today-uv-value">
+            {state.uvNow.toFixed(1)}
+            <small> · {uvNow.level}</small>
+          </span>
+        </div>
+        <div className={`today-uv ${uvMax.className}`}>
+          <span className="today-uv-label">UV máx. hoje</span>
+          <span className="today-uv-value">
+            {state.uvMax.toFixed(1)}
+            <small> · {uvMax.level}</small>
+          </span>
+        </div>
       </div>
     </div>
   );

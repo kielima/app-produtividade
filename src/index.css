@@ -2931,13 +2931,21 @@ a:focus-visible {
   color: var(--muted);
 }
 
+.today-uv-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+}
+
 .today-uv {
   display: flex;
-  justify-content: space-between;
-  align-items: baseline;
-  padding: 0.35rem 0.6rem;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.15rem;
+  padding: 0.45rem 0.6rem;
   border-radius: 6px;
   background: var(--surface-2);
+  min-width: 0;
 }
 
 .today-uv-label {
