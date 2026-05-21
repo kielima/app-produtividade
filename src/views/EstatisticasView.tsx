@@ -184,6 +184,52 @@ function buildDailyBuckets(
   return buckets;
 }
 
+type Granularity = 'day' | 'week';
+
+function startOfWeek(d: Date): Date {
+  const c = startOfDay(d);
+  c.setDate(c.getDate() - c.getDay());
+  return c;
+}
+
+function aggregateBucketsToWeeks(daily: DayBucket[]): DayBucket[] {
+  const weeks: DayBucket[] = [];
+  const byKey = new Map<string, DayBucket>();
+  for (const day of daily) {
+    const wStart = startOfWeek(day.date);
+    const k = dayKey(wStart);
+    let w = byKey.get(k);
+    if (!w) {
+      w = {
+        date: wStart,
+        key: k,
+        count: 0,
+        score: 0,
+        byMoscow: emptyMoscowSlots(),
+        byEsforco: emptyEsforcoSlots(),
+        byModo: emptyModoSlots(),
+      };
+      byKey.set(k, w);
+      weeks.push(w);
+    }
+    w.count += day.count;
+    w.score += day.score;
+    for (const c of MOSCOW_ORDER) {
+      w.byMoscow[c].count += day.byMoscow[c].count;
+      w.byMoscow[c].score += day.byMoscow[c].score;
+    }
+    for (const c of ESFORCO_ORDER) {
+      w.byEsforco[c].count += day.byEsforco[c].count;
+      w.byEsforco[c].score += day.byEsforco[c].score;
+    }
+    for (const c of MODO_ORDER) {
+      w.byModo[c].count += day.byModo[c].count;
+      w.byModo[c].score += day.byModo[c].score;
+    }
+  }
+  return weeks;
+}
+
 function dimensionSlots(b: DayBucket, dim: Dimension): Record<string, Slot> {
   if (dim === 'moscow') return b.byMoscow;
   if (dim === 'esforco') return b.byEsforco;
@@ -309,6 +355,7 @@ interface BarsProps {
   buckets: DayBucket[];
   metric: Metric;
   dimension: Dimension;
+  granularity: Granularity;
 }
 
 function slotValue(slot: Slot | undefined, metric: Metric): number {
@@ -316,7 +363,7 @@ function slotValue(slot: Slot | undefined, metric: Metric): number {
   return metric === 'count' ? slot.count : slot.score;
 }
 
-function DailyBars({ buckets, metric, dimension }: BarsProps) {
+function DailyBars({ buckets, metric, dimension, granularity }: BarsProps) {
   const max = Math.max(
     1,
     ...buckets.map((b) => (metric === 'count' ? b.count : b.score)),
@@ -333,12 +380,13 @@ function DailyBars({ buckets, metric, dimension }: BarsProps) {
   const unit = metric === 'count' ? 'tarefas' : 'pts';
   const digits = metric === 'score' ? 1 : 0;
   const order = dimensionOrder(dimension);
+  const periodWord = granularity === 'week' ? 'semana' : 'dia';
 
   return (
     <div
       className="stats-bars"
       role="img"
-      aria-label={`Gráfico de barras por dia, empilhado por ${DIMENSION_LABELS[dimension]}`}
+      aria-label={`Gráfico de barras por ${periodWord}, empilhado por ${DIMENSION_LABELS[dimension]}`}
     >
       {buckets.map((b, i) => {
         const total = metric === 'count' ? b.count : b.score;
@@ -353,8 +401,12 @@ function DailyBars({ buckets, metric, dimension }: BarsProps) {
               : '';
           })
           .join('');
+        const dateLabel =
+          granularity === 'week'
+            ? `Semana de ${formatBR(b.date)}`
+            : formatBR(b.date);
         const title =
-          `${formatBR(b.date)} — ${total.toFixed(digits)} ${unit}` + breakdown;
+          `${dateLabel} — ${total.toFixed(digits)} ${unit}` + breakdown;
         return (
           <div key={b.key} className="stats-bar-col" title={title}>
             <div className="stats-bar-track">
@@ -577,6 +629,11 @@ export function EstatisticasView({
   const buckets = useMemo(
     () => buildDailyBuckets(filteredTasks, projectScoreMap, rangeDays),
     [filteredTasks, projectScoreMap, rangeDays],
+  );
+  const granularity: Granularity = rangeDays >= 90 ? 'week' : 'day';
+  const barBuckets = useMemo(
+    () => (granularity === 'week' ? aggregateBucketsToWeeks(buckets) : buckets),
+    [buckets, granularity],
   );
 
   const projectNameById = useMemo(() => {
@@ -850,16 +907,18 @@ export function EstatisticasView({
 
           <div className="stats-section">
             <h3 className="stats-section-title">
-              {metric === 'count' ? 'Tarefas por dia' : 'Score por dia'}
+              {metric === 'count' ? 'Tarefas' : 'Score'} por{' '}
+              {granularity === 'week' ? 'semana' : 'dia'}
               <small className="stats-section-sub">
                 {' '}
                 · empilhado por {DIMENSION_LABELS[dimension]}
               </small>
             </h3>
             <DailyBars
-              buckets={buckets}
+              buckets={barBuckets}
               metric={metric}
               dimension={dimension}
+              granularity={granularity}
             />
             <DimensionLegend dimension={dimension} />
           </div>
