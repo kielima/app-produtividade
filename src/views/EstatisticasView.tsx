@@ -192,6 +192,17 @@ function startOfWeek(d: Date): Date {
   return c;
 }
 
+// ISO 8601: semanas começam na segunda; semana 1 contém a primeira quinta-feira
+// do ano. Cobre o caso dos primeiros/últimos dias do ano caírem em semana do
+// ano anterior/seguinte.
+function isoWeekNumber(d: Date): number {
+  const t = new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+  const dayNum = t.getUTCDay() || 7;
+  t.setUTCDate(t.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(t.getUTCFullYear(), 0, 1));
+  return Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
 function aggregateBucketsToWeeks(daily: DayBucket[]): DayBucket[] {
   const weeks: DayBucket[] = [];
   const byKey = new Map<string, DayBucket>();
@@ -403,7 +414,7 @@ function DailyBars({ buckets, metric, dimension, granularity }: BarsProps) {
           .join('');
         const dateLabel =
           granularity === 'week'
-            ? `Semana de ${formatBR(b.date)}`
+            ? `Semana ${isoWeekNumber(b.date)} (a partir de ${formatBR(b.date)})`
             : formatBR(b.date);
         const title =
           `${dateLabel} — ${total.toFixed(digits)} ${unit}` + breakdown;
@@ -429,10 +440,12 @@ function DailyBars({ buckets, metric, dimension, granularity }: BarsProps) {
             </div>
             <div className="stats-bar-label">
               {showLabel
-                ? b.date.toLocaleDateString('pt-BR', {
-                    day: '2-digit',
-                    month: '2-digit',
-                  })
+                ? granularity === 'week'
+                  ? `S${isoWeekNumber(b.date)}`
+                  : b.date.toLocaleDateString('pt-BR', {
+                      day: '2-digit',
+                      month: '2-digit',
+                    })
                 : ''}
             </div>
           </div>
