@@ -1,5 +1,11 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { TaskCard } from '../components/TaskCard';
+import {
+  WeatherIcon,
+  weatherKindFromCode,
+  weatherLabel,
+  type WeatherKind,
+} from '../components/WeatherIcon';
 import {
   CalendarAuthError,
   daysUntil,
@@ -13,6 +19,13 @@ import { useProjectNavigation } from '../lib/projectNavigation';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
 import type { CompletedTask, Project, ScoreContext, Task } from '../types';
+
+type WeatherLocation = { id: string; name: string; lat: number; lon: number };
+
+const WEATHER_LOCATIONS: WeatherLocation[] = [
+  { id: 'taubate', name: 'Taubaté', lat: -23.0264, lon: -45.555 },
+  { id: 'campinas', name: 'Campinas', lat: -22.9056, lon: -47.0608 },
+];
 
 function startOfDay(d: Date): Date {
   const c = new Date(d);
@@ -56,24 +69,6 @@ function computeCurrentStreak(tasks: CompletedTask[], today: Date): number {
   return streak;
 }
 
-// Mapeia o WMO weather code do Open-Meteo para emoji + label legível em PT-BR.
-// Tabela: https://open-meteo.com/en/docs (seção "Weather variable documentation")
-function describeWeatherCode(code: number): { icon: string; label: string } {
-  if (code === 0) return { icon: '☀️', label: 'Céu limpo' };
-  if (code === 1) return { icon: '🌤️', label: 'Predominantemente limpo' };
-  if (code === 2) return { icon: '⛅', label: 'Parcialmente nublado' };
-  if (code === 3) return { icon: '☁️', label: 'Nublado' };
-  if (code === 45 || code === 48) return { icon: '🌫️', label: 'Neblina' };
-  if (code >= 51 && code <= 57) return { icon: '🌦️', label: 'Garoa' };
-  if (code >= 61 && code <= 67) return { icon: '🌧️', label: 'Chuva' };
-  if (code >= 71 && code <= 77) return { icon: '🌨️', label: 'Neve' };
-  if (code >= 80 && code <= 82) return { icon: '🌦️', label: 'Pancadas de chuva' };
-  if (code >= 85 && code <= 86) return { icon: '🌨️', label: 'Pancadas de neve' };
-  if (code === 95) return { icon: '⛈️', label: 'Trovoada' };
-  if (code === 96 || code === 99) return { icon: '⛈️', label: 'Trovoada com granizo' };
-  return { icon: '🌡️', label: 'Tempo desconhecido' };
-}
-
 // Categoriza o índice UV pela classificação da OMS.
 function describeUv(uv: number): { level: string; className: string } {
   if (uv < 3) return { level: 'baixo', className: 'today-uv--low' };
@@ -84,10 +79,7 @@ function describeUv(uv: number): { level: string; className: string } {
 }
 
 type WeatherState =
-  | { kind: 'idle' }
   | { kind: 'loading' }
-  | { kind: 'unsupported' }
-  | { kind: 'denied' }
   | { kind: 'error'; message: string }
   | {
       kind: 'ready';
@@ -98,93 +90,78 @@ type WeatherState =
       code: number;
     };
 
-function useWeather(): { state: WeatherState; retry: () => void } {
-  const [state, setState] = useState<WeatherState>({ kind: 'idle' });
+function useWeather(lat: number, lon: number): {
+  state: WeatherState;
+  retry: () => void;
+} {
+  const [state, setState] = useState<WeatherState>({ kind: 'loading' });
   const [attempt, setAttempt] = useState(0);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
-    if (typeof navigator === 'undefined' || !navigator.geolocation) {
-      setState({ kind: 'unsupported' });
-      return;
-    }
-    setState({ kind: 'loading' });
     let cancelled = false;
-    navigator.geolocation.getCurrentPosition(
-      async (pos) => {
-        if (cancelled) return;
-        const lat = pos.coords.latitude;
-        const lon = pos.coords.longitude;
-        try {
-          const params = new URLSearchParams({
-            latitude: String(lat),
-            longitude: String(lon),
-            current: 'uv_index',
-            daily:
-              'weather_code,temperature_2m_max,temperature_2m_min,uv_index_max',
-            timezone: 'auto',
-            forecast_days: '1',
-          });
-          const res = await fetch(
-            `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
-          );
-          if (!res.ok) {
-            const text = await res.text();
-            throw new Error(text || `HTTP ${res.status}`);
-          }
-          const json = (await res.json()) as {
-            current?: { uv_index?: number };
-            daily?: {
-              weather_code?: number[];
-              temperature_2m_max?: number[];
-              temperature_2m_min?: number[];
-              uv_index_max?: number[];
-            };
+    setState({ kind: 'loading' });
+    (async () => {
+      try {
+        const params = new URLSearchParams({
+          latitude: String(lat),
+          longitude: String(lon),
+          current: 'uv_index',
+          daily:
+            'weather_code,temperature_2m_max,temperature_2m_min,uv_index_max',
+          timezone: 'auto',
+          forecast_days: '1',
+        });
+        const res = await fetch(
+          `https://api.open-meteo.com/v1/forecast?${params.toString()}`,
+        );
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || `HTTP ${res.status}`);
+        }
+        const json = (await res.json()) as {
+          current?: { uv_index?: number };
+          daily?: {
+            weather_code?: number[];
+            temperature_2m_max?: number[];
+            temperature_2m_min?: number[];
+            uv_index_max?: number[];
           };
-          const code = json.daily?.weather_code?.[0];
-          const tMax = json.daily?.temperature_2m_max?.[0];
-          const tMin = json.daily?.temperature_2m_min?.[0];
-          const uvMax = json.daily?.uv_index_max?.[0];
-          const uvNow = json.current?.uv_index;
-          if (
-            code == null ||
-            tMax == null ||
-            tMin == null ||
-            uvMax == null ||
-            uvNow == null
-          ) {
-            throw new Error('Resposta de previsão inválida.');
-          }
-          if (cancelled) return;
-          setState({
-            kind: 'ready',
-            tempMin: tMin,
-            tempMax: tMax,
-            uvNow,
-            uvMax,
-            code,
-          });
-        } catch (err) {
-          if (cancelled) return;
-          const message = err instanceof Error ? err.message : String(err);
-          setState({ kind: 'error', message });
+        };
+        const code = json.daily?.weather_code?.[0];
+        const tMax = json.daily?.temperature_2m_max?.[0];
+        const tMin = json.daily?.temperature_2m_min?.[0];
+        const uvMax = json.daily?.uv_index_max?.[0];
+        const uvNow = json.current?.uv_index;
+        if (
+          code == null ||
+          tMax == null ||
+          tMin == null ||
+          uvMax == null ||
+          uvNow == null
+        ) {
+          throw new Error('Resposta de previsão inválida.');
         }
-      },
-      (err) => {
         if (cancelled) return;
-        if (err.code === err.PERMISSION_DENIED) {
-          setState({ kind: 'denied' });
-        } else {
-          setState({ kind: 'error', message: err.message });
-        }
-      },
-      { maximumAge: 30 * 60 * 1000, timeout: 10_000 },
-    );
+        setState({
+          kind: 'ready',
+          tempMin: tMin,
+          tempMax: tMax,
+          uvNow,
+          uvMax,
+          code,
+        });
+      } catch (err) {
+        if (cancelled) return;
+        const message = err instanceof Error ? err.message : String(err);
+        setState({ kind: 'error', message });
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [attempt]);
+  }, [lat, lon, attempt]);
 
   return { state, retry };
 }
@@ -404,7 +381,6 @@ export function TodayView({
     return out;
   }, [pickedIds, tasks, completed, projectMap, ctx]);
 
-  const { state: weather, retry: retryWeather } = useWeather();
   const events = useUpcomingWeekEvents(uid);
 
   return (
@@ -412,7 +388,7 @@ export function TodayView({
       <h1 className="today-greeting">{greeting}!</h1>
 
       <div className="today-grid">
-        <WeatherCard state={weather} onRetry={retryWeather} />
+        <WeatherCarousel locations={WEATHER_LOCATIONS} />
         <StreakCard streak={currentStreak} />
       </div>
 
@@ -466,46 +442,133 @@ export function TodayView({
   );
 }
 
+function WeatherCarousel({ locations }: { locations: WeatherLocation[] }) {
+  const [active, setActive] = useState(0);
+  const [dragX, setDragX] = useState(0);
+  const startX = useRef<number | null>(null);
+  const trackRef = useRef<HTMLDivElement | null>(null);
+  const trackWidth = useRef(0);
+
+  const goTo = useCallback(
+    (idx: number) => {
+      const clamped = Math.max(0, Math.min(locations.length - 1, idx));
+      setActive(clamped);
+    },
+    [locations.length],
+  );
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    startX.current = e.clientX;
+    trackWidth.current = trackRef.current?.offsetWidth ?? 0;
+    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
+  };
+  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (startX.current === null) return;
+    setDragX(e.clientX - startX.current);
+  };
+  const finishDrag = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (startX.current === null) return;
+    const w = trackWidth.current || trackRef.current?.offsetWidth || 0;
+    const threshold = Math.max(60, w * 0.18);
+    if (dragX <= -threshold) goTo(active + 1);
+    else if (dragX >= threshold) goTo(active - 1);
+    startX.current = null;
+    setDragX(0);
+    try {
+      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const dragging = startX.current !== null;
+  const w = trackWidth.current || 1;
+  const dragPercent = (dragX / w) * 100;
+  const offsetPct = -active * 100 + dragPercent;
+
+  return (
+    <div className="today-weather-carousel">
+      <div
+        className="weather-carousel-viewport"
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={finishDrag}
+        onPointerCancel={finishDrag}
+      >
+        <div
+          ref={trackRef}
+          className="weather-carousel-track"
+          style={{
+            transform: `translateX(${offsetPct}%)`,
+            transition: dragging
+              ? 'none'
+              : 'transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1)',
+          }}
+        >
+          {locations.map((loc) => (
+            <div key={loc.id} className="weather-carousel-slide">
+              <WeatherSlide location={loc} />
+            </div>
+          ))}
+        </div>
+      </div>
+      {locations.length > 1 && (
+        <div
+          className="weather-carousel-dots"
+          role="tablist"
+          aria-label="Selecionar cidade"
+        >
+          {locations.map((loc, i) => (
+            <button
+              key={loc.id}
+              type="button"
+              role="tab"
+              aria-selected={i === active}
+              aria-label={loc.name}
+              className={`weather-carousel-dot${
+                i === active ? ' is-active' : ''
+              }`}
+              onClick={() => goTo(i)}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function WeatherSlide({ location }: { location: WeatherLocation }) {
+  const { state, retry } = useWeather(location.lat, location.lon);
+  return <WeatherCard state={state} city={location.name} onRetry={retry} />;
+}
+
 function WeatherCard({
   state,
+  city,
   onRetry,
 }: {
   state: WeatherState;
+  city: string;
   onRetry: () => void;
 }) {
-  if (state.kind === 'loading' || state.kind === 'idle') {
+  if (state.kind === 'loading') {
     return (
       <div className="today-card today-weather">
-        <div className="today-card-label">Clima de hoje</div>
-        <div className="muted">Carregando previsão…</div>
-      </div>
-    );
-  }
-  if (state.kind === 'unsupported') {
-    return (
-      <div className="today-card today-weather">
-        <div className="today-card-label">Clima de hoje</div>
-        <div className="muted">Geolocalização não suportada.</div>
-      </div>
-    );
-  }
-  if (state.kind === 'denied') {
-    return (
-      <div className="today-card today-weather">
-        <div className="today-card-label">Clima de hoje</div>
-        <div className="muted">
-          Permita o acesso à localização no navegador para ver a previsão.
+        <div className="today-weather-header">
+          <span className="today-card-label">Clima de hoje</span>
+          <span className="today-weather-city">{city}</span>
         </div>
-        <button type="button" className="link-btn" onClick={onRetry}>
-          Tentar novamente
-        </button>
+        <div className="muted">Carregando previsão…</div>
       </div>
     );
   }
   if (state.kind === 'error') {
     return (
       <div className="today-card today-weather">
-        <div className="today-card-label">Clima de hoje</div>
+        <div className="today-weather-header">
+          <span className="today-card-label">Clima de hoje</span>
+          <span className="today-weather-city">{city}</span>
+        </div>
         <div className="error">{state.message}</div>
         <button type="button" className="link-btn" onClick={onRetry}>
           Tentar novamente
@@ -513,18 +576,19 @@ function WeatherCard({
       </div>
     );
   }
-  const desc = describeWeatherCode(state.code);
+  const kind: WeatherKind = weatherKindFromCode(state.code);
   const uvNow = describeUv(state.uvNow);
   const uvMax = describeUv(state.uvMax);
   return (
     <div className="today-card today-weather">
-      <div className="today-card-label">Clima de hoje</div>
+      <div className="today-weather-header">
+        <span className="today-card-label">Clima de hoje</span>
+        <span className="today-weather-city">{city}</span>
+      </div>
       <div className="today-weather-main">
-        <span className="today-weather-icon" aria-hidden="true">
-          {desc.icon}
-        </span>
+        <WeatherIcon kind={kind} size={64} className="today-weather-icon" />
         <div className="today-weather-temps">
-          <div className="today-weather-condition">{desc.label}</div>
+          <div className="today-weather-condition">{weatherLabel(kind)}</div>
           <div className="today-weather-range">
             {Math.round(state.tempMin)}° / {Math.round(state.tempMax)}°C
           </div>

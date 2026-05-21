@@ -2904,6 +2904,78 @@ a:focus-visible {
   font-weight: 600;
 }
 
+.today-weather-carousel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.45rem;
+  min-width: 0;
+}
+
+.weather-carousel-viewport {
+  overflow: hidden;
+  border-radius: 10px;
+  touch-action: pan-y;
+  cursor: grab;
+}
+
+.weather-carousel-viewport:active {
+  cursor: grabbing;
+}
+
+.weather-carousel-track {
+  display: flex;
+  width: 100%;
+  will-change: transform;
+}
+
+.weather-carousel-slide {
+  flex: 0 0 100%;
+  min-width: 0;
+  user-select: none;
+}
+
+.weather-carousel-slide .today-weather {
+  margin: 0;
+  height: 100%;
+}
+
+.weather-carousel-dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.4rem;
+  padding-top: 0.1rem;
+}
+
+.weather-carousel-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: var(--border);
+  cursor: pointer;
+  transition: background 180ms ease, transform 180ms ease;
+}
+
+.weather-carousel-dot.is-active {
+  background: var(--accent, #4FA8E8);
+  transform: scale(1.25);
+}
+
+.today-weather-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+
+.today-weather-city {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--text, inherit);
+  letter-spacing: 0.01em;
+}
+
 .today-weather-main {
   display: flex;
   align-items: center;
@@ -2911,8 +2983,10 @@ a:focus-visible {
 }
 
 .today-weather-icon {
-  font-size: 2.6rem;
-  line-height: 1;
+  flex-shrink: 0;
+  width: 64px;
+  height: 64px;
+  filter: drop-shadow(0 2px 4px rgba(15, 23, 42, 0.08));
 }
 
 .today-weather-temps {
