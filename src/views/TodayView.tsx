@@ -737,7 +737,7 @@ function StreakInline({ streak }: { streak: number }) {
         className={`today-streak-flame${active ? '' : ' today-streak-flame--off'}`}
         aria-hidden="true"
       >
-        <svg width="28" height="28" viewBox="0 0 20 20" fill="currentColor">
+        <svg width="30" height="30" viewBox="0 0 20 20" fill="currentColor">
           <path
             fillRule="evenodd"
             clipRule="evenodd"
