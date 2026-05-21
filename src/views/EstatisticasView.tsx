@@ -402,7 +402,13 @@ function DailyBars({ buckets, metric, dimension, granularity }: BarsProps) {
       {buckets.map((b, i) => {
         const total = metric === 'count' ? b.count : b.score;
         const heightPct = (total / max) * 100;
-        const showLabel = i % labelEvery === 0 || i === buckets.length - 1;
+        // Mostra a cada labelEvery; força o último apenas com folga
+        // suficiente do rótulo anterior (evita S18+S20 colando no anual).
+        const offset = i % labelEvery;
+        const showLabel =
+          offset === 0 ||
+          (i === buckets.length - 1 &&
+            offset >= Math.max(2, Math.ceil(labelEvery / 2)));
         const slots = dimensionSlots(b, dimension);
         const breakdown = order
           .map((c) => {
