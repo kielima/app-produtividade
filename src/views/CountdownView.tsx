@@ -8,6 +8,7 @@ import {
   getCachedCalendarToken,
   grantCalendarAccess,
   listUpcomingPrimaryEvents,
+  tryRefreshCalendarToken,
   type CalendarEvent,
 } from '../lib/googleCalendar';
 
@@ -77,21 +78,41 @@ export function CountdownView({ uid }: { uid: string }) {
   const load = useCallback(async (interactive: boolean) => {
     setState({ kind: 'loading' });
     try {
-      const token = interactive
-        ? await ensureCalendarToken(uid)
-        : getCachedCalendarToken(uid);
+      let token = getCachedCalendarToken(uid);
+      if (!token) {
+        // Tenta renovação silenciosa via GIS (iframe invisível, sem popup).
+        // Funciona enquanto o usuário estiver logado no Google no navegador.
+        token = await tryRefreshCalendarToken(uid);
+      }
+      if (!token && interactive) {
+        token = await ensureCalendarToken(uid);
+      }
       if (!token) {
         setState({ kind: 'needs-auth' });
         return;
       }
-      const list = await listUpcomingPrimaryEvents(uid, token);
-      setEvents(list);
-      setState({ kind: 'ready' });
+      try {
+        const list = await listUpcomingPrimaryEvents(uid, token);
+        setEvents(list);
+        setState({ kind: 'ready' });
+      } catch (err) {
+        // 401 da API: token foi invalidado server-side. Tenta uma renovação
+        // silenciosa antes de exigir reconexão manual.
+        if (err instanceof CalendarAuthError) {
+          const refreshed = await tryRefreshCalendarToken(uid);
+          if (refreshed) {
+            const list = await listUpcomingPrimaryEvents(uid, refreshed);
+            setEvents(list);
+            setState({ kind: 'ready' });
+            return;
+          }
+        }
+        throw err;
+      }
     } catch (err) {
       console.error('[Countdown] falha ao listar eventos:', err);
       const message = describeError(err);
       if (err instanceof CalendarAuthError) {
-        // Token foi rejeitado pela API — pede para reconectar e mostra o porquê.
         setState({ kind: 'needs-auth', message });
         return;
       }
@@ -100,11 +121,7 @@ export function CountdownView({ uid }: { uid: string }) {
   }, [uid]);
 
   useEffect(() => {
-    if (getCachedCalendarToken(uid)) {
-      load(false);
-    } else {
-      setState({ kind: 'needs-auth' });
-    }
+    load(false);
   }, [uid, load]);
 
   async function handleConnect() {
