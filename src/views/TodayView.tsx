@@ -361,7 +361,7 @@ export function TodayView({
   projectMap,
   ctx,
 }: TodayViewProps) {
-  const { openProject } = useProjectNavigation();
+  const { openProject, openProjectTasks } = useProjectNavigation();
   const [user] = useAuthState(auth);
   const [now, setNow] = useState(() => new Date());
 
@@ -393,6 +393,12 @@ export function TodayView({
     }
     return best;
   }, [projects, ctx.projectScoreMap]);
+
+  const taskCountByProject = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const t of tasks) counts[t.section] = (counts[t.section] ?? 0) + 1;
+    return counts;
+  }, [tasks]);
 
   // Snapshot diário das 3 tarefas: uma vez escolhidas para o dia, ficam
   // congeladas na tela (mesmo após marcadas como concluídas) e só são
@@ -470,17 +476,30 @@ export function TodayView({
       <div className="today-section">
         <h2 className="today-section-title">Projeto em destaque</h2>
         {topProject ? (
-          <button
-            type="button"
-            className="today-project-card"
-            onClick={() => openProject(topProject.project.id)}
-          >
-            <div className="today-project-name">{topProject.project.name}</div>
-            <div className="today-project-score">
-              {topProject.score.toFixed(2)}
-              <small> pts</small>
-            </div>
-          </button>
+          (() => {
+            const count = taskCountByProject[topProject.project.id] ?? 0;
+            const countLabel = `${count} tarefa${count === 1 ? '' : 's'}`;
+            return (
+              <article className="today-project-card">
+                <button
+                  type="button"
+                  className="today-project-name today-project-name-btn"
+                  onClick={() => openProject(topProject.project.id)}
+                  aria-label="abrir projeto"
+                >
+                  {topProject.project.name}
+                </button>
+                <button
+                  type="button"
+                  className="muted today-project-task-count"
+                  onClick={() => openProjectTasks(topProject.project.id)}
+                  aria-label={`ver ${countLabel} do projeto ${topProject.project.name}`}
+                >
+                  {countLabel}
+                </button>
+              </article>
+            );
+          })()
         ) : (
           <p className="muted">Crie um projeto para vê-lo aqui.</p>
         )}
