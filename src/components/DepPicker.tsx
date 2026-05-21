@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getDisplayTitle } from '../lib/parser';
-import type { Task } from '../types';
+import type { Project, Task } from '../types';
 
 /**
  * Modal pra adicionar/remover dependências de uma tarefa.
@@ -9,15 +9,18 @@ import type { Task } from '../types';
 export function DepPicker({
   task,
   allTasks,
+  projects,
   onClose,
   onChange,
 }: {
   task: Task;
   allTasks: Task[];
+  projects: Project[];
   onClose: () => void;
   onChange: (newDeps: string[]) => void;
 }) {
   const [filter, setFilter] = useState('');
+  const [projectFilter, setProjectFilter] = useState('');
   const [deps, setDeps] = useState<string[]>(task.dependsOn);
 
   useEffect(() => {
@@ -33,11 +36,12 @@ export function DepPicker({
     return allTasks
       .filter((t) => t.id !== task.id && t.taskId != null && !t.checked)
       .filter((t) => {
+        if (projectFilter && t.section !== projectFilter) return false;
         if (!q) return true;
         return getDisplayTitle(t.title).toLowerCase().includes(q);
       })
       .sort((a, b) => (a.taskId ?? 0) - (b.taskId ?? 0));
-  }, [allTasks, task.id, filter]);
+  }, [allTasks, task.id, filter, projectFilter]);
 
   const resolveLabel = (dep: string): string => {
     const m = dep.trim().match(/^#(\d+)$/);
@@ -103,12 +107,28 @@ export function DepPicker({
 
         <section className="add-dep">
           <h4>Adicionar</h4>
+          <select
+            value={projectFilter}
+            onChange={(e) => setProjectFilter(e.target.value)}
+            className="inline-edit-input dep-project-select"
+          >
+            <option value="">Todos os projetos</option>
+            {projects
+              .slice()
+              .sort((a, b) => a.name.localeCompare(b.name, 'pt'))
+              .map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+          </select>
           <input
             type="text"
             placeholder="Filtrar tarefas…"
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             className="inline-edit-input"
+            style={{ marginTop: '0.4rem' }}
             autoFocus
           />
           <ul className="candidate-list">

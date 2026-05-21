@@ -440,6 +440,7 @@ export function TaskDetailView({
         <DepPicker
           task={task}
           allTasks={allTasks}
+          projects={projects}
           onClose={() => setDepModalOpen(false)}
           onChange={setDeps}
         />
