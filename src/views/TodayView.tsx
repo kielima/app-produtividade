@@ -8,6 +8,7 @@ import {
   listUpcomingPrimaryEvents,
   type CalendarEvent,
 } from '../lib/googleCalendar';
+import { getDisplayTitle } from '../lib/parser';
 import { useProjectNavigation } from '../lib/projectNavigation';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
@@ -256,6 +257,41 @@ function daysLabel(days: number): { value: string; label: string } {
   return { value: String(days), label: 'Dias' };
 }
 
+const TODAY_PICKS_KEY = 'app-produtividade:today-picks';
+
+interface StoredPicks {
+  date: string;
+  uid: string;
+  ids: string[];
+}
+
+function loadStoredPicks(uid: string): StoredPicks | null {
+  try {
+    const raw = localStorage.getItem(TODAY_PICKS_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as StoredPicks;
+    if (
+      typeof parsed.date !== 'string' ||
+      typeof parsed.uid !== 'string' ||
+      !Array.isArray(parsed.ids) ||
+      parsed.uid !== uid
+    ) {
+      return null;
+    }
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function saveStoredPicks(picks: StoredPicks): void {
+  try {
+    localStorage.setItem(TODAY_PICKS_KEY, JSON.stringify(picks));
+  } catch {
+    // ignore — modo privado / sem espaço
+  }
+}
+
 interface TodayViewProps {
   uid: string;
   tasks: Task[];
@@ -302,8 +338,25 @@ export function TodayView({
     return best;
   }, [projects, ctx.projectScoreMap]);
 
-  const topTasks = useMemo(() => {
-    return tasks
+  // Snapshot diário das 3 tarefas: uma vez escolhidas para o dia, ficam
+  // congeladas na tela (mesmo após marcadas como concluídas) e só são
+  // renovadas no dia seguinte. Persistido em localStorage para sobreviver
+  // a recargas e troca de aba.
+  const todayKey = useMemo(() => dayKey(startOfDay(now)), [now]);
+  const [pickedIds, setPickedIds] = useState<string[] | null>(() => {
+    const stored = loadStoredPicks(uid);
+    return stored && stored.date === todayKey ? stored.ids : null;
+  });
+
+  useEffect(() => {
+    // Já temos picks válidos para hoje → mantém.
+    if (pickedIds !== null) {
+      const stored = loadStoredPicks(uid);
+      if (stored && stored.date === todayKey) return;
+    }
+    // Aguarda os dados chegarem antes de computar pela primeira vez.
+    if (tasks.length === 0) return;
+    const top = tasks
       .filter((t) => !t.checked)
       .map((t) => ({
         task: t,
@@ -311,8 +364,39 @@ export function TodayView({
       }))
       .filter((x) => x.score > 0)
       .sort((a, b) => b.score - a.score)
-      .slice(0, 3);
-  }, [tasks, projectMap, ctx]);
+      .slice(0, 3)
+      .map((x) => x.task.id);
+    setPickedIds(top);
+    saveStoredPicks({ date: todayKey, uid, ids: top });
+  }, [uid, todayKey, tasks, projectMap, ctx, pickedIds]);
+
+  // Resolve cada id para a tarefa atual (live) ou arquivada (completedTasks),
+  // preservando a ordem do snapshot. Score só é recalculado para live; em
+  // arquivadas não faz mais sentido.
+  const pickedTasks = useMemo<
+    Array<{ id: string; task: Task; score: number | undefined }>
+  >(() => {
+    if (!pickedIds || pickedIds.length === 0) return [];
+    const liveById = new Map(tasks.map((t) => [t.id, t]));
+    const archivedById = new Map(completed.map((t) => [t.id, t]));
+    const out: Array<{ id: string; task: Task; score: number | undefined }> = [];
+    for (const id of pickedIds) {
+      const live = liveById.get(id);
+      if (live) {
+        out.push({
+          id,
+          task: live,
+          score: calcScore(live, projectMap[live.section] ?? null, ctx),
+        });
+        continue;
+      }
+      const archived = archivedById.get(id);
+      if (archived) {
+        out.push({ id, task: archived, score: undefined });
+      }
+    }
+    return out;
+  }, [pickedIds, tasks, completed, projectMap, ctx]);
 
   const { state: weather, retry: retryWeather } = useWeather();
   const events = useUpcomingWeekEvents(uid);
@@ -347,19 +431,23 @@ export function TodayView({
 
       <div className="today-section">
         <h2 className="today-section-title">Top 3 tarefas</h2>
-        {topTasks.length === 0 ? (
+        {pickedTasks.length === 0 ? (
           <p className="muted">Nenhuma tarefa com score &gt; 0.</p>
         ) : (
           <div className="task-list">
-            {topTasks.map(({ task, score }) => (
-              <TaskCard
-                key={task.id}
-                uid={uid}
-                task={task}
-                blocked={isTaskBlocked(task, ctx)}
-                score={score}
-              />
-            ))}
+            {pickedTasks.map(({ id, task, score }) =>
+              score !== undefined ? (
+                <TaskCard
+                  key={id}
+                  uid={uid}
+                  task={task}
+                  blocked={isTaskBlocked(task, ctx)}
+                  score={score}
+                />
+              ) : (
+                <ArchivedTaskCard key={id} task={task} />
+              ),
+            )}
           </div>
         )}
       </div>
@@ -443,6 +531,26 @@ function WeatherCard({
         </span>
       </div>
     </div>
+  );
+}
+
+function ArchivedTaskCard({ task }: { task: Task }) {
+  const display = getDisplayTitle(task.title);
+  // Tarefa já arquivada em completedTasks/: render só leitura — o detalhe
+  // não está mais acessível (TaskDetailView só lê de tasks/).
+  return (
+    <article className="task-card done">
+      <div className="task-line">
+        <input
+          type="checkbox"
+          checked
+          readOnly
+          aria-label="tarefa concluída"
+          className="task-checkbox"
+        />
+        <span className="task-title">{display}</span>
+      </div>
+    </article>
   );
 }
 
