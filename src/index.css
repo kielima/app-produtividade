@@ -2874,10 +2874,31 @@ a:focus-visible {
   padding: 0.5rem 0 4rem;
 }
 
+.today-greeting-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
 .today-greeting {
   margin: 0;
   font-size: 1.6rem;
   font-weight: 600;
+}
+
+.today-streak-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.today-streak-inline-value {
+  font-size: 1.4rem;
+  font-weight: 700;
+  color: var(--accent);
+  line-height: 1;
 }
 
 .today-grid {
@@ -3092,13 +3113,6 @@ a:focus-visible {
 .today-uv--very-high { background: #ffd0d0; color: #8e2424; }
 .today-uv--extreme { background: #e6d0ff; color: #4a2270; }
 
-.today-streak-main {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.6rem;
-}
-
 .today-streak-flame {
   display: inline-flex;
   align-items: center;
@@ -3112,25 +3126,6 @@ a:focus-visible {
   color: var(--muted);
   filter: grayscale(1);
   opacity: 0.5;
-}
-
-.today-streak-value {
-  font-size: 2rem;
-  font-weight: 700;
-  color: var(--accent);
-  line-height: 1.1;
-}
-
-.today-streak-value small {
-  font-size: 0.85rem;
-  font-weight: 400;
-  color: var(--muted);
-  margin-left: 0.3rem;
-}
-
-.today-streak-hint {
-  margin: 0;
-  font-size: 0.82rem;
 }
 
 .today-section {
