@@ -90,17 +90,79 @@ type WeatherState =
       code: number;
     };
 
+// Cache em sessionStorage: ttl curto evita refetch a cada montagem da home
+// (carrossel monta um hook por cidade), mas mantém os dados frescos o
+// suficiente para a UV "agora" não envelhecer demais.
+const WEATHER_CACHE_TTL_MS = 30 * 60 * 1000;
+
+type WeatherCachePayload = {
+  code: number;
+  tempMin: number;
+  tempMax: number;
+  uvNow: number;
+  uvMax: number;
+};
+
+function weatherCacheKey(lat: number, lon: number): string {
+  return `weather:v1:${lat.toFixed(4)},${lon.toFixed(4)}`;
+}
+
+function readWeatherCache(lat: number, lon: number): WeatherCachePayload | null {
+  try {
+    const raw = sessionStorage.getItem(weatherCacheKey(lat, lon));
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { ts: number; data: WeatherCachePayload };
+    if (
+      !parsed ||
+      typeof parsed.ts !== 'number' ||
+      Date.now() - parsed.ts > WEATHER_CACHE_TTL_MS
+    ) {
+      return null;
+    }
+    return parsed.data;
+  } catch {
+    return null;
+  }
+}
+
+function writeWeatherCache(
+  lat: number,
+  lon: number,
+  data: WeatherCachePayload,
+): void {
+  try {
+    sessionStorage.setItem(
+      weatherCacheKey(lat, lon),
+      JSON.stringify({ ts: Date.now(), data }),
+    );
+  } catch {
+    // sessionStorage indisponível ou quota cheia — silenciar.
+  }
+}
+
 function useWeather(lat: number, lon: number): {
   state: WeatherState;
   retry: () => void;
 } {
-  const [state, setState] = useState<WeatherState>({ kind: 'loading' });
+  const [state, setState] = useState<WeatherState>(() => {
+    const cached = readWeatherCache(lat, lon);
+    return cached ? { kind: 'ready', ...cached } : { kind: 'loading' };
+  });
   const [attempt, setAttempt] = useState(0);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
 
   useEffect(() => {
     let cancelled = false;
+    // Em retries explícitos (attempt > 0) ignoramos o cache para forçar
+    // refetch; na montagem inicial, se houver cache válido pulamos a rede.
+    if (attempt === 0) {
+      const cached = readWeatherCache(lat, lon);
+      if (cached) {
+        setState({ kind: 'ready', ...cached });
+        return;
+      }
+    }
     setState({ kind: 'loading' });
     (async () => {
       try {
@@ -143,15 +205,16 @@ function useWeather(lat: number, lon: number): {
         ) {
           throw new Error('Resposta de previsão inválida.');
         }
-        if (cancelled) return;
-        setState({
-          kind: 'ready',
+        const payload: WeatherCachePayload = {
+          code,
           tempMin: tMin,
           tempMax: tMax,
           uvNow,
           uvMax,
-          code,
-        });
+        };
+        writeWeatherCache(lat, lon, payload);
+        if (cancelled) return;
+        setState({ kind: 'ready', ...payload });
       } catch (err) {
         if (cancelled) return;
         const message = err instanceof Error ? err.message : String(err);
