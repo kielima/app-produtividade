@@ -478,6 +478,9 @@ export function TodayView({
     <section className="today-view">
       <div className="today-greeting-row">
         <div className="today-greeting-left">
+          <h1 className="today-greeting">
+            {firstName ? `${greeting}, ${firstName}!` : `${greeting}!`}
+          </h1>
           <button
             type="button"
             className="today-weather-trigger"
@@ -487,9 +490,6 @@ export function TodayView({
           >
             <WeatherIcon kind={currentWeatherKind} size={35} />
           </button>
-          <h1 className="today-greeting">
-            {firstName ? `${greeting}, ${firstName}!` : `${greeting}!`}
-          </h1>
         </div>
         <StreakInline streak={currentStreak} />
       </div>
