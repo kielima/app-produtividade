@@ -462,18 +462,44 @@ export function TodayView({
 
   const events = useUpcomingWeekEvents(uid);
 
+  const primaryLocation = WEATHER_LOCATIONS[0];
+  const { state: primaryWeather } = useWeather(
+    primaryLocation.lat,
+    primaryLocation.lon,
+  );
+  const currentWeatherKind: WeatherKind =
+    primaryWeather.kind === 'ready'
+      ? weatherKindFromCode(primaryWeather.code)
+      : 'unknown';
+
+  const [weatherOpen, setWeatherOpen] = useState(false);
+
   return (
     <section className="today-view">
       <div className="today-greeting-row">
-        <h1 className="today-greeting">
-          {firstName ? `${greeting}, ${firstName}!` : `${greeting}!`}
-        </h1>
+        <div className="today-greeting-left">
+          <button
+            type="button"
+            className="today-weather-trigger"
+            onClick={() => setWeatherOpen(true)}
+            aria-label={`Clima: ${weatherLabel(currentWeatherKind)}. Toque para detalhes.`}
+            title="Ver previsão do tempo"
+          >
+            <WeatherIcon kind={currentWeatherKind} size={35} />
+          </button>
+          <h1 className="today-greeting">
+            {firstName ? `${greeting}, ${firstName}!` : `${greeting}!`}
+          </h1>
+        </div>
         <StreakInline streak={currentStreak} />
       </div>
 
-      <div className="today-grid">
-        <WeatherCarousel locations={WEATHER_LOCATIONS} />
-      </div>
+      {weatherOpen && (
+        <WeatherModal
+          locations={WEATHER_LOCATIONS}
+          onClose={() => setWeatherOpen(false)}
+        />
+      )}
 
       <div className="today-section">
         <h2 className="today-section-title">Projeto em destaque</h2>
@@ -535,6 +561,50 @@ export function TodayView({
         <EventsList state={events} />
       </div>
     </section>
+  );
+}
+
+function WeatherModal({
+  locations,
+  onClose,
+}: {
+  locations: WeatherLocation[];
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="modal weather-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Previsão do tempo"
+      >
+        <header className="modal-header">
+          <h3>Clima de hoje</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn"
+            style={{ fontSize: '25px' }}
+            aria-label="fechar"
+          >
+            ×
+          </button>
+        </header>
+        <div className="weather-modal-body">
+          <WeatherCarousel locations={locations} />
+        </div>
+      </div>
+    </div>
   );
 }
 
