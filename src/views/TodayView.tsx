@@ -13,6 +13,7 @@ import {
   daysUntil,
   ensureCalendarToken,
   getCachedCalendarToken,
+  grantCalendarAccess,
   listUpcomingPrimaryEvents,
   type CalendarEvent,
 } from '../lib/googleCalendar';
@@ -244,7 +245,7 @@ type EventsState =
   | { kind: 'error'; message: string }
   | { kind: 'ready'; events: CalendarEvent[] };
 
-function useUpcomingWeekEvents(uid: string): EventsState {
+function useUpcomingWeekEvents(uid: string, triggerKey: number): EventsState {
   const [state, setState] = useState<EventsState>({ kind: 'idle' });
 
   useEffect(() => {
@@ -282,7 +283,7 @@ function useUpcomingWeekEvents(uid: string): EventsState {
     return () => {
       cancelled = true;
     };
-  }, [uid]);
+  }, [uid, triggerKey]);
 
   return state;
 }
@@ -460,7 +461,17 @@ export function TodayView({
     return out;
   }, [pickedIds, tasks, completed, projectMap, ctx]);
 
-  const events = useUpcomingWeekEvents(uid);
+  const [calendarTrigger, setCalendarTrigger] = useState(0);
+  const events = useUpcomingWeekEvents(uid, calendarTrigger);
+
+  async function handleConnectCalendar() {
+    try {
+      await grantCalendarAccess(uid);
+      setCalendarTrigger((n) => n + 1);
+    } catch (err) {
+      console.error('[TodayView] falha ao conectar Google Calendar:', err);
+    }
+  }
 
   const primaryLocation = WEATHER_LOCATIONS[0];
   const { state: primaryWeather } = useWeather(
@@ -557,7 +568,7 @@ export function TodayView({
 
       <div className="today-section">
         <h2 className="today-section-title">Próximos 7 dias</h2>
-        <EventsList state={events} />
+        <EventsList state={events} onConnect={handleConnectCalendar} />
       </div>
     </section>
   );
@@ -837,16 +848,22 @@ function StreakInline({ streak }: { streak: number }) {
   );
 }
 
-function EventsList({ state }: { state: EventsState }) {
+function EventsList({ state, onConnect }: { state: EventsState; onConnect?: () => void }) {
   if (state.kind === 'idle' || state.kind === 'loading') {
     return <p className="muted">Carregando eventos…</p>;
   }
   if (state.kind === 'no-token') {
     return (
-      <p className="muted">
-        Conecte o Google Calendar na aba Contagem Regressiva para ver os
-        eventos aqui.
-      </p>
+      <div className="countdown-connect">
+        <p className="muted">
+          Conecte sua conta Google para sincronizar os eventos do seu calendário.
+        </p>
+        {onConnect && (
+          <button type="button" className="btn-primary" onClick={onConnect}>
+            Conectar Google Calendar
+          </button>
+        )}
+      </div>
     );
   }
   if (state.kind === 'error') {
