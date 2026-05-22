@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
 import {
@@ -204,6 +204,7 @@ function AppShell({
   setProjectFilters: (f: ProjectFiltersState) => void;
 }) {
   const data = useUserData(uid);
+  const tasksScrollRef = useRef(0);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -346,6 +347,20 @@ function AppShell({
       setSelectedNoteId(null);
     }
   }, [selectedNoteId, selectedNote, notes.length]);
+
+  // Preserva a posição de scroll da lista de tarefas ao abrir uma tarefa ou mudar de aba.
+  useEffect(() => {
+    if (tab !== 'tasks' || selectedTaskId) return;
+    return () => {
+      tasksScrollRef.current = window.scrollY;
+    };
+  }, [tab, selectedTaskId]);
+
+  useLayoutEffect(() => {
+    if (tab === 'tasks' && !selectedTaskId) {
+      window.scrollTo(0, tasksScrollRef.current);
+    }
+  }, [tab, selectedTaskId]);
 
   const selectedProjectTaskCount = useMemo(() => {
     if (!selectedProject) return 0;
