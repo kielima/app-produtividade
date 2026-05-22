@@ -376,17 +376,25 @@ function AppShell({
   if (selectedNote) {
     return (
       <NoteNavigationContext.Provider value={noteNavValue}>
-        <div className="app app--detail">
-          <main role="main">
-            <NoteDetailView
-              uid={uid}
-              note={selectedNote}
-              allTags={allNoteTags}
-              onClose={() => setSelectedNoteId(null)}
-            />
-          </main>
-          <UpdatePrompt />
-        </div>
+        <TaskNavigationContext.Provider value={taskNavValue}>
+          <div className="app app--detail">
+            <main role="main">
+              <NoteDetailView
+                uid={uid}
+                note={selectedNote}
+                allTags={allNoteTags}
+                projects={data.projects}
+                onConvertedToTask={(taskId) => {
+                  setSelectedNoteId(null);
+                  setTab('tasks');
+                  setSelectedTaskId(taskId);
+                }}
+                onClose={() => setSelectedNoteId(null)}
+              />
+            </main>
+            <UpdatePrompt />
+          </div>
+        </TaskNavigationContext.Provider>
       </NoteNavigationContext.Provider>
     );
   }

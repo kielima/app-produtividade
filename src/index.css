@@ -2204,6 +2204,15 @@ a:focus-visible {
   font-size: 0.95rem;
   white-space: pre-wrap;
 }
+.note-detail-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 0.6rem;
+}
+.note-detail-convert:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 @media (max-width: 480px) {
   .task-detail-field {
     grid-template-columns: 1fr;
