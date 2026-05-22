@@ -2261,12 +2261,6 @@ a:focus-visible {
   flex-direction: column;
   gap: 1.25rem;
 }
-.stats-controls {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.75rem;
-  align-items: center;
-}
 .stats-control-group {
   display: inline-flex;
   background: var(--surface-2);
