@@ -93,10 +93,11 @@ function loadStatsFilters(): StatsFiltersState {
 }
 
 interface SharePayload {
-  title: string;
-  text: string;
-  url: string;
-  image: { data: string; mimeType: string } | null;
+  title?: string;
+  text?: string;
+  url?: string;
+  image?: { data: string; mimeType: string } | null;
+  error?: string;
 }
 
 function pickDefaultProjectId(projects: Project[]): string | null {
@@ -304,16 +305,25 @@ function AppShell({
     async function readCachePayload(): Promise<SharePayload | null> {
       if (sessionStorage.getItem('pendingShareFromCache') !== '1') return null;
       sessionStorage.removeItem('pendingShareFromCache');
+      // O SW responde com redirect imediato e processa o body em background,
+      // então o cache pode ainda não existir ao chegar aqui. Polling curto.
+      const DEADLINE_MS = 10_000;
+      const start = Date.now();
       try {
-        const res = await caches.match('/share-target/pending');
-        if (!res) return null;
-        const payload = (await res.json()) as SharePayload;
-        const cache = await caches.open('share-target-v1');
-        await cache.delete('/share-target/pending');
-        return payload;
+        while (!cancelled && Date.now() - start < DEADLINE_MS) {
+          const res = await caches.match('/share-target/pending');
+          if (res) {
+            const payload = (await res.json()) as SharePayload;
+            const cache = await caches.open('share-target-v1');
+            await cache.delete('/share-target/pending');
+            return payload;
+          }
+          await new Promise((r) => setTimeout(r, 300));
+        }
       } catch {
-        return null;
+        // ignora — segue pro fallback legacy
       }
+      return null;
     }
 
     function readLegacyPayload(): SharePayload | null {
@@ -336,6 +346,12 @@ function AppShell({
     async function processShare() {
       const payload = (await readCachePayload()) ?? readLegacyPayload();
       if (!payload || cancelled) return;
+
+      // O SW grava `{ error }` quando falha a ler o body do POST.
+      if (payload.error) {
+        setShareDialog({ status: 'error', message: payload.error });
+        return;
+      }
 
       // Caminho 1: imagem — transcreve com Gemini e mostra escolha.
       if (payload.image) {
