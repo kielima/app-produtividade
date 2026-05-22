@@ -10,6 +10,13 @@ import {
 } from './components/ProjectFiltersBar';
 import { SidebarMenu } from './components/SidebarMenu';
 import {
+  defaultStatsFiltersState,
+  deserializeStatsFiltersState,
+  serializeStatsFiltersState,
+  StatsFiltersBar,
+  type StatsFiltersState,
+} from './components/StatsFiltersBar';
+import {
   defaultFiltersState,
   deserializeFiltersState,
   ProjectCombobox,
@@ -45,6 +52,7 @@ import type { Note } from './types';
 
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
 const PROJECT_FILTERS_KEY = 'app-produtividade:project-filters';
+const STATS_FILTERS_KEY = 'app-produtividade:stats-filters';
 const MENU_ORDER_KEY = 'app-produtividade:menu-order';
 
 function loadTaskFilters(): TaskFiltersState {
@@ -64,6 +72,16 @@ function loadProjectFilters(): ProjectFiltersState {
     return deserializeProjectFiltersState(JSON.parse(raw));
   } catch {
     return defaultProjectFiltersState();
+  }
+}
+
+function loadStatsFilters(): StatsFiltersState {
+  try {
+    const raw = localStorage.getItem(STATS_FILTERS_KEY);
+    if (!raw) return defaultStatsFiltersState();
+    return deserializeStatsFiltersState(JSON.parse(raw));
+  } catch {
+    return defaultStatsFiltersState();
   }
 }
 
@@ -116,6 +134,9 @@ export function App() {
   const [projectFilters, setProjectFilters] = useState<ProjectFiltersState>(
     loadProjectFilters,
   );
+  const [statsFilters, setStatsFilters] = useState<StatsFiltersState>(
+    loadStatsFilters,
+  );
 
   useEffect(() => {
     localStorage.setItem(
@@ -130,6 +151,13 @@ export function App() {
       JSON.stringify(serializeProjectFiltersState(projectFilters)),
     );
   }, [projectFilters]);
+
+  useEffect(() => {
+    localStorage.setItem(
+      STATS_FILTERS_KEY,
+      JSON.stringify(serializeStatsFiltersState(statsFilters)),
+    );
+  }, [statsFilters]);
 
   useEffect(() => {
     localStorage.setItem(MENU_ORDER_KEY, JSON.stringify(menuOrder));
@@ -175,6 +203,8 @@ export function App() {
     setFilters={setFilters}
     projectFilters={projectFilters}
     setProjectFilters={setProjectFilters}
+    statsFilters={statsFilters}
+    setStatsFilters={setStatsFilters}
   />;
 }
 
@@ -190,6 +220,8 @@ function AppShell({
   setFilters,
   projectFilters,
   setProjectFilters,
+  statsFilters,
+  setStatsFilters,
 }: {
   uid: string;
   tab: Tab;
@@ -202,6 +234,8 @@ function AppShell({
   setFilters: (f: TaskFiltersState) => void;
   projectFilters: ProjectFiltersState;
   setProjectFilters: (f: ProjectFiltersState) => void;
+  statsFilters: StatsFiltersState;
+  setStatsFilters: (f: StatsFiltersState) => void;
 }) {
   const data = useUserData(uid);
   const tasksScrollRef = useRef(0);
@@ -605,6 +639,13 @@ function AppShell({
             />
           </>
         )}
+        {tab === 'stats' && (
+          <StatsFiltersBar
+            state={statsFilters}
+            setState={setStatsFilters}
+            projects={data.projects}
+          />
+        )}
         {tab === 'projects' && (
           <>
             <button
@@ -692,6 +733,7 @@ function AppShell({
             uid={uid}
             projects={data.projects}
             projectScoreMap={data.ctx.projectScoreMap}
+            filters={statsFilters}
           />
         )}
         {tab === 'settings' && <SettingsView uid={uid} />}

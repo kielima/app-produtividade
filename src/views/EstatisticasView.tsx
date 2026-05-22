@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ProjectCombobox } from '../components/TaskFiltersBar';
+import type { StatsFiltersState } from '../components/StatsFiltersBar';
 import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
 import type {
   CompletedTask,
@@ -9,16 +9,8 @@ import type {
   Project,
 } from '../types';
 
-type RangeKey = '7' | '30' | '90' | '365';
-type Metric = 'count' | 'score';
-type Dimension = 'moscow' | 'esforco' | 'modo';
-
-const RANGE_LABELS: Record<RangeKey, string> = {
-  '7': '7 dias',
-  '30': '30 dias',
-  '90': '90 dias',
-  '365': '1 ano',
-};
+type Metric = StatsFiltersState['metric'];
+type Dimension = StatsFiltersState['dimension'];
 
 const DIMENSION_LABELS: Record<Dimension, string> = {
   moscow: 'MoSCoW',
@@ -606,20 +598,19 @@ interface EstatisticasViewProps {
   uid: string;
   projects: Project[];
   projectScoreMap: Record<string, number>;
+  filters: StatsFiltersState;
 }
 
 export function EstatisticasView({
   uid,
   projects,
   projectScoreMap,
+  filters,
 }: EstatisticasViewProps) {
+  const { range, metric, dimension, projectFilter } = filters;
   const [tasks, setTasks] = useState<CompletedTask[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
-  const [range, setRange] = useState<RangeKey>('90');
-  const [metric, setMetric] = useState<Metric>('count');
-  const [dimension, setDimension] = useState<Dimension>('moscow');
-  const [projectFilter, setProjectFilter] = useState<string>('');
 
   useEffect(() => {
     setLoading(true);
@@ -765,76 +756,6 @@ export function EstatisticasView({
 
   return (
     <section className="estatisticas-view">
-      <div className="stats-controls" role="toolbar" aria-label="Controles">
-        <div
-          className="stats-control-group"
-          role="radiogroup"
-          aria-label="Período"
-        >
-          {(Object.keys(RANGE_LABELS) as RangeKey[]).map((k) => (
-            <button
-              key={k}
-              type="button"
-              role="radio"
-              aria-checked={range === k}
-              className={`stats-chip ${range === k ? 'stats-chip--active' : ''}`}
-              onClick={() => setRange(k)}
-            >
-              {RANGE_LABELS[k]}
-            </button>
-          ))}
-        </div>
-        <div
-          className="stats-control-group"
-          role="radiogroup"
-          aria-label="Métrica"
-        >
-          <button
-            type="button"
-            role="radio"
-            aria-checked={metric === 'count'}
-            className={`stats-chip ${metric === 'count' ? 'stats-chip--active' : ''}`}
-            onClick={() => setMetric('count')}
-          >
-            Contagem
-          </button>
-          <button
-            type="button"
-            role="radio"
-            aria-checked={metric === 'score'}
-            className={`stats-chip ${metric === 'score' ? 'stats-chip--active' : ''}`}
-            onClick={() => setMetric('score')}
-          >
-            Score
-          </button>
-        </div>
-        <div
-          className="stats-control-group"
-          role="radiogroup"
-          aria-label="Empilhar por"
-        >
-          {(Object.keys(DIMENSION_LABELS) as Dimension[]).map((d) => (
-            <button
-              key={d}
-              type="button"
-              role="radio"
-              aria-checked={dimension === d}
-              className={`stats-chip ${dimension === d ? 'stats-chip--active' : ''}`}
-              onClick={() => setDimension(d)}
-            >
-              {DIMENSION_LABELS[d]}
-            </button>
-          ))}
-        </div>
-        <div className="stats-project-filter" aria-label="Filtrar por projeto">
-          <ProjectCombobox
-            value={projectFilter}
-            onChange={setProjectFilter}
-            projects={projects}
-          />
-        </div>
-      </div>
-
       <div className="stats-summary">
         <div className="stats-card">
           <span className="stats-card-label">Total no período</span>
