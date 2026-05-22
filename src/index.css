@@ -2198,6 +2198,40 @@ a:focus-visible {
   color: var(--muted);
   font-weight: 600;
 }
+.task-detail-subtasks-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.task-detail-subtasks-header h3 {
+  margin: 0;
+}
+.btn-ai-subtasks {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--fg);
+  padding: 0.3rem 0.7rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 500;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.btn-ai-subtasks:hover:not(:disabled) {
+  background: var(--surface-2);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.btn-ai-subtasks:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.task-detail-ai-error {
+  margin: 0.4rem 0 0.6rem;
+  font-size: 0.85rem;
+}
 .task-detail-note {
   display: block;
   min-height: 2.5em;
