@@ -24,6 +24,10 @@ import {
   TaskFiltersBar,
   type TaskFiltersState,
 } from './components/TaskFiltersBar';
+import {
+  ShareTargetDialog,
+  type ShareTargetDialogState,
+} from './components/ShareTargetDialog';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
@@ -42,13 +46,16 @@ import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
 import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
+import { nextTaskId, upsertTask } from './repositories/tasksRepo';
+import { transcribeImage } from './lib/aiTranscribe';
+import { serializeTitle } from './lib/parser';
 import { hasLink, hasList, LINK_TAG, LIST_TAG, normalizeTags } from './lib/tags';
 import { TasksRoot } from './views/TasksRoot';
 import { ClassifyView } from './views/ClassifyView';
 import { CountdownView } from './views/CountdownView';
 import { EstatisticasView } from './views/EstatisticasView';
 import { TodayView } from './views/TodayView';
-import type { Note } from './types';
+import type { Note, Project, Task } from './types';
 
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
 const PROJECT_FILTERS_KEY = 'app-produtividade:project-filters';
@@ -83,6 +90,20 @@ function loadStatsFilters(): StatsFiltersState {
   } catch {
     return defaultStatsFiltersState();
   }
+}
+
+interface SharePayload {
+  title: string;
+  text: string;
+  url: string;
+  image: { data: string; mimeType: string } | null;
+}
+
+function pickDefaultProjectId(projects: Project[]): string | null {
+  const available = projects.filter(
+    (p) => p.status !== 'Concluído' && p.status !== 'Cancelado',
+  );
+  return available[0]?.id ?? null;
 }
 
 type Tab =
@@ -251,6 +272,9 @@ function AppShell({
   const [searchOpen, setSearchOpen] = useState(false);
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [shareDialog, setShareDialog] = useState<ShareTargetDialogState | null>(
+    null,
+  );
 
   useEffect(() => {
     setSearchOpen(false);
@@ -275,24 +299,73 @@ function AppShell({
   }, [notes, uid]);
 
   useEffect(() => {
-    const raw = sessionStorage.getItem('pendingShare');
-    if (!raw) return;
-    sessionStorage.removeItem('pendingShare');
-
     let cancelled = false;
 
-    async function processShare() {
-      let share: { title: string; text: string; url: string };
+    async function readCachePayload(): Promise<SharePayload | null> {
+      if (sessionStorage.getItem('pendingShareFromCache') !== '1') return null;
+      sessionStorage.removeItem('pendingShareFromCache');
       try {
-        share = JSON.parse(raw!);
+        const res = await caches.match('/share-target/pending');
+        if (!res) return null;
+        const payload = (await res.json()) as SharePayload;
+        const cache = await caches.open('share-target-v1');
+        await cache.delete('/share-target/pending');
+        return payload;
       } catch {
+        return null;
+      }
+    }
+
+    function readLegacyPayload(): SharePayload | null {
+      const raw = sessionStorage.getItem('pendingShare');
+      if (!raw) return null;
+      sessionStorage.removeItem('pendingShare');
+      try {
+        const parsed = JSON.parse(raw) as Partial<SharePayload>;
+        return {
+          title: parsed.title ?? '',
+          text: parsed.text ?? '',
+          url: parsed.url ?? '',
+          image: null,
+        };
+      } catch {
+        return null;
+      }
+    }
+
+    async function processShare() {
+      const payload = (await readCachePayload()) ?? readLegacyPayload();
+      if (!payload || cancelled) return;
+
+      // Caminho 1: imagem — transcreve com Gemini e mostra escolha.
+      if (payload.image) {
+        setShareDialog({ status: 'loading' });
+        try {
+          const result = await transcribeImage({
+            imageBase64: payload.image.data,
+            mimeType: payload.image.mimeType,
+          });
+          if (cancelled) return;
+          setShareDialog({
+            status: 'choose',
+            title: result.title || payload.title || '',
+            text: result.text || payload.text || '',
+          });
+        } catch (e) {
+          if (cancelled) return;
+          setShareDialog({
+            status: 'error',
+            message: e instanceof Error ? e.message : String(e),
+          });
+        }
         return;
       }
 
-      const sharedUrl = share.url || share.text;
+      // Caminho 2: URL/texto — fluxo antigo (cria nota direto).
+      const sharedUrl = payload.url || payload.text;
       if (!sharedUrl) return;
 
-      let title = share.title;
+      let title = payload.title;
       if (!title) {
         try {
           const res = await fetch(
@@ -322,6 +395,49 @@ function AppShell({
     return () => { cancelled = true; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
+
+  async function createNoteFromShare(title: string, text: string) {
+    const note = await createNote(uid);
+    await patchNote(uid, note.id, { title, note: text });
+    setShareDialog(null);
+    setTab('notes');
+    setSelectedNoteId(note.id);
+  }
+
+  async function createTaskFromShare(title: string, text: string) {
+    const sectionId = pickDefaultProjectId(data.projects);
+    if (!sectionId) return;
+    const taskId = await nextTaskId(uid);
+    const today = new Date().toISOString().slice(0, 10);
+    const newTask: Task = {
+      id: String(taskId),
+      taskId,
+      title: serializeTitle(title || '(sem título)', {
+        taskId,
+        modo: 'manual',
+        moscow: '',
+        esforco: '',
+        deadline: '',
+        addedDate: today,
+        dependsOn: [],
+      }),
+      note: text,
+      checked: false,
+      inProgress: false,
+      moscow: '',
+      modo: 'manual',
+      esforco: '',
+      deadline: '',
+      addedDate: today,
+      dependsOn: [],
+      subtasks: [],
+      section: sectionId,
+    };
+    await upsertTask(uid, newTask);
+    setShareDialog(null);
+    setTab('tasks');
+    setSelectedTaskId(String(taskId));
+  }
 
   const taskNavValue = useMemo(
     () => ({ openTask: (taskId: string) => setSelectedTaskId(taskId) }),
@@ -445,6 +561,22 @@ function AppShell({
     return ordered;
   }, [menuOrder]);
 
+  const shareDialogEl = shareDialog ? (
+    <ShareTargetDialog
+      state={shareDialog}
+      canCreateTask={pickDefaultProjectId(data.projects) !== null}
+      onCreateTask={() => {
+        if (shareDialog.status !== 'choose') return;
+        void createTaskFromShare(shareDialog.title, shareDialog.text);
+      }}
+      onCreateNote={() => {
+        if (shareDialog.status !== 'choose') return;
+        void createNoteFromShare(shareDialog.title, shareDialog.text);
+      }}
+      onCancel={() => setShareDialog(null)}
+    />
+  ) : null;
+
   if (selectedNote) {
     return (
       <NoteNavigationContext.Provider value={noteNavValue}>
@@ -465,6 +597,7 @@ function AppShell({
               />
             </main>
             <UpdatePrompt />
+            {shareDialogEl}
           </div>
         </TaskNavigationContext.Provider>
       </NoteNavigationContext.Provider>
@@ -488,6 +621,7 @@ function AppShell({
               />
             </main>
             <UpdatePrompt />
+            {shareDialogEl}
           </div>
         </ProjectNavigationContext.Provider>
       </TaskNavigationContext.Provider>
@@ -507,6 +641,7 @@ function AppShell({
               />
             </main>
             <UpdatePrompt />
+            {shareDialogEl}
           </div>
         </ProjectNavigationContext.Provider>
       </TaskNavigationContext.Provider>
@@ -526,6 +661,7 @@ function AppShell({
               />
             </main>
             <UpdatePrompt />
+            {shareDialogEl}
           </div>
         </ProjectNavigationContext.Provider>
       </TaskNavigationContext.Provider>
@@ -547,6 +683,7 @@ function AppShell({
               />
             </main>
             <UpdatePrompt />
+            {shareDialogEl}
           </div>
         </ProjectNavigationContext.Provider>
       </TaskNavigationContext.Provider>
@@ -734,6 +871,7 @@ function AppShell({
       </main>
 
       <UpdatePrompt />
+      {shareDialogEl}
     </div>
     </ProjectNavigationContext.Provider>
     </TaskNavigationContext.Provider>

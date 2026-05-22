@@ -36,17 +36,27 @@ export default defineConfig({
         ],
         share_target: {
           action: '/share-target',
-          method: 'GET',
+          method: 'POST',
+          enctype: 'multipart/form-data',
           params: {
             title: 'title',
             text: 'text',
             url: 'url',
+            files: [
+              {
+                name: 'image',
+                accept: ['image/*'],
+              },
+            ],
           },
         },
       },
       workbox: {
         // App shell: precache do bundle React/CSS/etc gerado pelo Vite.
         globPatterns: ['**/*.{js,css,html,svg,png,woff,woff2,ico}'],
+        // Script auxiliar pra intercetar POST do Web Share Target (workbox
+        // só lida com GET por defeito). Ver public/share-target-sw.js.
+        importScripts: ['share-target-sw.js'],
         navigateFallback: '/index.html',
         // Não interceptar URLs do Firebase — o SDK já tem IndexedDB offline.
         navigateFallbackDenylist: [
