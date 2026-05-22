@@ -3,6 +3,16 @@ import { createRoot } from 'react-dom/client';
 import { App } from './App.tsx';
 import './index.css';
 
+// Web Share Target via POST + multipart: o service worker
+// (public/share-target-sw.js) processa a partilha e redireciona pra
+// /?shared=1. O App.tsx lê o payload do Cache e despacha o fluxo.
+if (window.location.search.includes('shared=1')) {
+  sessionStorage.setItem('pendingShareFromCache', '1');
+  window.history.replaceState(null, '', '/');
+}
+
+// Caminho legado (GET share_target) — mantido como defesa caso uma versão
+// antiga do SW ainda esteja ativa no dispositivo.
 if (window.location.pathname === '/share-target') {
   const p = new URLSearchParams(window.location.search);
   sessionStorage.setItem('pendingShare', JSON.stringify({
