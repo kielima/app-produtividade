@@ -5,8 +5,29 @@
 // código aberto, esse é o padrão correto — nada de `VITE_*` aqui.
 
 const API_KEY_STORAGE = 'app-produtividade:gemini-api-key';
-const GEMINI_MODEL = 'gemini-2.0-flash';
-const GEMINI_ENDPOINT = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const MODEL_STORAGE = 'app-produtividade:gemini-model';
+const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
+
+export function getGeminiModel(): string {
+  try {
+    return localStorage.getItem(MODEL_STORAGE) || DEFAULT_GEMINI_MODEL;
+  } catch {
+    return DEFAULT_GEMINI_MODEL;
+  }
+}
+
+export function setGeminiModel(model: string): void {
+  const trimmed = model.trim();
+  if (trimmed && trimmed !== DEFAULT_GEMINI_MODEL) {
+    localStorage.setItem(MODEL_STORAGE, trimmed);
+  } else {
+    localStorage.removeItem(MODEL_STORAGE);
+  }
+}
+
+export function getDefaultGeminiModel(): string {
+  return DEFAULT_GEMINI_MODEL;
+}
 
 export function getGeminiApiKey(): string {
   try {
@@ -93,9 +114,12 @@ export async function generateSubtasks(args: {
     },
   };
 
+  const model = getGeminiModel();
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+
   let res: Response;
   try {
-    res = await fetch(`${GEMINI_ENDPOINT}?key=${encodeURIComponent(apiKey)}`, {
+    res = await fetch(`${endpoint}?key=${encodeURIComponent(apiKey)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
