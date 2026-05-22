@@ -13,6 +13,18 @@ function isHiddenProject(p: Project): boolean {
   return p.status === 'Concluído' || p.status === 'Cancelado';
 }
 
+// Projeto onde aterrissam tarefas criadas a partir de anotações do Keep
+// quando o usuário não escolhe um projeto explícito.
+const DEFAULT_CONVERT_PROJECT_NAME = 'Tarefas sem projeto';
+
+function pickConvertTargetProject(projects: Project[]): Project | null {
+  const visible = projects.filter((p) => !isHiddenProject(p));
+  const preferred = visible.find(
+    (p) => p.name.trim().toLowerCase() === DEFAULT_CONVERT_PROJECT_NAME.toLowerCase(),
+  );
+  return preferred ?? visible[0] ?? null;
+}
+
 export function NoteDetailView({
   uid,
   note,
@@ -29,8 +41,8 @@ export function NoteDetailView({
   onClose: () => void;
 }) {
   const [converting, setConverting] = useState(false);
-  const availableProjects = projects.filter((p) => !isHiddenProject(p));
-  const canConvert = availableProjects.length > 0;
+  const targetProject = pickConvertTargetProject(projects);
+  const canConvert = targetProject != null;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -62,10 +74,10 @@ export function NoteDetailView({
   }
 
   async function handleConvertToTask() {
-    if (converting || !canConvert) return;
+    if (converting || !targetProject) return;
     if (
       !window.confirm(
-        `Transformar "${note.title || 'esta anotação'}" em tarefa? A anotação será removida.`,
+        `Transformar "${note.title || 'esta anotação'}" em tarefa no projeto "${targetProject.name}"? A anotação será removida.`,
       )
     ) {
       return;
@@ -75,7 +87,7 @@ export function NoteDetailView({
       const taskId = await nextTaskId(uid);
       const today = new Date().toISOString().slice(0, 10);
       const addedDate = note.addedDate || today;
-      const sectionId = availableProjects[0]!.id;
+      const sectionId = targetProject.id;
       const newTask: Task = {
         id: String(taskId),
         taskId,
@@ -197,7 +209,7 @@ export function NoteDetailView({
             title={
               !canConvert
                 ? 'Crie um projeto antes de transformar em tarefa'
-                : 'Transformar esta anotação em tarefa'
+                : `Transformar esta anotação em tarefa no projeto "${targetProject!.name}"`
             }
           >
             {converting ? 'Transformando…' : 'Transformar em tarefa'}
