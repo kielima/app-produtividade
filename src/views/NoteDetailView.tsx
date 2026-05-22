@@ -1,23 +1,36 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { SubtaskList } from '../components/SubtaskList';
 import { TagsEditor } from '../components/TagsEditor';
+import { serializeTitle } from '../lib/parser';
 import { normalizeTags } from '../lib/tags';
 import { deleteNote, patchNote } from '../repositories/notesRepo';
-import type { Note, Subtask } from '../types';
+import { nextTaskId, upsertTask } from '../repositories/tasksRepo';
+import type { Note, Project, Subtask, Task } from '../types';
+
+function isHiddenProject(p: Project): boolean {
+  return p.status === 'Concluído' || p.status === 'Cancelado';
+}
 
 export function NoteDetailView({
   uid,
   note,
   allTags = [],
+  projects = [],
+  onConvertedToTask,
   onClose,
 }: {
   uid: string;
   note: Note;
   allTags?: string[];
+  projects?: Project[];
+  onConvertedToTask?: (taskId: string) => void;
   onClose: () => void;
 }) {
+  const [converting, setConverting] = useState(false);
+  const availableProjects = projects.filter((p) => !isHiddenProject(p));
+  const canConvert = availableProjects.length > 0;
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
       if (e.key === 'Escape') onClose();
@@ -46,6 +59,54 @@ export function NoteDetailView({
     if (!window.confirm(`Apagar "${note.title || 'esta anotação'}"?`)) return;
     await deleteNote(uid, note.id);
     onClose();
+  }
+
+  async function handleConvertToTask() {
+    if (converting || !canConvert) return;
+    if (
+      !window.confirm(
+        `Transformar "${note.title || 'esta anotação'}" em tarefa? A anotação será removida.`,
+      )
+    ) {
+      return;
+    }
+    setConverting(true);
+    try {
+      const taskId = await nextTaskId(uid);
+      const today = new Date().toISOString().slice(0, 10);
+      const addedDate = note.addedDate || today;
+      const sectionId = availableProjects[0]!.id;
+      const newTask: Task = {
+        id: String(taskId),
+        taskId,
+        title: serializeTitle(note.title, {
+          taskId,
+          modo: 'manual',
+          moscow: '',
+          esforco: '',
+          deadline: '',
+          addedDate,
+          dependsOn: [],
+        }),
+        note: note.note,
+        checked: false,
+        inProgress: false,
+        moscow: '',
+        modo: 'manual',
+        esforco: '',
+        deadline: '',
+        addedDate,
+        dependsOn: [],
+        subtasks: note.items.map((s) => ({ text: s.text, checked: s.checked })),
+        section: sectionId,
+      };
+      await upsertTask(uid, newTask);
+      await deleteNote(uid, note.id);
+      if (onConvertedToTask) onConvertedToTask(String(taskId));
+      else onClose();
+    } finally {
+      setConverting(false);
+    }
   }
 
   return (
@@ -98,15 +159,6 @@ export function NoteDetailView({
         </div>
 
         <section className="task-detail-section">
-          <h3>Tags</h3>
-          <TagsEditor
-            tags={note.tags}
-            onChange={setTags}
-            suggestions={allTags}
-          />
-        </section>
-
-        <section className="task-detail-section">
           <h3>Nota</h3>
           <MarkdownNote
             value={note.note}
@@ -126,6 +178,31 @@ export function NoteDetailView({
           </h3>
           <SubtaskList subtasks={note.items} onChange={setItems} />
         </section>
+
+        <section className="task-detail-section">
+          <h3>Tags</h3>
+          <TagsEditor
+            tags={note.tags}
+            onChange={setTags}
+            suggestions={allTags}
+          />
+        </section>
+
+        <div className="note-detail-actions">
+          <button
+            type="button"
+            className="btn-secondary note-detail-convert"
+            onClick={handleConvertToTask}
+            disabled={converting || !canConvert}
+            title={
+              !canConvert
+                ? 'Crie um projeto antes de transformar em tarefa'
+                : 'Transformar esta anotação em tarefa'
+            }
+          >
+            {converting ? 'Transformando…' : 'Transformar em tarefa'}
+          </button>
+        </div>
       </div>
     </section>
   );
