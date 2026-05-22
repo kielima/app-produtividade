@@ -2308,7 +2308,7 @@ a:focus-visible {
 }
 .stats-summary {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 0.75rem;
 }
 .stats-card {
