@@ -81,7 +81,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'notes', label: 'Keep' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
-  { key: 'countdown', label: 'Contagem Regressiva' },
+  { key: 'countdown', label: 'Agenda' },
   { key: 'stats', label: 'Estatísticas' },
   { key: 'settings', label: 'Configurações' },
 ];
