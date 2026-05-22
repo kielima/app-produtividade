@@ -205,6 +205,8 @@ function AppShell({
 }) {
   const data = useUserData(uid);
   const tasksScrollRef = useRef(0);
+  const notesScrollRef = useRef(0);
+  const projectsScrollRef = useRef(0);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -348,7 +350,8 @@ function AppShell({
     }
   }, [selectedNoteId, selectedNote, notes.length]);
 
-  // Preserva a posição de scroll da lista de tarefas ao abrir uma tarefa ou mudar de aba.
+  // Preserva a posição de scroll das listas (tarefas, notas, projetos) ao abrir
+  // um detalhe ou mudar de aba.
   useEffect(() => {
     if (tab !== 'tasks' || selectedTaskId) return;
     return () => {
@@ -361,6 +364,32 @@ function AppShell({
       window.scrollTo(0, tasksScrollRef.current);
     }
   }, [tab, selectedTaskId]);
+
+  useEffect(() => {
+    if (tab !== 'notes' || selectedNoteId) return;
+    return () => {
+      notesScrollRef.current = window.scrollY;
+    };
+  }, [tab, selectedNoteId]);
+
+  useLayoutEffect(() => {
+    if (tab === 'notes' && !selectedNoteId) {
+      window.scrollTo(0, notesScrollRef.current);
+    }
+  }, [tab, selectedNoteId]);
+
+  useEffect(() => {
+    if (tab !== 'projects' || selectedProjectId) return;
+    return () => {
+      projectsScrollRef.current = window.scrollY;
+    };
+  }, [tab, selectedProjectId]);
+
+  useLayoutEffect(() => {
+    if (tab === 'projects' && !selectedProjectId) {
+      window.scrollTo(0, projectsScrollRef.current);
+    }
+  }, [tab, selectedProjectId]);
 
   const selectedProjectTaskCount = useMemo(() => {
     if (!selectedProject) return 0;
