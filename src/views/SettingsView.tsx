@@ -1,6 +1,12 @@
 import { useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
-import { getGeminiApiKey, setGeminiApiKey } from '../lib/aiSubtasks';
+import {
+  getDefaultGeminiModel,
+  getGeminiApiKey,
+  getGeminiModel,
+  setGeminiApiKey,
+  setGeminiModel,
+} from '../lib/aiSubtasks';
 import { auth } from '../lib/firebase';
 import {
   defaultFilename,
@@ -40,6 +46,7 @@ export function SettingsView({ uid }: { uid: string }) {
   const [geminiKey, setGeminiKey] = useState(() => getGeminiApiKey());
   const [geminiKeyVisible, setGeminiKeyVisible] = useState(false);
   const [geminiKeySaved, setGeminiKeySaved] = useState(false);
+  const [geminiModel, setGeminiModelState] = useState(() => getGeminiModel());
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importPayload, setImportPayload] = useState<ExportPayload | null>(null);
@@ -113,6 +120,7 @@ export function SettingsView({ uid }: { uid: string }) {
 
   function handleSaveGeminiKey() {
     setGeminiApiKey(geminiKey);
+    setGeminiModel(geminiModel);
     setGeminiKeySaved(true);
     window.setTimeout(() => setGeminiKeySaved(false), 2000);
   }
@@ -178,6 +186,29 @@ export function SettingsView({ uid }: { uid: string }) {
               setGeminiKeySaved(false);
             }}
             placeholder="AIza…"
+            spellCheck={false}
+            autoComplete="off"
+            style={{
+              padding: '0.5rem 0.7rem',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              background: 'var(--surface)',
+              color: 'var(--fg)',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: '0.85rem',
+            }}
+          />
+          <label style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+            Modelo (padrão: <code>{getDefaultGeminiModel()}</code>)
+          </label>
+          <input
+            type="text"
+            value={geminiModel}
+            onChange={(e) => {
+              setGeminiModelState(e.target.value);
+              setGeminiKeySaved(false);
+            }}
+            placeholder={getDefaultGeminiModel()}
             spellCheck={false}
             autoComplete="off"
             style={{
