@@ -4,6 +4,7 @@ import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { Popover } from '../components/Popover';
 import { SubtaskList } from '../components/SubtaskList';
+import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import { patchTask } from '../lib/taskMutations';
@@ -83,6 +84,8 @@ export function TaskDetailView({
 }) {
   const display = getDisplayTitle(task.title);
   const [depModalOpen, setDepModalOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
   const deadlineInputRef = useRef<HTMLInputElement>(null);
   const blocked = isTaskBlocked(task, ctx);
   const score = useMemo(
@@ -117,6 +120,39 @@ export function TaskDetailView({
 
   async function setSubtasks(next: Subtask[]) {
     await patchTask(uid, task, { subtasks: next });
+  }
+
+  async function handleGenerateSubtasks() {
+    setAiError(null);
+    setAiLoading(true);
+    try {
+      const existing = task.subtasks.map((s) => s.text);
+      const generated = await generateSubtasks({
+        title: display,
+        note: task.note,
+        existingSubtasks: existing,
+      });
+      const existingNorm = new Set(existing.map((s) => s.toLowerCase()));
+      const fresh = generated.filter((s) => !existingNorm.has(s.toLowerCase()));
+      if (fresh.length === 0) {
+        setAiError('A IA não sugeriu nada novo.');
+        return;
+      }
+      await setSubtasks([
+        ...task.subtasks,
+        ...fresh.map((text) => ({ text, checked: false })),
+      ]);
+    } catch (e) {
+      const msg =
+        e instanceof AiSubtasksError
+          ? e.message
+          : e instanceof Error
+            ? e.message
+            : String(e);
+      setAiError(msg);
+    } finally {
+      setAiLoading(false);
+    }
   }
 
   async function setDeps(next: string[]) {
@@ -424,14 +460,30 @@ export function TaskDetailView({
         </section>
 
         <section className="task-detail-section">
-          <h3>
-            Subtarefas{' '}
-            {task.subtasks.length > 0 && (
-              <span className="muted">
-                ({task.subtasks.filter((s) => s.checked).length}/{task.subtasks.length})
-              </span>
-            )}
-          </h3>
+          <div className="task-detail-subtasks-header">
+            <h3>
+              Subtarefas{' '}
+              {task.subtasks.length > 0 && (
+                <span className="muted">
+                  ({task.subtasks.filter((s) => s.checked).length}/{task.subtasks.length})
+                </span>
+              )}
+            </h3>
+            <button
+              type="button"
+              className="btn-ai-subtasks"
+              onClick={handleGenerateSubtasks}
+              disabled={aiLoading}
+              title={
+                hasGeminiApiKey()
+                  ? 'Gerar subtarefas a partir do título e da nota'
+                  : 'Configure a chave Gemini em Configurações primeiro'
+              }
+            >
+              {aiLoading ? '⏳ Gerando…' : '✨ Gerar com IA'}
+            </button>
+          </div>
+          {aiError && <p className="error task-detail-ai-error">{aiError}</p>}
           <SubtaskList subtasks={task.subtasks} onChange={setSubtasks} />
         </section>
       </div>

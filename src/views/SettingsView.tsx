@@ -1,5 +1,6 @@
 import { useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { getGeminiApiKey, setGeminiApiKey } from '../lib/aiSubtasks';
 import { auth } from '../lib/firebase';
 import {
   defaultFilename,
@@ -35,6 +36,10 @@ export function SettingsView({ uid }: { uid: string }) {
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ExportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  const [geminiKey, setGeminiKey] = useState(() => getGeminiApiKey());
+  const [geminiKeyVisible, setGeminiKeyVisible] = useState(false);
+  const [geminiKeySaved, setGeminiKeySaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importPayload, setImportPayload] = useState<ExportPayload | null>(null);
@@ -106,6 +111,18 @@ export function SettingsView({ uid }: { uid: string }) {
     }
   }
 
+  function handleSaveGeminiKey() {
+    setGeminiApiKey(geminiKey);
+    setGeminiKeySaved(true);
+    window.setTimeout(() => setGeminiKeySaved(false), 2000);
+  }
+
+  function handleClearGeminiKey() {
+    setGeminiApiKey('');
+    setGeminiKey('');
+    setGeminiKeySaved(false);
+  }
+
   function resetImport() {
     setImportPayload(null);
     setImportFileName(null);
@@ -129,6 +146,82 @@ export function SettingsView({ uid }: { uid: string }) {
           <dt>UID</dt>
           <dd className="mono">{uid}</dd>
         </dl>
+      </article>
+
+      <article className="settings-card">
+        <h3>Inteligência Artificial</h3>
+        <p className="muted">
+          Configure uma chave do Google Gemini para gerar subtarefas
+          automaticamente a partir do título e das notas de uma tarefa. A
+          chave fica salva só no localStorage deste navegador — nunca é
+          enviada ao Firestore nem ao repositório. Pegue uma chave gratuita
+          em{' '}
+          <a
+            href="https://aistudio.google.com/apikey"
+            target="_blank"
+            rel="noreferrer"
+          >
+            aistudio.google.com/apikey
+          </a>
+          .
+        </p>
+
+        <div
+          className="settings-actions"
+          style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.5rem' }}
+        >
+          <input
+            type={geminiKeyVisible ? 'text' : 'password'}
+            value={geminiKey}
+            onChange={(e) => {
+              setGeminiKey(e.target.value);
+              setGeminiKeySaved(false);
+            }}
+            placeholder="AIza…"
+            spellCheck={false}
+            autoComplete="off"
+            style={{
+              padding: '0.5rem 0.7rem',
+              border: '1px solid var(--border)',
+              borderRadius: 4,
+              background: 'var(--surface)',
+              color: 'var(--fg)',
+              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
+              fontSize: '0.85rem',
+            }}
+          />
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={handleSaveGeminiKey}
+              disabled={!geminiKey.trim()}
+            >
+              Salvar chave
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => setGeminiKeyVisible((v) => !v)}
+            >
+              {geminiKeyVisible ? 'Ocultar' : 'Mostrar'}
+            </button>
+            {getGeminiApiKey() && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={handleClearGeminiKey}
+              >
+                Remover
+              </button>
+            )}
+          </div>
+          {geminiKeySaved && (
+            <p className="muted" style={{ margin: 0 }}>
+              ✓ Chave salva neste navegador.
+            </p>
+          )}
+        </div>
       </article>
 
       <article className="settings-card">
