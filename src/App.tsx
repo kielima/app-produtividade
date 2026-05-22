@@ -385,44 +385,38 @@ function AppShell({
   }, [selectedNoteId, selectedNote, notes.length]);
 
   // Preserva a posição de scroll das listas (tarefas, notas, projetos) ao abrir
-  // um detalhe ou mudar de aba.
-  useEffect(() => {
+  // um detalhe ou mudar de aba. O listener mantém o ref atualizado enquanto a
+  // lista está visível; ao sair, o cleanup remove o listener antes do browser
+  // poder fazer clamp do scrollY (perdendo o valor). Ao reentrar, o scroll é
+  // restaurado antes da pintura via useLayoutEffect.
+  useLayoutEffect(() => {
     if (tab !== 'tasks' || selectedTaskId) return;
-    return () => {
+    window.scrollTo(0, tasksScrollRef.current);
+    const onScroll = () => {
       tasksScrollRef.current = window.scrollY;
     };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, [tab, selectedTaskId]);
 
   useLayoutEffect(() => {
-    if (tab === 'tasks' && !selectedTaskId) {
-      window.scrollTo(0, tasksScrollRef.current);
-    }
-  }, [tab, selectedTaskId]);
-
-  useEffect(() => {
     if (tab !== 'notes' || selectedNoteId) return;
-    return () => {
+    window.scrollTo(0, notesScrollRef.current);
+    const onScroll = () => {
       notesScrollRef.current = window.scrollY;
     };
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, [tab, selectedNoteId]);
 
   useLayoutEffect(() => {
-    if (tab === 'notes' && !selectedNoteId) {
-      window.scrollTo(0, notesScrollRef.current);
-    }
-  }, [tab, selectedNoteId]);
-
-  useEffect(() => {
     if (tab !== 'projects' || selectedProjectId) return;
-    return () => {
+    window.scrollTo(0, projectsScrollRef.current);
+    const onScroll = () => {
       projectsScrollRef.current = window.scrollY;
     };
-  }, [tab, selectedProjectId]);
-
-  useLayoutEffect(() => {
-    if (tab === 'projects' && !selectedProjectId) {
-      window.scrollTo(0, projectsScrollRef.current);
-    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => window.removeEventListener('scroll', onScroll);
   }, [tab, selectedProjectId]);
 
   const selectedProjectTaskCount = useMemo(() => {
