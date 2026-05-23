@@ -1053,6 +1053,21 @@ a:focus-visible {
 .subtasks li.done .subtask-text { text-decoration: line-through; opacity: 0.65; }
 .subtask-text { flex: 1; }
 .subtask-add-row input { width: 100%; }
+.subtask-drag-handle {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  padding: 0.25rem 0.15rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  flex-shrink: 0;
+}
+.subtask-drag-handle:hover { background: var(--surface-2); color: var(--fg); }
+.subtask-drag-handle:active { cursor: grabbing; }
 
 /* ===== Badges ===== */
 .badge {
