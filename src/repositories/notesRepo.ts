@@ -30,9 +30,13 @@ export function subscribeToNotes(
           items: data.items ?? [],
           addedDate: data.addedDate ?? '',
           tags: Array.isArray(data.tags) ? data.tags : [],
+          pinned: data.pinned === true,
         };
       });
-      notes.sort((a, b) => b.addedDate.localeCompare(a.addedDate) || b.id.localeCompare(a.id));
+      notes.sort((a, b) => {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        return b.addedDate.localeCompare(a.addedDate) || b.id.localeCompare(a.id);
+      });
       cb(notes);
     },
     (err) => onError?.(err),
@@ -61,6 +65,7 @@ export async function createNote(uid: string): Promise<Note> {
     items: [],
     addedDate: today,
     tags: [],
+    pinned: false,
   };
   await upsertNote(uid, note);
   return note;

@@ -72,6 +72,7 @@ export interface Note {
   items: Subtask[];
   addedDate: string;
   tags: string[];
+  pinned: boolean;
 }
 
 export interface DependencyEntry {
