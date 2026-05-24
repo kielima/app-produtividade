@@ -30,8 +30,8 @@ const SAMPLE: ExportPayload = {
   completedTasks: [],
   projects: [],
   notes: [
-    { id: 'n1', title: 'Nota 1', note: 'corpo', items: [], addedDate: '2026-05-15', tags: [] },
-    { id: 'n2', title: '', note: '', items: [{ text: 'item', checked: false }], addedDate: '2026-05-15', tags: ['idea'] },
+    { id: 'n1', title: 'Nota 1', note: 'corpo', items: [], addedDate: '2026-05-15', tags: [], pinned: false },
+    { id: 'n2', title: '', note: '', items: [{ text: 'item', checked: false }], addedDate: '2026-05-15', tags: ['idea'], pinned: true },
   ],
   glicko: [
     { id: 'p1', r: 1520, rd: 200, sigma: 0.06 },

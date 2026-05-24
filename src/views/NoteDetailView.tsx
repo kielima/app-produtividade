@@ -67,6 +67,10 @@ export function NoteDetailView({
     await patchNote(uid, note.id, { tags: normalizeTags(tags) });
   }
 
+  async function togglePinned() {
+    await patchNote(uid, note.id, { pinned: !note.pinned });
+  }
+
   async function handleDelete() {
     if (!window.confirm(`Apagar "${note.title || 'esta anotação'}"?`)) return;
     await deleteNote(uid, note.id);
@@ -146,6 +150,29 @@ export function NoteDetailView({
             : ''}
         </span>
         <span className="task-detail-topbar-right">
+          <button
+            type="button"
+            className={`note-pin-toggle${note.pinned ? ' is-pinned' : ''}`}
+            onClick={togglePinned}
+            aria-label={note.pinned ? 'desafixar anotação' : 'fixar anotação'}
+            aria-pressed={note.pinned}
+            title={note.pinned ? 'desafixar anotação' : 'fixar anotação'}
+          >
+            {note.pinned ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                <path d="M14 4l6 6-4 1-3 3v5l-2 2-3-3-4 4-1-1 4-4-3-3 2-2h5l3-3 1-4z" />
+              </svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M14 4l6 6-4 1-3 3v5l-2 2-3-3-4 4-1-1 4-4-3-3 2-2h5l3-3 1-4z"
+                  stroke="currentColor"
+                  strokeWidth="1.6"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+          </button>
           <button
             type="button"
             className="task-detail-delete"

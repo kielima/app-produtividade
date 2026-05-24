@@ -10,7 +10,7 @@ const SAMPLE: ExportPayload = {
   tasks: [],
   completedTasks: [],
   projects: [],
-  notes: [{ id: 'n1', title: 't', note: '', items: [], addedDate: '2026-05-15', tags: [] }],
+  notes: [{ id: 'n1', title: 't', note: '', items: [], addedDate: '2026-05-15', tags: [], pinned: false }],
   glicko: [{ id: 'p1', r: 1500, rd: 350, sigma: 0.06 }],
   memory: {
     glossary: '# glossary',
