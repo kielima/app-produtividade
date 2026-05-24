@@ -1,3 +1,4 @@
+# Auto-merge: squash-merge PRs automatically when CI passes
 name: Auto-merge
 
 on:
