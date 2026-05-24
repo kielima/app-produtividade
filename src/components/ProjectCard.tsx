@@ -40,8 +40,8 @@ export function ProjectCard({
         <button
           type="button"
           className="project-title project-title-btn"
-          onClick={() => openProject(project.id)}
-          aria-label="abrir projeto"
+          onClick={() => openProjectTasks(project.id)}
+          aria-label={`ver tarefas do projeto ${project.name}`}
         >
           {project.name}
         </button>
@@ -68,6 +68,15 @@ export function ProjectCard({
           aria-label={`ver ${countLabel} do projeto ${project.name}`}
         >
           {countLabel}
+        </button>
+        <button
+          type="button"
+          className="icon-btn project-info-btn"
+          onClick={() => openProject(project.id)}
+          aria-label={`informações do projeto ${project.name}`}
+          title="Informações do projeto"
+        >
+          ⓘ
         </button>
       </div>
     </article>

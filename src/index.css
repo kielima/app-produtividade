@@ -1499,6 +1499,12 @@ a:focus-visible {
   border-radius: 3px;
 }
 .project-task-count-btn:hover { background: var(--surface-2); }
+.project-info-btn {
+  flex-shrink: 0;
+  font-size: 1rem;
+  padding: 0.05rem 0.35rem;
+  cursor: pointer;
+}
 .project-glicko-badges {
   display: flex;
   gap: 0.3rem;
