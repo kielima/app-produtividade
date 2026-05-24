@@ -20,6 +20,18 @@ function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
     >
       <p className="note-card-title">
+        {note.pinned && (
+          <svg
+            className="note-card-pin"
+            width="14"
+            height="14"
+            viewBox="0 0 24 24"
+            fill="currentColor"
+            aria-label="fixada"
+          >
+            <path d="M14 4l6 6-4 1-3 3v5l-2 2-3-3-4 4-1-1 4-4-3-3 2-2h5l3-3 1-4z" />
+          </svg>
+        )}
         {note.title || <span className="muted">(sem título)</span>}
       </p>
       {note.note && (
@@ -85,6 +97,10 @@ export function NotesView({
   }, [notes, selectedTags, searchQuery]);
 
   const hasSearch = searchQuery.trim().length > 0;
+  const pinnedNotes = filteredNotes.filter((n) => n.pinned);
+  const otherNotes = filteredNotes.filter((n) => !n.pinned);
+  const hasPinned = pinnedNotes.length > 0;
+  const hasOthers = otherNotes.length > 0;
 
   return (
     <>
@@ -97,11 +113,28 @@ export function NotesView({
               : 'Nenhuma anotação corresponde às tags selecionadas.'}
         </p>
       ) : (
-        <div className="note-list">
-          {filteredNotes.map((n) => (
-            <NoteCard key={n.id} note={n} onClick={() => openNote(n.id)} />
-          ))}
-        </div>
+        <>
+          {hasPinned && (
+            <>
+              <h2 className="note-section-heading">Fixadas</h2>
+              <div className="note-list">
+                {pinnedNotes.map((n) => (
+                  <NoteCard key={n.id} note={n} onClick={() => openNote(n.id)} />
+                ))}
+              </div>
+            </>
+          )}
+          {hasOthers && (
+            <>
+              {hasPinned && <h2 className="note-section-heading">Outras</h2>}
+              <div className="note-list">
+                {otherNotes.map((n) => (
+                  <NoteCard key={n.id} note={n} onClick={() => openNote(n.id)} />
+                ))}
+              </div>
+            </>
+          )}
+        </>
       )}
       <NewNoteFab uid={uid} />
     </>
