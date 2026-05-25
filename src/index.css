@@ -2125,7 +2125,7 @@ a:focus-visible {
 .note-pin-toggle {
   background: transparent;
   border: none;
-  color: var(--text);
+  color: var(--fg);
   width: 2rem;
   height: 2rem;
   border-radius: 6px;
