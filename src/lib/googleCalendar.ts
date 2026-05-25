@@ -6,6 +6,20 @@ const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
 
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const TOKEN_KEY = 'app-produtividade:gcal-token';
+const HAS_EVER_CONNECTED_KEY = 'app-produtividade:gcal-connected';
+const EVENTS_CACHE_KEY = 'app-produtividade:gcal-events';
+
+// Disparar o silent refresh aos ~30min de um token de 1h (metade do TTL real),
+// bem antes da expiração efetiva, dá margem larga para retries em caso de
+// blip de rede e mantém a sessão Calendar viva indefinidamente enquanto o
+// usuário continuar logado no Google no navegador.
+const REFRESH_SAFETY_MS = 30 * 60 * 1000;
+// Se um refresh agendado falhar, reagenda este tempo depois para tentar de
+// novo, em vez de desistir e esperar até o token expirar de fato.
+const REFRESH_RETRY_AFTER_FAIL_MS = 5 * 60 * 1000;
+// Janela em que `visibilitychange` / `online` consideram que vale a pena
+// disparar um refresh imediato (token quase no fim).
+const PROACTIVE_REFRESH_WINDOW_MS = 5 * 60 * 1000;
 
 type StoredToken = {
   accessToken: string;
@@ -71,11 +85,34 @@ function writeStored(token: StoredToken): void {
   } catch {
     // sem espaço / modo privado — segue sem cachear
   }
+  // Reagenda o próximo refresh baseado na nova expiração. Se o scheduler
+  // ainda não foi iniciado, não faz nada — quem inicia chama
+  // `startCalendarTokenScheduler` explicitamente.
+  if (schedulerUid === token.uid) {
+    scheduleNextRefresh();
+  }
 }
 
+// Apenas invalida o token cacheado. Mantém scheduler e flag de "já conectou"
+// — usado quando a API responde 401 e queremos forçar um refresh em vez de
+// desconectar de fato.
 export function clearCalendarToken(): void {
   try {
     localStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
+// Disconnect explícito do usuário: limpa cache + flag de "já conectou" e
+// para o scheduler. Após isso, o app só refaz a conexão por gesto explícito
+// do usuário ("Conectar Google Calendar").
+export function disconnectCalendar(): void {
+  clearCalendarToken();
+  stopCalendarTokenScheduler();
+  try {
+    localStorage.removeItem(HAS_EVER_CONNECTED_KEY);
+    localStorage.removeItem(EVENTS_CACHE_KEY);
   } catch {
     // ignore
   }
@@ -92,6 +129,26 @@ export function getCachedCalendarToken(uid: string): string | null {
 
 export function hasCalendarAccess(uid: string): boolean {
   return getCachedCalendarToken(uid) !== null;
+}
+
+// Flag persistente: "este usuário já consentiu acesso ao Google Calendar pelo
+// menos uma vez neste navegador". Usado para decidir entre mostrar a tela
+// "Conectar" (primeiro acesso) ou apenas um banner discreto e seguir tentando
+// silent refresh em background (reconexão durante uso).
+export function hasEverConnectedCalendar(): boolean {
+  try {
+    return localStorage.getItem(HAS_EVER_CONNECTED_KEY) === '1';
+  } catch {
+    return false;
+  }
+}
+
+function markEverConnected(): void {
+  try {
+    localStorage.setItem(HAS_EVER_CONNECTED_KEY, '1');
+  } catch {
+    // ignore
+  }
 }
 
 let gisScriptPromise: Promise<void> | null = null;
@@ -188,32 +245,187 @@ async function requestToken(
   });
 }
 
+// Erros do GIS que NÃO valem retry: o usuário não está logado no Google ou
+// não consentiu — tentar de novo só vai falhar do mesmo jeito.
+function isNonRetryableRefreshError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
+  return (
+    msg.includes('access_denied') ||
+    msg.includes('user_logged_out') ||
+    msg.includes('interaction_required') ||
+    msg.includes('login_required') ||
+    msg.includes('consent_required') ||
+    msg.includes('immediate_failed')
+  );
+}
+
 // Renovação silenciosa: usa a sessão Google ativa no navegador via iframe
 // invisível. Se o usuário não estiver logado no Google ou nunca consentiu,
 // retorna null sem mostrar UI (não força popup).
+//
+// Faz até 3 tentativas com backoff 1s/3s/9s para tolerar blips de rede ou
+// race do iframe do GIS antes de desistir.
 export async function tryRefreshCalendarToken(
   uid: string,
 ): Promise<string | null> {
-  try {
-    return await requestToken(uid, 'none');
-  } catch (err) {
-    console.debug('[gcal] silent refresh falhou:', err);
-    return null;
+  const backoffs = [0, 1_000, 3_000, 9_000];
+  let lastErr: unknown = null;
+  for (let i = 0; i < backoffs.length; i++) {
+    if (backoffs[i] > 0) await sleep(backoffs[i]);
+    try {
+      const token = await requestToken(uid, 'none');
+      // Refresh bem-sucedido reaquece a flag (cobre o caso de localStorage
+      // ter sido limpo manualmente mas a sessão Google ainda existir).
+      markEverConnected();
+      return token;
+    } catch (err) {
+      lastErr = err;
+      if (isNonRetryableRefreshError(err)) break;
+    }
   }
+  console.debug('[gcal] silent refresh falhou:', lastErr);
+  return null;
+}
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
 // Interativo: pode mostrar consent se for a primeira vez ou se o usuário
 // revogou o acesso. Se já consentiu antes, GIS resolve via iframe sem popup.
 export async function grantCalendarAccess(uid: string): Promise<string> {
-  return requestToken(uid, '');
+  const token = await requestToken(uid, '');
+  markEverConnected();
+  startCalendarTokenScheduler(uid);
+  return token;
 }
 
 export async function ensureCalendarToken(uid: string): Promise<string> {
   const cached = getCachedCalendarToken(uid);
   if (cached) return cached;
   const silent = await tryRefreshCalendarToken(uid);
-  if (silent) return silent;
+  if (silent) {
+    startCalendarTokenScheduler(uid);
+    return silent;
+  }
   return grantCalendarAccess(uid);
+}
+
+// =========================================================================
+// Scheduler proativo de refresh
+// =========================================================================
+//
+// Singleton por aba. Agenda um silent refresh ~30min antes da expiração e se
+// reagenda a cada sucesso. Em falha, reagenda em 5min — a sessão Google pode
+// estar temporariamente indisponível (rede, popup blocker no iframe, etc.) e
+// uma nova tentativa breve costuma resolver. Listeners de `visibilitychange`
+// e `online` disparam refresh imediato quando a aba volta ao foco ou a rede
+// volta, se o token está dentro da janela de risco.
+
+let refreshTimer: ReturnType<typeof setTimeout> | null = null;
+let schedulerUid: string | null = null;
+let visibilityListenerAttached = false;
+let onlineListenerAttached = false;
+let inFlightRefresh: Promise<string | null> | null = null;
+
+function clearScheduledRefresh(): void {
+  if (refreshTimer !== null) {
+    clearTimeout(refreshTimer);
+    refreshTimer = null;
+  }
+}
+
+function nextRefreshDelay(): number {
+  const stored = readStored();
+  if (!stored) return REFRESH_RETRY_AFTER_FAIL_MS;
+  const timeUntilExpiry = stored.expiresAt - Date.now();
+  // Se ainda falta mais de 30min, dorme até "expiry - 30min". Caso contrário
+  // (token já dentro da janela de risco), refresca quase imediatamente.
+  return Math.max(1_000, timeUntilExpiry - REFRESH_SAFETY_MS);
+}
+
+async function runScheduledRefresh(): Promise<void> {
+  const uid = schedulerUid;
+  if (!uid) return;
+  // Coalesce: se já há um refresh em andamento (ex.: outro caller chamou
+  // tryRefresh ao mesmo tempo), espera o resultado dele.
+  const token = await (inFlightRefresh ?? tryRefreshCalendarToken(uid));
+  if (schedulerUid !== uid) return; // scheduler trocou de uid no meio
+  if (token) {
+    scheduleNextRefresh();
+  } else {
+    // Falhou: tenta de novo em alguns minutos. Não limpa cache nem flag —
+    // pode ser blip temporário.
+    refreshTimer = setTimeout(runScheduledRefresh, REFRESH_RETRY_AFTER_FAIL_MS);
+  }
+}
+
+function scheduleNextRefresh(): void {
+  clearScheduledRefresh();
+  if (!schedulerUid) return;
+  refreshTimer = setTimeout(runScheduledRefresh, nextRefreshDelay());
+}
+
+function maybeRefreshOnFocus(): void {
+  if (!schedulerUid) return;
+  if (typeof document !== 'undefined' && document.visibilityState !== 'visible') {
+    return;
+  }
+  const stored = readStored();
+  if (!stored) {
+    // Sem token cacheado: tenta refrescar imediatamente (pode ter expirado
+    // enquanto a aba estava em background há horas).
+    void runScheduledRefresh();
+    return;
+  }
+  const timeUntilExpiry = stored.expiresAt - Date.now();
+  if (timeUntilExpiry < PROACTIVE_REFRESH_WINDOW_MS) {
+    void runScheduledRefresh();
+  }
+}
+
+function attachWindowListeners(): void {
+  if (typeof window === 'undefined') return;
+  if (!visibilityListenerAttached) {
+    document.addEventListener('visibilitychange', maybeRefreshOnFocus);
+    visibilityListenerAttached = true;
+  }
+  if (!onlineListenerAttached) {
+    window.addEventListener('online', maybeRefreshOnFocus);
+    onlineListenerAttached = true;
+  }
+}
+
+// Inicia (ou reconfigura) o scheduler para um uid. Idempotente: se já está
+// rodando para o mesmo uid, apenas reagenda baseado no token corrente.
+export function startCalendarTokenScheduler(uid: string): void {
+  schedulerUid = uid;
+  attachWindowListeners();
+  const stored = readStored();
+  if (stored && stored.uid === uid) {
+    scheduleNextRefresh();
+  } else if (hasEverConnectedCalendar()) {
+    // Sem token cacheado mas o usuário já conectou antes: dispara um refresh
+    // imediato em background. Se conseguir, ótimo; se não, o `runScheduledRefresh`
+    // já reagenda em 5min.
+    refreshTimer = setTimeout(runScheduledRefresh, 0);
+  }
+}
+
+export function stopCalendarTokenScheduler(): void {
+  clearScheduledRefresh();
+  schedulerUid = null;
+}
+
+// Wrapper que mantém um único refresh em flight por vez. Útil para os pontos
+// que querem "pegue um token agora se possível" sem disparar várias chamadas
+// concorrentes ao GIS.
+export function refreshCalendarTokenOnce(uid: string): Promise<string | null> {
+  if (inFlightRefresh) return inFlightRefresh;
+  inFlightRefresh = tryRefreshCalendarToken(uid).finally(() => {
+    inFlightRefresh = null;
+  });
+  return inFlightRefresh;
 }
 
 export type CalendarEvent = {
@@ -433,6 +645,37 @@ export async function createPrimaryEvent(
     throw new Error('Evento criado mas resposta inválida do Google.');
   }
   return mapped;
+}
+
+// Cache do último snapshot de eventos. Usado para mostrar os contadores
+// imediatamente ao abrir a aba (otimista) e para sustentar o banner discreto
+// "Calendário desconectado" sem esvaziar a tela quando o refresh falha.
+
+type CachedEvents = {
+  uid: string;
+  fetchedAt: number;
+  events: CalendarEvent[];
+};
+
+export function readCachedEvents(uid: string): CalendarEvent[] | null {
+  try {
+    const raw = localStorage.getItem(EVENTS_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as CachedEvents;
+    if (parsed.uid !== uid || !Array.isArray(parsed.events)) return null;
+    return parsed.events;
+  } catch {
+    return null;
+  }
+}
+
+export function writeCachedEvents(uid: string, events: CalendarEvent[]): void {
+  try {
+    const payload: CachedEvents = { uid, fetchedAt: Date.now(), events };
+    localStorage.setItem(EVENTS_CACHE_KEY, JSON.stringify(payload));
+  } catch {
+    // sem espaço — segue sem cachear
+  }
 }
 
 // Calcula dias inteiros restantes até a data do evento, no fuso local.
