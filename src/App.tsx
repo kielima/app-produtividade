@@ -773,6 +773,8 @@ function AppShell({
               allTags={allNoteTags}
               selectedTags={selectedNoteTags}
               setSelectedTags={setSelectedNoteTags}
+              searchQuery={noteSearchQuery}
+              onClearSearch={() => setNoteSearchQuery('')}
             />
           </>
         )}
@@ -801,6 +803,8 @@ function AppShell({
               showHideZero={true}
               onOpenClassify={() => setClassifyOpen(true)}
               classifyCount={classifyCount}
+              searchQuery={taskSearchQuery}
+              onClearSearch={() => setTaskSearchQuery('')}
             />
           </>
         )}
