@@ -3,6 +3,7 @@ name: Deploy to Firebase Hosting
 on:
   push:
     branches: [main]
+  workflow_dispatch:
 
 # Required secret: FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE
 # Firebase Console → Project settings → Service accounts → Generate new private key

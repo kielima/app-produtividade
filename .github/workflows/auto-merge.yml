@@ -14,6 +14,7 @@ jobs:
     permissions:
       contents: write
       pull-requests: write
+      actions: write
 
     steps:
       - name: Find open non-draft PR for this commit
@@ -58,3 +59,21 @@ jobs:
             });
 
             core.info(`PR #${prNumber} merged via squash.`);
+
+      # Pushes feitos com GITHUB_TOKEN não disparam workflows (proteção
+      # anti-loop do GitHub), então o deploy.yml escutando `push: main`
+      # nunca rodaria para PRs auto-mesclados. workflow_dispatch é a
+      # exceção documentada, então chamamos o deploy explicitamente aqui.
+      - name: Trigger deploy
+        if: steps.find-pr.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'deploy.yml',
+              ref: 'main',
+            });
+
+            core.info('Deploy disparado em main.');
