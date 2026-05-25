@@ -7,6 +7,7 @@ import {
   MOSCOW_VALUES,
   STATUS_VALUES,
 } from '../components/TaskFiltersBar';
+import { normalizeForSearch } from '../lib/searchNormalize';
 import type { UserData } from '../lib/useUserData';
 import { archiveCompletedTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
@@ -30,7 +31,7 @@ function applyFilters(
   const applyEsforco = filters.esforcoFilter.size !== ESFORCO_VALUES.length;
   const applyStatus = filters.statusFilter.size !== STATUS_VALUES.length;
   const applyProject = !!filters.projectFilter;
-  const q = searchQuery.trim().toLowerCase();
+  const q = normalizeForSearch(searchQuery.trim());
   const applySearch = q.length > 0;
   if (
     !applyHideCompleted &&
@@ -60,9 +61,9 @@ function applyFilters(
       if (!filters.statusFilter.has(status)) return false;
     }
     if (applySearch) {
-      const haystack = [t.title, t.note, ...t.subtasks.map((s) => s.text)]
-        .join('\n')
-        .toLowerCase();
+      const haystack = normalizeForSearch(
+        [t.title, t.note, ...t.subtasks.map((s) => s.text)].join('\n'),
+      );
       if (!haystack.includes(q)) return false;
     }
     return true;
