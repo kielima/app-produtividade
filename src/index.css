@@ -2842,6 +2842,23 @@ a:focus-visible {
   margin-top: 0.5rem;
 }
 
+.countdown-stale-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+  padding: 0.55rem 0.85rem;
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 30%, transparent);
+  border-radius: 8px;
+  font-size: 0.85rem;
+}
+
+.countdown-stale-banner .link-btn {
+  flex-shrink: 0;
+}
+
 .countdown-card-link {
   text-decoration: none;
   color: inherit;
