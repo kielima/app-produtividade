@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { NewNoteFab } from '../components/NewNoteFab';
 import { useNoteNavigation } from '../lib/noteNavigation';
+import { normalizeForSearch } from '../lib/searchNormalize';
 import type { Note } from '../types';
 
 const HIDDEN_BY_DEFAULT_TAG = 'porno';
@@ -71,7 +72,7 @@ export function NotesView({
   const { openNote } = useNoteNavigation();
 
   const filteredNotes = useMemo(() => {
-    const q = searchQuery.trim().toLowerCase();
+    const q = normalizeForSearch(searchQuery.trim());
     const required = selectedTags.length > 0 ? new Set(selectedTags) : null;
     // Oculta notas com a tag 'porno' a menos que ela tenha sido selecionada no filtro.
     const hideHidden = !required || !required.has(HIDDEN_BY_DEFAULT_TAG);
@@ -82,14 +83,9 @@ export function NotesView({
         for (const t of required) if (!noteTags.has(t)) return false;
       }
       if (q) {
-        const haystack = [
-          n.title,
-          n.note,
-          ...n.items.map((i) => i.text),
-          ...n.tags,
-        ]
-          .join('\n')
-          .toLowerCase();
+        const haystack = normalizeForSearch(
+          [n.title, n.note, ...n.items.map((i) => i.text), ...n.tags].join('\n'),
+        );
         if (!haystack.includes(q)) return false;
       }
       return true;
