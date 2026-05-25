@@ -4,10 +4,14 @@ export function NotesFiltersBar({
   allTags,
   selectedTags,
   setSelectedTags,
+  searchQuery,
+  onClearSearch,
 }: {
   allTags: string[];
   selectedTags: string[];
   setSelectedTags: (next: string[]) => void;
+  searchQuery?: string;
+  onClearSearch?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -40,10 +44,12 @@ export function NotesFiltersBar({
 
   function clearFilters() {
     setSelectedTags([]);
+    onClearSearch?.();
     setOpen(false);
   }
 
   const count = selectedTags.length;
+  const hasSearch = !!searchQuery;
 
   return (
     <div className="topbar-filter" ref={wrapRef}>
@@ -133,7 +139,7 @@ export function NotesFiltersBar({
             type="button"
             className="btn-link"
             onClick={clearFilters}
-            disabled={count === 0}
+            disabled={count === 0 && !hasSearch}
           >
             limpar filtros
           </button>

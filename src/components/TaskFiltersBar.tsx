@@ -144,12 +144,16 @@ export function TaskFiltersBar({
   showHideZero,
   onOpenClassify,
   classifyCount,
+  searchQuery,
+  onClearSearch,
 }: {
   state: TaskFiltersState;
   setState: (next: TaskFiltersState) => void;
   showHideZero: boolean;
   onOpenClassify?: () => void;
   classifyCount?: number;
+  searchQuery?: string;
+  onClearSearch?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -202,10 +206,12 @@ export function TaskFiltersBar({
 
   function clearFilters() {
     setState(defaultFiltersState());
+    onClearSearch?.();
     setOpen(false);
   }
 
   const count = activeFilterCount(state, showHideZero);
+  const hasSearch = !!searchQuery;
 
   return (
     <div className="topbar-filter" ref={wrapRef}>
@@ -397,7 +403,7 @@ export function TaskFiltersBar({
             type="button"
             className="btn-link"
             onClick={clearFilters}
-            disabled={count === 0}
+            disabled={count === 0 && !hasSearch}
           >
             limpar filtros
           </button>
