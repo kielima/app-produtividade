@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { getDisplayTitle } from '../lib/parser';
 import { patchTask } from '../lib/taskMutations';
+import { deleteTask } from '../repositories/tasksRepo';
 import type { Esforco, MoSCoW, Task } from '../types';
 
 const MOSCOW_OPTIONS: Array<{ key: Exclude<MoSCoW, ''>; label: string }> = [
@@ -140,6 +141,21 @@ export function ClassifyView({
     }
   }
 
+  async function handleDelete() {
+    if (!currentTask || busy) return;
+    const display = getDisplayTitle(currentTask.title);
+    if (!window.confirm(`Apagar "${display}"?`)) return;
+    setBusy(true);
+    try {
+      await deleteTask(uid, currentTask);
+      advance();
+    } catch (err) {
+      console.error('Falha ao apagar tarefa', err);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const total = initialTotalRef.current;
   const done = index >= queue.length && queue.length > 0;
   const empty = queue.length === 0;
@@ -176,15 +192,35 @@ export function ClassifyView({
           <p className="classify-prompt">Classifique:</p>
           <h2 className="classify-title">{getDisplayTitle(currentTask.title)}</h2>
 
-          <label className="classify-done-toggle">
-            <input
-              type="checkbox"
-              checked={false}
-              onChange={handleMarkDone}
+          <div className="classify-done-row">
+            <label className="classify-done-toggle">
+              <input
+                type="checkbox"
+                checked={false}
+                onChange={handleMarkDone}
+                disabled={busy}
+              />
+              <span>marcar como concluída</span>
+            </label>
+            <button
+              type="button"
+              className="classify-delete"
+              onClick={handleDelete}
               disabled={busy}
-            />
-            <span>marcar como concluída</span>
-          </label>
+              aria-label="apagar tarefa"
+              title="apagar tarefa"
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path
+                  d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2m2 0v14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6h12zM10 11v6M14 11v6"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            </button>
+          </div>
 
           <label className="classify-field">
             <span className="classify-field-label">MoSCoW</span>
