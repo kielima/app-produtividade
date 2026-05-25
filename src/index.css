@@ -2671,6 +2671,12 @@ a:focus-visible {
   border-radius: 14px;
   background: var(--surface);
 }
+.classify-done-row {
+  display: flex;
+  align-items: stretch;
+  gap: 0.5rem;
+}
+.classify-done-row .classify-done-toggle { flex: 1; }
 .classify-done-toggle {
   display: flex;
   align-items: center;
@@ -2687,6 +2693,23 @@ a:focus-visible {
 .classify-done-toggle:hover { border-color: var(--accent, var(--fg)); }
 .classify-done-toggle input { cursor: pointer; }
 .classify-done-toggle input:disabled { cursor: wait; }
+.classify-delete {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.85rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--border);
+  background: var(--surface);
+  color: var(--danger);
+  cursor: pointer;
+  line-height: 0;
+}
+.classify-delete:hover:not(:disabled) {
+  border-color: var(--danger);
+  background: var(--danger-bg);
+}
+.classify-delete:disabled { opacity: 0.6; cursor: wait; }
 
 .classify-field {
   display: flex;
