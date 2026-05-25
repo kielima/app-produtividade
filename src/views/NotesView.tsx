@@ -29,7 +29,7 @@ function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
             fill="currentColor"
             aria-label="fixada"
           >
-            <path d="M14 4l6 6-4 1-3 3v5l-2 2-3-3-4 4-1-1 4-4-3-3 2-2h5l3-3 1-4z" />
+            <path d="M16 9V4h1c.55 0 1-.45 1-1s-.45-1-1-1H7c-.55 0-1 .45-1 1s.45 1 1 1h1v5c0 1.66-1.34 3-3 3v2h5.97v7l1 1 1-1v-7H19v-2c-1.66 0-3-1.34-3-3z" />
           </svg>
         )}
         {note.title || <span className="muted">(sem título)</span>}
