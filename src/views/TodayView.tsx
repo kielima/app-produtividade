@@ -502,8 +502,8 @@ function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
 
   return (
     <div
-      className="stats-heatmap"
-      style={{ gridTemplateColumns: `repeat(${weeksToShow}, 1fr)` }}
+      className="stats-heatmap stats-heatmap--vertical"
+      style={{ gridTemplateColumns: 'repeat(7, 1fr)' }}
       role="grid"
       aria-label="Heatmap de tarefas concluídas"
     >
