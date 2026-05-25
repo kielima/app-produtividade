@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
 import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { SubtaskList } from '../components/SubtaskList';
@@ -193,7 +194,10 @@ export function NoteDetailView({
         </div>
 
         <section className="task-detail-section">
-          <h3>Nota</h3>
+          <div className="task-detail-section-header">
+            <h3>Nota</h3>
+            <CopyMarkdownButton value={note.note} ariaLabel="copiar nota em markdown" />
+          </div>
           <MarkdownNote
             value={note.note}
             onSave={setNoteText}
