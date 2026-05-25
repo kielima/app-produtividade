@@ -44,6 +44,11 @@ import { SettingsView } from './views/SettingsView';
 import { TaskDetailView } from './views/TaskDetailView';
 import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
+import {
+  hasEverConnectedCalendar,
+  startCalendarTokenScheduler,
+  stopCalendarTokenScheduler,
+} from './lib/googleCalendar';
 import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
 import { nextTaskId, upsertTask } from './repositories/tasksRepo';
@@ -284,6 +289,19 @@ function AppShell({
   useEffect(() => {
     const unsub = subscribeToNotes(uid, setNotes);
     return unsub;
+  }, [uid]);
+
+  // Mantém o token do Google Calendar quente em background: o scheduler
+  // refresca silenciosamente ~30min antes da expiração, evitando que o
+  // usuário precise reconectar durante o uso. Roda mesmo quando a aba
+  // Countdown não está montada.
+  useEffect(() => {
+    if (hasEverConnectedCalendar()) {
+      startCalendarTokenScheduler(uid);
+    }
+    return () => {
+      stopCalendarTokenScheduler();
+    };
   }, [uid]);
 
   // Automação: garante tags automáticas (`link` para URLs, `lista` para listas)

@@ -1,14 +1,18 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   CalendarAuthError,
-  clearCalendarToken,
   createPrimaryEvent,
   daysUntil,
+  disconnectCalendar,
   ensureCalendarToken,
   getCachedCalendarToken,
   grantCalendarAccess,
+  hasEverConnectedCalendar,
   listUpcomingPrimaryEvents,
-  tryRefreshCalendarToken,
+  readCachedEvents,
+  refreshCalendarTokenOnce,
+  startCalendarTokenScheduler,
+  writeCachedEvents,
   type CalendarEvent,
 } from '../lib/googleCalendar';
 
@@ -43,10 +47,15 @@ function daysLabel(days: number): { value: string; label: string } {
 
 type LoadState =
   | { kind: 'idle' }
+  // Primeira conexão: usuário nunca conectou neste navegador — mostra a tela
+  // "Conectar Google Calendar" cheia.
   | { kind: 'needs-auth'; message?: string }
   | { kind: 'loading' }
   | { kind: 'error'; message: string }
-  | { kind: 'ready' };
+  // Estado normal. `stale: true` indica que a tela mostra os últimos eventos
+  // do cache porque o refresh em background está falhando — desenha um banner
+  // discreto, mas não interrompe o uso da aba.
+  | { kind: 'ready'; stale?: boolean; staleMessage?: string };
 
 function describeError(err: unknown): string {
   if (err instanceof Error) {
@@ -63,10 +72,17 @@ function describeError(err: unknown): string {
 }
 
 export function CountdownView({ uid }: { uid: string }) {
-  const [events, setEvents] = useState<CalendarEvent[]>([]);
+  // Inicializa com o último snapshot conhecido: mesmo se o refresh estiver
+  // lento, a aba abre já com os contadores em vez de "Carregando…".
+  const [events, setEvents] = useState<CalendarEvent[]>(
+    () => readCachedEvents(uid) ?? [],
+  );
   const [state, setState] = useState<LoadState>({ kind: 'idle' });
   const [showForm, setShowForm] = useState(false);
   const [now, setNow] = useState(() => new Date());
+  // Conta refreshs em background que falharam; só vira "Conectar" cheio se
+  // o usuário nunca conectou neste navegador.
+  const backgroundRetryRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Mantém o "hoje" atualizado caso a aba fique aberta cruzando meia-noite,
   // para os contadores não ficarem desatualizados.
@@ -76,34 +92,70 @@ export function CountdownView({ uid }: { uid: string }) {
   }, []);
 
   const load = useCallback(async (interactive: boolean) => {
-    setState({ kind: 'loading' });
+    const cachedEvents = readCachedEvents(uid);
+    const hasConnectedBefore = hasEverConnectedCalendar();
+
+    // Decide o estado inicial: se temos eventos cacheados, segue mostrando
+    // (estado "ready") enquanto o refresh roda em background — sem flash de
+    // "Carregando…". Caso contrário, mostra spinner.
+    if (cachedEvents && cachedEvents.length > 0) {
+      setEvents(cachedEvents);
+      setState((prev) => (prev.kind === 'ready' ? prev : { kind: 'ready' }));
+    } else {
+      setState({ kind: 'loading' });
+    }
+
     try {
       let token = getCachedCalendarToken(uid);
       if (!token) {
-        // Tenta renovação silenciosa via GIS (iframe invisível, sem popup).
-        // Funciona enquanto o usuário estiver logado no Google no navegador.
-        token = await tryRefreshCalendarToken(uid);
+        token = await refreshCalendarTokenOnce(uid);
       }
       if (!token && interactive) {
         token = await ensureCalendarToken(uid);
       }
       if (!token) {
-        setState({ kind: 'needs-auth' });
+        // Não conseguiu token. Se já conectou antes neste navegador, NÃO
+        // mostra a tela cheia "Conectar": deixa o cache visível com banner
+        // discreto e reagenda uma tentativa em background. Só vai pra
+        // "needs-auth" cheio se nunca conectou.
+        if (hasConnectedBefore) {
+          setState({
+            kind: 'ready',
+            stale: true,
+            staleMessage: 'Calendário desconectado — sessão Google expirou.',
+          });
+          scheduleBackgroundRetry();
+        } else {
+          setState({ kind: 'needs-auth' });
+        }
         return;
       }
       try {
         const list = await listUpcomingPrimaryEvents(uid, token);
         setEvents(list);
+        writeCachedEvents(uid, list);
         setState({ kind: 'ready' });
       } catch (err) {
         // 401 da API: token foi invalidado server-side. Tenta uma renovação
         // silenciosa antes de exigir reconexão manual.
         if (err instanceof CalendarAuthError) {
-          const refreshed = await tryRefreshCalendarToken(uid);
+          const refreshed = await refreshCalendarTokenOnce(uid);
           if (refreshed) {
             const list = await listUpcomingPrimaryEvents(uid, refreshed);
             setEvents(list);
+            writeCachedEvents(uid, list);
             setState({ kind: 'ready' });
+            return;
+          }
+          // Refresh também falhou: cai no fluxo de "stale" com banner se já
+          // conectou alguma vez.
+          if (hasConnectedBefore) {
+            setState({
+              kind: 'ready',
+              stale: true,
+              staleMessage: 'Calendário desconectado — sessão Google expirou.',
+            });
+            scheduleBackgroundRetry();
             return;
           }
         }
@@ -113,15 +165,53 @@ export function CountdownView({ uid }: { uid: string }) {
       console.error('[Countdown] falha ao listar eventos:', err);
       const message = describeError(err);
       if (err instanceof CalendarAuthError) {
-        setState({ kind: 'needs-auth', message });
+        if (hasConnectedBefore) {
+          setState({
+            kind: 'ready',
+            stale: true,
+            staleMessage: 'Calendário desconectado — toque em Reconectar.',
+          });
+        } else {
+          setState({ kind: 'needs-auth', message });
+        }
         return;
       }
-      setState({ kind: 'error', message });
+      // Erro de rede / API: se já temos eventos cacheados, mostra banner
+      // sutil em vez de tela de erro vazia.
+      if (cachedEvents && cachedEvents.length > 0) {
+        setState({
+          kind: 'ready',
+          stale: true,
+          staleMessage: `Não foi possível atualizar (${message}).`,
+        });
+        scheduleBackgroundRetry();
+      } else {
+        setState({ kind: 'error', message });
+      }
+    }
+    // `scheduleBackgroundRetry` é definido dentro do callback abaixo
+    // (closure-stable porque depende só de `load`), e load só depende de uid.
+    function scheduleBackgroundRetry() {
+      if (backgroundRetryRef.current) clearTimeout(backgroundRetryRef.current);
+      backgroundRetryRef.current = setTimeout(() => {
+        void load(false);
+      }, 60 * 1000);
     }
   }, [uid]);
 
   useEffect(() => {
-    load(false);
+    // Garante que o scheduler proativo de token está rodando enquanto a aba
+    // estiver montada. Idempotente: se já está ativo, apenas reagenda.
+    if (hasEverConnectedCalendar() || getCachedCalendarToken(uid)) {
+      startCalendarTokenScheduler(uid);
+    }
+    void load(false);
+    return () => {
+      if (backgroundRetryRef.current) {
+        clearTimeout(backgroundRetryRef.current);
+        backgroundRetryRef.current = null;
+      }
+    };
   }, [uid, load]);
 
   async function handleConnect() {
@@ -137,7 +227,7 @@ export function CountdownView({ uid }: { uid: string }) {
   }
 
   function handleDisconnect() {
-    clearCalendarToken();
+    disconnectCalendar();
     setEvents([]);
     setState({ kind: 'needs-auth' });
   }
@@ -188,7 +278,20 @@ export function CountdownView({ uid }: { uid: string }) {
         </div>
       )}
 
-      {state.kind === 'ready' && sortedEvents.length === 0 && (
+      {state.kind === 'ready' && state.stale && (
+        <div
+          className="countdown-stale-banner"
+          role="status"
+          aria-live="polite"
+        >
+          <span>{state.staleMessage ?? 'Calendário desconectado.'}</span>
+          <button type="button" className="link-btn" onClick={handleConnect}>
+            Reconectar
+          </button>
+        </div>
+      )}
+
+      {state.kind === 'ready' && sortedEvents.length === 0 && !state.stale && (
         <p className="muted countdown-status">
           Nenhum evento nos próximos 12 meses.
         </p>
