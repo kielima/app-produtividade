@@ -21,7 +21,14 @@ import { getDisplayTitle } from '../lib/parser';
 import { useProjectNavigation } from '../lib/projectNavigation';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
-import type { CompletedTask, Project, ScoreContext, Task } from '../types';
+import type {
+  CompletedTask,
+  Esforco,
+  MoSCoW,
+  Project,
+  ScoreContext,
+  Task,
+} from '../types';
 
 type WeatherLocation = { id: string; name: string; lat: number; lon: number };
 
@@ -347,6 +354,221 @@ function saveStoredPicks(picks: StoredPicks): void {
   }
 }
 
+// Heatmap de Atividade — cópia local do chart usado em EstatisticasView.
+// Mantido aqui para que o modal seja autocontido sem mover o original.
+const ACTIVITY_RANGE_DAYS = 90;
+
+const ACTIVITY_MOSCOW_PTS: Record<MoSCoW, number> = {
+  must: 3,
+  should: 2,
+  could: 1,
+  wont: 0,
+  '': 1,
+};
+
+const ACTIVITY_EFFORT_DIV: Record<Esforco, number> = {
+  rapido: 1,
+  medio: 2,
+  longo: 3,
+  '': 1,
+};
+
+function formatActivityBR(d: Date): string {
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+}
+
+function activityIntrinsicValue(
+  task: CompletedTask,
+  projectScoreMap: Record<string, number>,
+): number {
+  const sectionId = task.archivedFromSection || task.section;
+  const projectScore = sectionId ? projectScoreMap[sectionId] ?? 0 : 0;
+  const moscowPts = ACTIVITY_MOSCOW_PTS[task.moscow] ?? 1;
+  const effortDiv = ACTIVITY_EFFORT_DIV[task.esforco] ?? 1;
+  return (projectScore * moscowPts) / effortDiv;
+}
+
+interface ActivityDayBucket {
+  date: Date;
+  key: string;
+  count: number;
+  score: number;
+}
+
+function buildActivityBuckets(
+  tasks: CompletedTask[],
+  projectScoreMap: Record<string, number>,
+  rangeDays: number,
+): ActivityDayBucket[] {
+  const today = startOfDay(new Date());
+  const buckets: ActivityDayBucket[] = [];
+  const index = new Map<string, ActivityDayBucket>();
+  for (let i = rangeDays - 1; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const b: ActivityDayBucket = {
+      date: d,
+      key: dayKey(d),
+      count: 0,
+      score: 0,
+    };
+    buckets.push(b);
+    index.set(b.key, b);
+  }
+  for (const t of tasks) {
+    if (!t.archivedAt) continue;
+    const k = dayKey(startOfDay(t.archivedAt));
+    const b = index.get(k);
+    if (!b) continue;
+    const v = activityIntrinsicValue(t, projectScoreMap);
+    b.count += 1;
+    b.score += v;
+  }
+  return buckets;
+}
+
+function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
+  const max = Math.max(0, ...buckets.map((b) => b.count));
+
+  function level(value: number): number {
+    if (value < 0) return -1;
+    if (value === 0) return 0;
+    if (max === 0) return 0;
+    const ratio = value / max;
+    if (ratio > 0.66) return 4;
+    if (ratio > 0.33) return 3;
+    if (ratio > 0.1) return 2;
+    return 1;
+  }
+
+  function cellTitle(date: Date, value: number): string {
+    return `${formatActivityBR(date)} — ${value.toFixed(0)} tarefas`;
+  }
+
+  if (buckets.length <= 7) {
+    return (
+      <div
+        className="stats-heatmap stats-heatmap--row"
+        role="grid"
+        aria-label="Heatmap de tarefas concluídas"
+      >
+        {buckets.map((b) => {
+          const v = b.count;
+          const lvl = level(v);
+          const title = cellTitle(b.date, v);
+          return (
+            <div
+              key={b.key}
+              className={`stats-heatmap-cell stats-heatmap-cell--${lvl}`}
+              title={title}
+              aria-label={title}
+              role="gridcell"
+            />
+          );
+        })}
+      </div>
+    );
+  }
+
+  const today = startOfDay(new Date());
+  const anchor = new Date(today);
+  anchor.setDate(anchor.getDate() - anchor.getDay());
+
+  const weeksToShow = Math.ceil(buckets.length / 7);
+  const byKey = new Map(buckets.map((b) => [b.key, b]));
+
+  const cells: Array<{ key: string; value: number; date: Date | null }> = [];
+  for (let col = weeksToShow - 1; col >= 0; col--) {
+    for (let row = 0; row < 7; row++) {
+      const d = new Date(anchor);
+      d.setDate(d.getDate() - col * 7 + row);
+      const k = dayKey(d);
+      const b = byKey.get(k);
+      const value = b ? b.count : 0;
+      const inRange = d <= today && b != null;
+      cells.push({
+        key: `${col}-${row}`,
+        value: inRange ? value : -1,
+        date: inRange ? d : null,
+      });
+    }
+  }
+
+  return (
+    <div
+      className="stats-heatmap"
+      style={{ gridTemplateColumns: `repeat(${weeksToShow}, 1fr)` }}
+      role="grid"
+      aria-label="Heatmap de tarefas concluídas"
+    >
+      {cells.map((c) => {
+        const lvl = level(c.value);
+        const title = c.date ? cellTitle(c.date, c.value) : '';
+        return (
+          <div
+            key={c.key}
+            className={`stats-heatmap-cell stats-heatmap-cell--${lvl}`}
+            title={title}
+            aria-label={title}
+            role="gridcell"
+          />
+        );
+      })}
+    </div>
+  );
+}
+
+function ActivityModal({
+  tasks,
+  projectScoreMap,
+  onClose,
+}: {
+  tasks: CompletedTask[];
+  projectScoreMap: Record<string, number>;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, [onClose]);
+
+  const buckets = useMemo(
+    () => buildActivityBuckets(tasks, projectScoreMap, ACTIVITY_RANGE_DAYS),
+    [tasks, projectScoreMap],
+  );
+
+  return (
+    <div className="modal-backdrop" onClick={onClose} role="presentation">
+      <div
+        className="modal activity-modal"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Atividade"
+      >
+        <header className="modal-header">
+          <h3>Atividade</h3>
+          <button
+            type="button"
+            onClick={onClose}
+            className="icon-btn"
+            style={{ fontSize: '25px' }}
+            aria-label="fechar"
+          >
+            ×
+          </button>
+        </header>
+        <div className="activity-modal-body">
+          <ActivityHeatmap buckets={buckets} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
 interface TodayViewProps {
   uid: string;
   tasks: Task[];
@@ -487,6 +709,7 @@ export function TodayView({
       : 'unknown';
 
   const [weatherOpen, setWeatherOpen] = useState(false);
+  const [activityOpen, setActivityOpen] = useState(false);
 
   return (
     <section className="today-view">
@@ -505,13 +728,24 @@ export function TodayView({
             <WeatherIcon kind={currentWeatherKind} size={35} />
           </button>
         </div>
-        <StreakInline streak={currentStreak} />
+        <StreakInline
+          streak={currentStreak}
+          onOpenActivity={() => setActivityOpen(true)}
+        />
       </div>
 
       {weatherOpen && (
         <WeatherModal
           locations={WEATHER_LOCATIONS}
           onClose={() => setWeatherOpen(false)}
+        />
+      )}
+
+      {activityOpen && (
+        <ActivityModal
+          tasks={completed}
+          projectScoreMap={ctx.projectScoreMap}
+          onClose={() => setActivityOpen(false)}
         />
       )}
 
@@ -827,7 +1061,13 @@ function ArchivedTaskCard({ task }: { task: Task }) {
   );
 }
 
-function StreakInline({ streak }: { streak: number }) {
+function StreakInline({
+  streak,
+  onOpenActivity,
+}: {
+  streak: number;
+  onOpenActivity: () => void;
+}) {
   const active = streak > 0;
   return (
     <div
@@ -835,9 +1075,12 @@ function StreakInline({ streak }: { streak: number }) {
       aria-label={`Sequência atual: ${streak} dia${streak === 1 ? '' : 's'} seguido${streak === 1 ? '' : 's'}`}
     >
       <span className="today-streak-inline-value">{streak}</span>
-      <span
-        className={`today-streak-flame${active ? '' : ' today-streak-flame--off'}`}
-        aria-hidden="true"
+      <button
+        type="button"
+        className={`today-streak-flame-btn today-streak-flame${active ? '' : ' today-streak-flame--off'}`}
+        onClick={onOpenActivity}
+        aria-label="Ver gráfico de atividade"
+        title="Ver atividade"
       >
         <svg width="35" height="35" viewBox="0 0 20 20" fill="currentColor">
           <path
@@ -846,7 +1089,7 @@ function StreakInline({ streak }: { streak: number }) {
             d="M12.395 2.553a1 1 0 0 0-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.4 31.4 0 0 0-.613 3.58 2.64 2.64 0 0 1-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 0 0 5.05 6.05 6.981 6.981 0 0 0 3 11a7 7 0 1 0 11.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 0 1 7 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A3 3 0 0 1 12.12 15.12z"
           />
         </svg>
-      </span>
+      </button>
     </div>
   );
 }

@@ -3295,6 +3295,32 @@ a:focus-visible {
   opacity: 0.5;
 }
 
+.today-streak-flame-btn {
+  background: transparent;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.today-streak-flame-btn:hover {
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 75%, transparent));
+}
+
+.today-streak-flame-btn.today-streak-flame--off:hover {
+  filter: grayscale(1);
+  opacity: 0.75;
+}
+
+.activity-modal {
+  max-width: 720px;
+}
+
+.activity-modal-body {
+  padding: 1rem;
+  overflow: auto;
+}
+
 .today-section {
   display: flex;
   flex-direction: column;
