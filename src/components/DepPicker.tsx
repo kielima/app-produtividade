@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getDisplayTitle } from '../lib/parser';
+import { normalizeForSearch } from '../lib/searchNormalize';
 import type { Project, Task } from '../types';
 
 /**
@@ -32,13 +33,13 @@ export function DepPicker({
   }, [onClose]);
 
   const candidates = useMemo(() => {
-    const q = filter.toLowerCase().trim();
+    const q = normalizeForSearch(filter.trim());
     return allTasks
       .filter((t) => t.id !== task.id && t.taskId != null && !t.checked)
       .filter((t) => {
         if (projectFilter && t.section !== projectFilter) return false;
         if (!q) return true;
-        return getDisplayTitle(t.title).toLowerCase().includes(q);
+        return normalizeForSearch(getDisplayTitle(t.title)).includes(q);
       })
       .sort((a, b) => (a.taskId ?? 0) - (b.taskId ?? 0));
   }, [allTasks, task.id, filter, projectFilter]);

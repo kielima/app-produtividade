@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { normalizeForSearch } from '../lib/searchNormalize';
 import type { Esforco, Modo, MoSCoW, Project } from '../types';
 
 const MODO_LABEL: Record<Modo, string> = {
@@ -441,16 +442,16 @@ export function ProjectCombobox({
   }, [value, projects]);
 
   const options = useMemo<ComboOption[]>(() => {
-    const q = query.toLowerCase().trim();
+    const q = normalizeForSearch(query.trim());
     const todos: ComboOption = { kind: 'select', id: '', name: 'Todos' };
     const matched: ComboOption[] = projects
-      .filter((p) => (q ? p.name.toLowerCase().includes(q) : true))
+      .filter((p) => (q ? normalizeForSearch(p.name).includes(q) : true))
       .map((p) => ({ kind: 'select' as const, id: p.id, name: p.name }));
     const list: ComboOption[] = !q || 'todos'.includes(q) ? [todos, ...matched] : matched;
     const trimmed = query.trim();
     const hasExact =
       trimmed.length > 0 &&
-      projects.some((p) => p.name.toLowerCase() === q);
+      projects.some((p) => normalizeForSearch(p.name) === q);
     if (onCreateProject && trimmed.length > 0 && !hasExact) {
       list.push({ kind: 'create', name: trimmed });
     }
