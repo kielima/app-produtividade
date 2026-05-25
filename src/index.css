@@ -3380,6 +3380,15 @@ a:focus-visible {
   width: 100%;
 }
 
+/* Heatmap rotacionado 90°: colunas = dias da semana, linhas = semanas.
+   Sobrescreve o layout horizontal padrão de `.stats-heatmap` (definido em
+   EstatisticasView), preservando o gráfico original lá. */
+.stats-heatmap--vertical {
+  grid-auto-flow: row;
+  grid-template-rows: none;
+  max-width: 22rem;
+}
+
 .today-section {
   display: flex;
   flex-direction: column;
