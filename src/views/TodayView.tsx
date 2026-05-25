@@ -389,6 +389,9 @@ export function TodayView({
   const topProject = useMemo<{ project: Project; score: number } | null>(() => {
     let best: { project: Project; score: number } | null = null;
     for (const p of projects) {
+      if (p.status === 'Pausado' || p.status === 'Concluído' || p.status === 'Cancelado') {
+        continue;
+      }
       const score = ctx.projectScoreMap[p.id] ?? 0;
       if (!best || score > best.score) best = { project: p, score };
     }
