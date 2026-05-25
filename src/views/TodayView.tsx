@@ -355,8 +355,14 @@ function saveStoredPicks(picks: StoredPicks): void {
 }
 
 // Heatmap de Atividade — cópia local do chart usado em EstatisticasView.
-// Mantido aqui para que o modal seja autocontido sem mover o original.
-const ACTIVITY_RANGE_DAYS = 90;
+// Mantido aqui para que a tela seja autocontida sem mover o original.
+const ACTIVITY_RANGES: Array<{ days: number; label: string }> = [
+  { days: 7, label: '7 dias' },
+  { days: 30, label: '30 dias' },
+  { days: 90, label: '90 dias' },
+  { days: 365, label: '1 ano' },
+];
+const ACTIVITY_DEFAULT_RANGE_DAYS = 90;
 
 const ACTIVITY_MOSCOW_PTS: Record<MoSCoW, number> = {
   must: 3,
@@ -518,7 +524,7 @@ function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
   );
 }
 
-function ActivityModal({
+function ActivityView({
   tasks,
   projectScoreMap,
   onClose,
@@ -527,6 +533,8 @@ function ActivityModal({
   projectScoreMap: Record<string, number>;
   onClose: () => void;
 }) {
+  const [rangeDays, setRangeDays] = useState<number>(ACTIVITY_DEFAULT_RANGE_DAYS);
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -536,36 +544,66 @@ function ActivityModal({
   }, [onClose]);
 
   const buckets = useMemo(
-    () => buildActivityBuckets(tasks, projectScoreMap, ACTIVITY_RANGE_DAYS),
-    [tasks, projectScoreMap],
+    () => buildActivityBuckets(tasks, projectScoreMap, rangeDays),
+    [tasks, projectScoreMap, rangeDays],
   );
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="modal activity-modal"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Atividade"
-      >
-        <header className="modal-header">
-          <h3>Atividade</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="icon-btn"
-            style={{ fontSize: '25px' }}
-            aria-label="fechar"
+    <section
+      className="activity-view"
+      role="region"
+      aria-label="Atividade"
+    >
+      <header className="activity-view-topbar">
+        <button
+          type="button"
+          className="icon-btn activity-view-back"
+          onClick={onClose}
+          aria-label="voltar"
+          title="Voltar"
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            aria-hidden="true"
           >
-            ×
+            <path
+              d="M15 18l-6-6 6-6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </button>
+        <h2 className="activity-view-title">Atividade</h2>
+      </header>
+
+      <div
+        className="activity-view-ranges"
+        role="radiogroup"
+        aria-label="Período"
+      >
+        {ACTIVITY_RANGES.map((r) => (
+          <button
+            key={r.days}
+            type="button"
+            role="radio"
+            aria-checked={rangeDays === r.days}
+            className={`stats-chip ${rangeDays === r.days ? 'stats-chip--active' : ''}`}
+            onClick={() => setRangeDays(r.days)}
+          >
+            {r.label}
           </button>
-        </header>
-        <div className="activity-modal-body">
-          <ActivityHeatmap buckets={buckets} />
-        </div>
+        ))}
       </div>
-    </div>
+
+      <div className="activity-view-chart">
+        <ActivityHeatmap buckets={buckets} />
+      </div>
+    </section>
   );
 }
 
@@ -711,6 +749,16 @@ export function TodayView({
   const [weatherOpen, setWeatherOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
 
+  if (activityOpen) {
+    return (
+      <ActivityView
+        tasks={completed}
+        projectScoreMap={ctx.projectScoreMap}
+        onClose={() => setActivityOpen(false)}
+      />
+    );
+  }
+
   return (
     <section className="today-view">
       <div className="today-greeting-row">
@@ -741,13 +789,6 @@ export function TodayView({
         />
       )}
 
-      {activityOpen && (
-        <ActivityModal
-          tasks={completed}
-          projectScoreMap={ctx.projectScoreMap}
-          onClose={() => setActivityOpen(false)}
-        />
-      )}
 
       <div className="today-section">
         <h2 className="today-section-title">Projeto em destaque</h2>
