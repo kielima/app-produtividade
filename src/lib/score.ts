@@ -69,6 +69,13 @@ export function calcProjectDeadlinePoints(
   return Math.max(0, 10 - d);
 }
 
+function countOpenSubtasks(task: Task): number {
+  if (!task.subtasks || task.subtasks.length === 0) return 0;
+  let n = 0;
+  for (const s of task.subtasks) if (!s.checked) n++;
+  return n;
+}
+
 function depTitleTokens(title: string): string[] {
   return getDisplayTitle(title)
     .toLowerCase()
@@ -158,20 +165,20 @@ export function buildDependencyMap(
         out[t.id] = 0;
         continue;
       }
-      const projectScore = s ? projectScoreMap[s.id] ?? 0 : 0;
-      const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
+      const rankScore = s ? projectScoreMap[s.id] ?? 0 : 0;
+      const projectScore = rankScore + calcProjectDeadlinePoints(s?.deadline, today);
+      const subtaskBonus = countOpenSubtasks(t);
+      const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1) + subtaskBonus;
       const effort = EFFORT_DIV[t.esforco || ''] ?? 1;
       const inProgressBonus = t.inProgress ? 1 : 0;
       const deadlineBonus = calcDeadlinePoints(t.deadline, today, maxOverdueScore);
-      const projectDeadlineBonus = calcProjectDeadlinePoints(s?.deadline, today);
       let ageBonus = 0;
       if (t.addedDate) {
         const added = startOfDay(new Date(t.addedDate));
         const dias = Math.max(0, diffDays(t0, added));
         ageBonus = Math.log2(dias + 1);
       }
-      out[t.id] =
-        base / effort + inProgressBonus + deadlineBonus + ageBonus + projectDeadlineBonus;
+      out[t.id] = base / effort + inProgressBonus + deadlineBonus + ageBonus;
     }
     return out;
   }
@@ -223,11 +230,14 @@ export function buildDependencyMap(
  * Calcula o score de uma tarefa. Bloqueada → 0. Wont → 0.
  *
  * Fórmula:
- *   score = (base / effort) + depBonus + inProgressBonus + deadlineBonus
- *         + ageBonus + projectDeadlineBonus
+ *   projectScore = projectRankScore + projectDeadlineBonus
+ *   base         = projectScore × pontos_moscow + subtaskBonus
+ *   score        = (base / effort) + depBonus + inProgressBonus
+ *                + deadlineBonus + ageBonus
  *
- * Diferente da versão anterior, apenas o `base` é dividido pelo esforço —
- * os bônus contribuem em valor absoluto.
+ * O `subtaskBonus` é o número de subtarefas ainda não-concluídas. O
+ * `projectDeadlineBonus` é absorvido no `projectScore` e portanto também
+ * passa pelo multiplicador do MoSCoW e pelo divisor de esforço.
  */
 export function calcScore(
   task: Task,
@@ -244,12 +254,13 @@ export function calcScore(
   const taskM = task.moscow || '';
   if (taskM === 'wont') return 0;
 
-  const projectScore = section ? ctx.projectScoreMap[section.id] ?? 0 : 0;
-  const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
+  const rankScore = section ? ctx.projectScoreMap[section.id] ?? 0 : 0;
+  const projectScore = rankScore + calcProjectDeadlinePoints(section?.deadline, today);
+  const subtaskBonus = countOpenSubtasks(task);
+  const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1) + subtaskBonus;
   const unlockedChain = ctx.transitiveUnlocksMap[task.id] ?? dep.unlocksIds;
   const depBonus = unlockedChain.reduce((sum, id) => sum + (ctx.potentialScoreMap[id] ?? 0), 0);
   const deadlineBonus = calcDeadlinePoints(task.deadline, today, ctx.maxOverdueScore);
-  const projectDeadlineBonus = calcProjectDeadlinePoints(section?.deadline, today);
   const inProgressBonus = task.inProgress ? 1 : 0;
 
   let ageBonus = 0;
@@ -261,9 +272,7 @@ export function calcScore(
   }
 
   const effort = EFFORT_DIV[task.esforco || ''] ?? 1;
-  return (
-    base / effort + depBonus + inProgressBonus + deadlineBonus + ageBonus + projectDeadlineBonus
-  );
+  return base / effort + depBonus + inProgressBonus + deadlineBonus + ageBonus;
 }
 
 export function isTaskBlocked(task: Task, ctx: ScoreContext): boolean {

@@ -198,12 +198,12 @@ describe('calcScore', () => {
     expect(calcScore(t, SECTION, ctx, TODAY)).toBe(6);
   });
 
-  it('bônus de prazo do projeto soma ao score', () => {
+  it('prazo do projeto entra no projectScore (multiplica com MoSCoW)', () => {
     const sec = { id: 's', deadline: '2026-05-17' };
     const t = makeTask({ moscow: 'should' });
     const ctx = buildDependencyMap([{ task: t, section: sec }], PSM_SINGLE, TODAY);
-    // base=6; projectDeadlineBonus = max(0, 10-2) = 8 → 14
-    expect(calcScore(t, sec, ctx, TODAY)).toBe(14);
+    // projectScore = 3 (rank) + 8 (10-2) = 11; base = 11 * 2 = 22
+    expect(calcScore(t, sec, ctx, TODAY)).toBe(22);
   });
 
   it('bônus de prazo do projeto é 0 para projeto atrasado', () => {
@@ -212,6 +212,47 @@ describe('calcScore', () => {
     const ctx = buildDependencyMap([{ task: t, section: sec }], PSM_SINGLE, TODAY);
     // base=6; projectDeadlineBonus = 0 (atrasado) → 6
     expect(calcScore(t, sec, ctx, TODAY)).toBe(6);
+  });
+
+  it('soma 1 ponto por subtarefa não-concluída no base', () => {
+    const t = makeTask({
+      moscow: 'should',
+      subtasks: [
+        { text: 'a', checked: false },
+        { text: 'b', checked: false },
+        { text: 'c', checked: true },
+      ],
+    });
+    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
+    // projectScore=3 * 2 = 6; subtaskBonus = 2 (só não-concluídas) → base = 8
+    expect(calcScore(t, SECTION, ctx, TODAY)).toBe(8);
+  });
+
+  it('subtaskBonus é dividido pelo esforço', () => {
+    const t = makeTask({
+      moscow: 'should',
+      esforco: 'medio',
+      subtasks: [
+        { text: 'a', checked: false },
+        { text: 'b', checked: false },
+      ],
+    });
+    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
+    // base = 6 + 2 = 8; effort=2 → 4
+    expect(calcScore(t, SECTION, ctx, TODAY)).toBe(4);
+  });
+
+  it('subtarefas concluídas não contam', () => {
+    const t = makeTask({
+      moscow: 'should',
+      subtasks: [
+        { text: 'a', checked: true },
+        { text: 'b', checked: true },
+      ],
+    });
+    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
+    // subtaskBonus = 0 → base = 6
+    expect(calcScore(t, SECTION, ctx, TODAY)).toBe(6);
   });
 
   it('bônus está fora da divisão de esforço', () => {
