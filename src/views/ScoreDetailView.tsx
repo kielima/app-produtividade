@@ -1,6 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScoreBreakdown } from '../lib/score';
+import { useTaskNavigation } from '../lib/taskNavigation';
 import type { Project, ScoreContext, Task } from '../types';
 
 const MOSCOW_LABEL: Record<string, string> = {
@@ -43,6 +44,12 @@ export function ScoreDetailView({
 }) {
   const display = getDisplayTitle(task.title);
   const b = useMemo(() => calcScoreBreakdown(task, project, ctx), [task, project, ctx]);
+  const { openTask } = useTaskNavigation();
+
+  function handleDepClick(id: string) {
+    onClose();
+    openTask(id);
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -223,8 +230,15 @@ export function ScoreDetailView({
                 <ul className="score-dep-list">
                   {b.unlocked.map((u) => (
                     <li key={u.id}>
-                      <span className="score-dep-title">{getDisplayTitle(u.title)}</span>
-                      <span className="score-dep-pot">{fmt(u.potential)}</span>
+                      <button
+                        type="button"
+                        className="score-dep-link"
+                        onClick={() => handleDepClick(u.id)}
+                        title="abrir tarefa"
+                      >
+                        <span className="score-dep-title">{getDisplayTitle(u.title)}</span>
+                        <span className="score-dep-pot">{fmt(u.potential)}</span>
+                      </button>
                     </li>
                   ))}
                 </ul>
