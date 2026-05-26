@@ -1652,16 +1652,26 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 .score-total-note { margin: 0.5rem 0 0; font-size: 0.85rem; }
 .score-dep-list { list-style: none; margin: 0.3rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
-.score-dep-list li {
-  display: flex !important;
+.score-dep-list li { display: block !important; }
+.score-dep-link {
+  display: flex;
+  width: 100%;
   justify-content: space-between;
+  align-items: baseline;
   gap: 0.5rem;
   font-size: 0.88rem;
-  padding: 0.2rem 0.4rem;
+  padding: 0.35rem 0.5rem;
   background: rgba(0, 0, 0, 0.03);
+  border: 1px solid transparent;
   border-radius: 4px;
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
 }
-.score-dep-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score-dep-link:hover { background: rgba(0, 0, 0, 0.06); border-color: var(--border); }
+.score-dep-link:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.score-dep-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
 .score-dep-pot { font-family: ui-monospace, SFMono-Regular, monospace; font-weight: 600; }
 
 /* Filters panel (toggle + collapsible) */
