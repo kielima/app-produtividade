@@ -3389,6 +3389,19 @@ a:focus-visible {
   max-width: 22rem;
 }
 
+/* Mostra o número de tarefas dentro de cada célula no heatmap da Atividade.
+   Escopado por `.activity-view` para não afetar o gráfico da aba Estatísticas,
+   onde as células são muito menores e o número não caberia. */
+.activity-view .stats-heatmap-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: rgba(0, 0, 0, 0.7);
+  line-height: 1;
+}
+
 .today-section {
   display: flex;
   flex-direction: column;
