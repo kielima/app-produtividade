@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildProjectScoreMap } from './projectRankScore';
-import { buildDependencyMap, calcDeadlinePoints, calcScore, isTaskBlocked } from './score';
+import {
+  buildDependencyMap,
+  calcDeadlinePoints,
+  calcProjectDeadlinePoints,
+  calcScore,
+  isTaskBlocked,
+} from './score';
 import type { Section, Task } from '../types';
 
 const TODAY = new Date('2026-05-15T12:00:00');
@@ -33,21 +39,55 @@ describe('calcDeadlinePoints', () => {
   it('returns 0 when no deadline', () => {
     expect(calcDeadlinePoints('', TODAY)).toBe(0);
   });
-  it('returns 4 for hoje', () => {
-    expect(calcDeadlinePoints('2026-05-15', TODAY)).toBe(4);
+  it('hoje vale 10 quando maxOverdueScore=0', () => {
+    expect(calcDeadlinePoints('2026-05-15', TODAY)).toBe(10);
   });
-  it('returns 3 for amanhã', () => {
-    expect(calcDeadlinePoints('2026-05-16', TODAY)).toBe(3);
+  it('amanhã vale 9 quando maxOverdueScore=0', () => {
+    expect(calcDeadlinePoints('2026-05-16', TODAY)).toBe(9);
   });
-  it('returns 2 for essa semana (até 7 dias)', () => {
-    expect(calcDeadlinePoints('2026-05-22', TODAY)).toBe(2);
+  it('7 dias vale 3 quando maxOverdueScore=0', () => {
+    expect(calcDeadlinePoints('2026-05-22', TODAY)).toBe(3);
   });
-  it('returns 1 para futuro distante', () => {
-    expect(calcDeadlinePoints('2027-01-01', TODAY)).toBe(1);
+  it('futuro distante é cortado em 0', () => {
+    expect(calcDeadlinePoints('2027-01-01', TODAY)).toBe(0);
   });
   it('escala com atraso: 5 + |dias|', () => {
     expect(calcDeadlinePoints('2026-05-14', TODAY)).toBe(6);
     expect(calcDeadlinePoints('2026-05-10', TODAY)).toBe(10);
+  });
+  it('soma maxOverdueScore ao bônus de upcoming', () => {
+    // hoje, maxOverdue=20 → 20+10-0 = 30
+    expect(calcDeadlinePoints('2026-05-15', TODAY, 20)).toBe(30);
+    // amanhã, maxOverdue=20 → 29
+    expect(calcDeadlinePoints('2026-05-16', TODAY, 20)).toBe(29);
+    // 15 dias, maxOverdue=20 → 15
+    expect(calcDeadlinePoints('2026-05-30', TODAY, 20)).toBe(15);
+  });
+  it('maxOverdueScore não afeta atrasadas', () => {
+    expect(calcDeadlinePoints('2026-05-10', TODAY, 100)).toBe(10);
+  });
+});
+
+describe('calcProjectDeadlinePoints', () => {
+  it('returns 0 when no deadline', () => {
+    expect(calcProjectDeadlinePoints(undefined, TODAY)).toBe(0);
+    expect(calcProjectDeadlinePoints('', TODAY)).toBe(0);
+  });
+  it('hoje vale 10', () => {
+    expect(calcProjectDeadlinePoints('2026-05-15', TODAY)).toBe(10);
+  });
+  it('amanhã vale 9', () => {
+    expect(calcProjectDeadlinePoints('2026-05-16', TODAY)).toBe(9);
+  });
+  it('7 dias vale 3', () => {
+    expect(calcProjectDeadlinePoints('2026-05-22', TODAY)).toBe(3);
+  });
+  it('futuro distante é cortado em 0', () => {
+    expect(calcProjectDeadlinePoints('2027-01-01', TODAY)).toBe(0);
+  });
+  it('projeto atrasado não pontua (não considera atrasados)', () => {
+    expect(calcProjectDeadlinePoints('2026-05-14', TODAY)).toBe(0);
+    expect(calcProjectDeadlinePoints('2026-04-01', TODAY)).toBe(0);
   });
 });
 
@@ -125,11 +165,62 @@ describe('calcScore', () => {
     expect(calcScore(t, SECTION, ctx, TODAY)).toBe(7);
   });
 
-  it('adds deadline bonus for hoje', () => {
+  it('adds deadline bonus for hoje (sem atrasadas → maxOverdueScore=0)', () => {
     const t = makeTask({ moscow: 'should', deadline: '2026-05-15' });
     const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
-    // projectScore=3 * taskMoSCoW(should)=2 → base=6; +4 hoje = 10
-    expect(calcScore(t, SECTION, ctx, TODAY)).toBe(10);
+    // base=6; deadlineBonus = max(0, 0+10-0) = 10 → 6 + 10 = 16
+    expect(calcScore(t, SECTION, ctx, TODAY)).toBe(16);
+  });
+
+  it('upcoming task usa maxOverdueScore + 10 - d como bônus de prazo', () => {
+    // Overdue 5 dias: must, base=9, deadlineBonus = 5+5=10 → 19
+    const overdue = makeTask({ id: '1', taskId: 1, moscow: 'must', deadline: '2026-05-10' });
+    // Upcoming em 2 dias
+    const upcoming = makeTask({ id: '2', taskId: 2, moscow: 'must', deadline: '2026-05-17' });
+    const ctx = buildDependencyMap(
+      [
+        { task: overdue, section: SECTION },
+        { task: upcoming, section: SECTION },
+      ],
+      PSM_SINGLE,
+      TODAY,
+    );
+    expect(calcScore(overdue, SECTION, ctx, TODAY)).toBe(19);
+    expect(ctx.maxOverdueScore).toBe(19);
+    // upcoming: base=9, deadlineBonus = max(0, 19+10-2) = 27 → 36
+    expect(calcScore(upcoming, SECTION, ctx, TODAY)).toBe(36);
+  });
+
+  it('upcoming task longe é cortada em 0 e fica só com o base', () => {
+    const t = makeTask({ moscow: 'should', deadline: '2027-01-01' });
+    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
+    // base=6; deadlineBonus = max(0, 0+10-231) = 0 → 6
+    expect(calcScore(t, SECTION, ctx, TODAY)).toBe(6);
+  });
+
+  it('bônus de prazo do projeto soma ao score', () => {
+    const sec = { id: 's', deadline: '2026-05-17' };
+    const t = makeTask({ moscow: 'should' });
+    const ctx = buildDependencyMap([{ task: t, section: sec }], PSM_SINGLE, TODAY);
+    // base=6; projectDeadlineBonus = max(0, 10-2) = 8 → 14
+    expect(calcScore(t, sec, ctx, TODAY)).toBe(14);
+  });
+
+  it('bônus de prazo do projeto é 0 para projeto atrasado', () => {
+    const sec = { id: 's', deadline: '2026-05-10' };
+    const t = makeTask({ moscow: 'should' });
+    const ctx = buildDependencyMap([{ task: t, section: sec }], PSM_SINGLE, TODAY);
+    // base=6; projectDeadlineBonus = 0 (atrasado) → 6
+    expect(calcScore(t, sec, ctx, TODAY)).toBe(6);
+  });
+
+  it('bônus está fora da divisão de esforço', () => {
+    // base=6, esforço=longo (effort=3), inProgress=true
+    const t = makeTask({ moscow: 'should', esforco: 'longo', inProgress: true });
+    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
+    // Antigo: (6 + 1) / 3 = 2.33...
+    // Novo:   (6/3) + 1 = 3
+    expect(calcScore(t, SECTION, ctx, TODAY)).toBe(3);
   });
 
   it('adds age bonus = log2(days+1)', () => {

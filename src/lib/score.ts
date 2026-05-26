@@ -1,8 +1,9 @@
 import { getDisplayTitle } from './parser';
 import type { DependencyEntry, ScoreContext, Task } from '../types';
 
-// Aceita tanto Project quanto a Section legada — só o id é usado pelo cálculo.
-type ScoreSection = { id: string };
+// Aceita tanto Project quanto a Section legada — id é obrigatório, deadline
+// é opcional (só Project tem; usado pelo bônus de prazo do projeto).
+type ScoreSection = { id: string; deadline?: string };
 
 const TASK_MOSCOW_PTS: Record<string, number> = {
   must: 3,
@@ -29,16 +30,43 @@ function diffDays(later: Date, earlier: Date): number {
   return Math.round((later.getTime() - earlier.getTime()) / 86400000);
 }
 
-export function calcDeadlinePoints(deadlineStr: string, today: Date = new Date()): number {
+/**
+ * Pontos da componente de prazo da tarefa.
+ *   - sem prazo: 0
+ *   - atrasada: 5 + |dias_atraso|  (mantido como antes)
+ *   - upcoming: max(0, maxOverdueScore + 10 - dias_até_vencer)
+ *
+ * O `maxOverdueScore` é o score total da tarefa mais atrasada do contexto.
+ * Default 0 mantém a função utilizável fora do contexto (e em testes simples).
+ */
+export function calcDeadlinePoints(
+  deadlineStr: string,
+  today: Date = new Date(),
+  maxOverdueScore: number = 0,
+): number {
   if (!deadlineStr) return 0;
   const t = startOfDay(today);
   const due = startOfDay(new Date(deadlineStr));
   const d = diffDays(due, t);
   if (d < 0) return 5 + Math.abs(d);
-  if (d === 0) return 4;
-  if (d === 1) return 3;
-  if (d <= 7) return 2;
-  return 1;
+  return Math.max(0, maxOverdueScore + 10 - d);
+}
+
+/**
+ * Bônus de prazo do projeto, somado a cada tarefa do projeto. Mesma ideia
+ * do bônus da tarefa, mas sem o offset do `maxOverdueScore` — só conta
+ * pressão futura. Projetos já atrasados não contribuem.
+ */
+export function calcProjectDeadlinePoints(
+  deadlineStr: string | undefined,
+  today: Date = new Date(),
+): number {
+  if (!deadlineStr) return 0;
+  const t = startOfDay(today);
+  const due = startOfDay(new Date(deadlineStr));
+  const d = diffDays(due, t);
+  if (d < 0) return 0;
+  return Math.max(0, 10 - d);
 }
 
 function depTitleTokens(title: string): string[] {
@@ -56,6 +84,13 @@ function depWordMatch(title: string, needle: string): boolean {
  * Constrói o grafo de dependências entre tarefas e o score "potencial"
  * (usado pelo bônus de desbloqueio). Equivalente ao `buildDependencyMap()`
  * do dashboard.html, mas puro (não usa globais).
+ *
+ * Internamente faz três passes:
+ *   1. Computa potencial assumindo maxOverdueScore = 0.
+ *   2. Encontra a tarefa mais atrasada (maior |dias_atraso|) e calcula seu
+ *      score total → maxOverdueScore.
+ *   3. Recomputa potencial com o maxOverdueScore real, para que tarefas
+ *      upcoming destravadas reflitam o boost no depBonus.
  */
 export function buildDependencyMap(
   allTasks: Array<{ task: Task; section: ScoreSection | null }>,
@@ -65,7 +100,6 @@ export function buildDependencyMap(
   const depMap: Record<string, DependencyEntry> = {};
   const taskFlatMap: Record<string, Task> = {};
   const taskIdMap: Record<number, Task> = {};
-  const potentialScoreMap: Record<string, number> = {};
 
   for (const { task: t } of allTasks) {
     depMap[t.id] = { blockedByIds: [], unlocksIds: [] };
@@ -115,41 +149,85 @@ export function buildDependencyMap(
   }
 
   const t0 = startOfDay(today);
-  for (const { task: t, section: s } of allTasks) {
-    const taskM = t.moscow || '';
-    if (taskM === 'wont') {
-      potentialScoreMap[t.id] = 0;
-      continue;
+
+  function computePotentialMap(maxOverdueScore: number): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const { task: t, section: s } of allTasks) {
+      const taskM = t.moscow || '';
+      if (taskM === 'wont') {
+        out[t.id] = 0;
+        continue;
+      }
+      const projectScore = s ? projectScoreMap[s.id] ?? 0 : 0;
+      const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
+      const effort = EFFORT_DIV[t.esforco || ''] ?? 1;
+      const inProgressBonus = t.inProgress ? 1 : 0;
+      const deadlineBonus = calcDeadlinePoints(t.deadline, today, maxOverdueScore);
+      const projectDeadlineBonus = calcProjectDeadlinePoints(s?.deadline, today);
+      let ageBonus = 0;
+      if (t.addedDate) {
+        const added = startOfDay(new Date(t.addedDate));
+        const dias = Math.max(0, diffDays(t0, added));
+        ageBonus = Math.log2(dias + 1);
+      }
+      out[t.id] =
+        base / effort + inProgressBonus + deadlineBonus + ageBonus + projectDeadlineBonus;
     }
-    const projectScore = s ? projectScoreMap[s.id] ?? 0 : 0;
-    const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
-    const inProgressBonus = t.inProgress ? 1 : 0;
-    let deadlineBonus = 0;
-    if (t.deadline) {
-      const due = startOfDay(new Date(t.deadline));
-      const diff = diffDays(due, t0);
-      if (diff < 0) deadlineBonus = 5 + Math.abs(diff);
-      else if (diff === 0) deadlineBonus = 4;
-      else if (diff === 1) deadlineBonus = 3;
-      else if (diff <= 7) deadlineBonus = 2;
-      else deadlineBonus = 1;
-    }
-    let ageBonus = 0;
-    if (t.addedDate) {
-      const added = startOfDay(new Date(t.addedDate));
-      const dias = Math.max(0, diffDays(t0, added));
-      ageBonus = Math.log2(dias + 1);
-    }
-    const effort = EFFORT_DIV[t.esforco || ''] ?? 1;
-    potentialScoreMap[t.id] = (base + inProgressBonus + deadlineBonus + ageBonus) / effort;
+    return out;
   }
 
-  return { depMap, potentialScoreMap, taskFlatMap, projectScoreMap, transitiveUnlocksMap };
+  // Pass 1: potencial inicial assumindo maxOverdueScore = 0.
+  let potentialScoreMap = computePotentialMap(0);
+
+  // Pass 2: descobrir score da tarefa mais atrasada (por dias).
+  let maxOverdueDays = -1;
+  let maxOverdueScore = 0;
+  const tempCtx: ScoreContext = {
+    depMap,
+    potentialScoreMap,
+    taskFlatMap,
+    projectScoreMap,
+    transitiveUnlocksMap,
+    maxOverdueScore: 0,
+  };
+  for (const { task: t, section: s } of allTasks) {
+    if (!t.deadline || t.checked) continue;
+    const due = startOfDay(new Date(t.deadline));
+    const d = diffDays(due, t0);
+    if (d >= 0) continue;
+    const daysLate = Math.abs(d);
+    if (daysLate < maxOverdueDays) continue;
+    const score = calcScore(t, s, tempCtx, today);
+    if (daysLate > maxOverdueDays) {
+      maxOverdueDays = daysLate;
+      maxOverdueScore = score;
+    } else if (score > maxOverdueScore) {
+      maxOverdueScore = score;
+    }
+  }
+
+  // Pass 3: recomputa potencial com o maxOverdueScore real.
+  potentialScoreMap = computePotentialMap(maxOverdueScore);
+
+  return {
+    depMap,
+    potentialScoreMap,
+    taskFlatMap,
+    projectScoreMap,
+    transitiveUnlocksMap,
+    maxOverdueScore,
+  };
 }
 
 /**
  * Calcula o score de uma tarefa. Bloqueada → 0. Wont → 0.
- * Mesma fórmula do `calcScore()` do dashboard.html.
+ *
+ * Fórmula:
+ *   score = (base / effort) + depBonus + inProgressBonus + deadlineBonus
+ *         + ageBonus + projectDeadlineBonus
+ *
+ * Diferente da versão anterior, apenas o `base` é dividido pelo esforço —
+ * os bônus contribuem em valor absoluto.
  */
 export function calcScore(
   task: Task,
@@ -170,7 +248,8 @@ export function calcScore(
   const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1);
   const unlockedChain = ctx.transitiveUnlocksMap[task.id] ?? dep.unlocksIds;
   const depBonus = unlockedChain.reduce((sum, id) => sum + (ctx.potentialScoreMap[id] ?? 0), 0);
-  const deadlineBonus = calcDeadlinePoints(task.deadline, today);
+  const deadlineBonus = calcDeadlinePoints(task.deadline, today, ctx.maxOverdueScore);
+  const projectDeadlineBonus = calcProjectDeadlinePoints(section?.deadline, today);
   const inProgressBonus = task.inProgress ? 1 : 0;
 
   let ageBonus = 0;
@@ -182,7 +261,9 @@ export function calcScore(
   }
 
   const effort = EFFORT_DIV[task.esforco || ''] ?? 1;
-  return (base + depBonus + inProgressBonus + deadlineBonus + ageBonus) / effort;
+  return (
+    base / effort + depBonus + inProgressBonus + deadlineBonus + ageBonus + projectDeadlineBonus
+  );
 }
 
 export function isTaskBlocked(task: Task, ctx: ScoreContext): boolean {
