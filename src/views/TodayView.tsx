@@ -469,7 +469,9 @@ function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
               title={title}
               aria-label={title}
               role="gridcell"
-            />
+            >
+              {v > 0 ? v : ''}
+            </div>
           );
         })}
       </div>
@@ -517,7 +519,9 @@ function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
             title={title}
             aria-label={title}
             role="gridcell"
-          />
+          >
+            {c.value > 0 ? c.value : ''}
+          </div>
         );
       })}
     </div>
