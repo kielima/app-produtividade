@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Subtask } from '../types';
+import TrashIcon from './TrashIcon';
 import { InlineEdit } from './InlineEdit';
 
 let __subtaskUid = 0;
@@ -213,11 +214,10 @@ function SortableSubtaskRow({
       <button
         type="button"
         className="icon-btn"
-        style={{ fontSize: '25px' }}
         onClick={onRemove}
         aria-label="remover subtarefa"
       >
-        ×
+        <TrashIcon size={18} />
       </button>
     </li>
   );

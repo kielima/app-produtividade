@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { InlineEdit } from '../components/InlineEdit';
 import { Popover } from '../components/Popover';
+import TrashIcon from '../components/TrashIcon';
 import {
   deleteProjectWithTasks,
   patchProject,
@@ -117,7 +118,7 @@ export function ProjectDetailView({
             aria-label="apagar projeto"
             title="apagar projeto"
           >
-            ×
+            <TrashIcon size={22} />
           </button>
         </span>
       </header>

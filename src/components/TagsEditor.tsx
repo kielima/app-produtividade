@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { normalizeTag, normalizeTags, parseTagsInput } from '../lib/tags';
+import TrashIcon from './TrashIcon';
 
 export function TagsEditor({
   tags,
@@ -64,7 +65,7 @@ export function TagsEditor({
               aria-label={`remover tag ${tag}`}
               title="remover"
             >
-              ×
+              <TrashIcon size={14} />
             </button>
           </span>
         ))}
