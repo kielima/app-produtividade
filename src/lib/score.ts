@@ -280,3 +280,133 @@ export function isTaskBlocked(task: Task, ctx: ScoreContext): boolean {
   if (!dep) return false;
   return dep.blockedByIds.some((id) => ctx.taskFlatMap[id] && !ctx.taskFlatMap[id]!.checked);
 }
+
+export interface ScoreBreakdown {
+  // Estado especial
+  blocked: boolean;
+  blockedByIds: string[];
+  wont: boolean;
+  // Projeto
+  rankScore: number;
+  projectDeadlineBonus: number;
+  projectDeadlineDays: number | null;
+  projectScore: number;
+  // MoSCoW
+  moscowKey: string;
+  moscowPts: number;
+  // Subtarefas
+  subtaskBonus: number;
+  subtaskTotal: number;
+  // Base
+  base: number;
+  // Esforço
+  effortKey: string;
+  effort: number;
+  baseDivEffort: number;
+  // Bônus
+  inProgressBonus: number;
+  deadlineBonus: number;
+  deadlineDays: number | null;
+  ageBonus: number;
+  ageDays: number;
+  depBonus: number;
+  unlocked: Array<{ id: string; title: string; potential: number }>;
+  // Contexto
+  maxOverdueScore: number;
+  // Total
+  total: number;
+}
+
+/**
+ * Versão "explicativa" do calcScore: devolve todos os componentes intermédios
+ * usados para chegar ao score final, para alimentar a tela de memorial.
+ */
+export function calcScoreBreakdown(
+  task: Task,
+  section: ScoreSection | null,
+  ctx: ScoreContext,
+  today: Date = new Date(),
+): ScoreBreakdown {
+  const t0 = startOfDay(today);
+  const dep = ctx.depMap[task.id] ?? { blockedByIds: [], unlocksIds: [] };
+  const activeBlockers = dep.blockedByIds.filter(
+    (id) => ctx.taskFlatMap[id] && !ctx.taskFlatMap[id]!.checked,
+  );
+  const blocked = activeBlockers.length > 0;
+  const moscowKey = task.moscow || '';
+  const wont = moscowKey === 'wont';
+
+  const rankScore = section ? ctx.projectScoreMap[section.id] ?? 0 : 0;
+  const projectDeadlineBonus = calcProjectDeadlinePoints(section?.deadline, today);
+  let projectDeadlineDays: number | null = null;
+  if (section?.deadline) {
+    projectDeadlineDays = diffDays(startOfDay(new Date(section.deadline)), t0);
+  }
+  const projectScore = rankScore + projectDeadlineBonus;
+
+  const moscowPts = TASK_MOSCOW_PTS[moscowKey] ?? 1;
+  const subtaskBonus = countOpenSubtasks(task);
+  const subtaskTotal = task.subtasks?.length ?? 0;
+  const base = projectScore * moscowPts + subtaskBonus;
+
+  const effortKey = task.esforco || '';
+  const effort = EFFORT_DIV[effortKey] ?? 1;
+  const baseDivEffort = base / effort;
+
+  const inProgressBonus = task.inProgress ? 1 : 0;
+  const deadlineBonus = calcDeadlinePoints(task.deadline, today, ctx.maxOverdueScore);
+  let deadlineDays: number | null = null;
+  if (task.deadline) {
+    deadlineDays = diffDays(startOfDay(new Date(task.deadline)), t0);
+  }
+
+  let ageBonus = 0;
+  let ageDays = 0;
+  if (task.addedDate) {
+    const added = startOfDay(new Date(task.addedDate));
+    ageDays = Math.max(0, diffDays(t0, added));
+    ageBonus = Math.log2(ageDays + 1);
+  }
+
+  const unlockedChain = ctx.transitiveUnlocksMap[task.id] ?? dep.unlocksIds;
+  const unlocked = unlockedChain.map((id) => ({
+    id,
+    title: ctx.taskFlatMap[id]?.title ?? id,
+    potential: ctx.potentialScoreMap[id] ?? 0,
+  }));
+  const depBonus = unlocked.reduce((sum, u) => sum + u.potential, 0);
+
+  let total: number;
+  if (blocked || wont) {
+    total = 0;
+  } else {
+    total = baseDivEffort + depBonus + inProgressBonus + deadlineBonus + ageBonus;
+  }
+
+  return {
+    blocked,
+    blockedByIds: activeBlockers,
+    wont,
+    rankScore,
+    projectDeadlineBonus,
+    projectDeadlineDays,
+    projectScore,
+    moscowKey,
+    moscowPts,
+    subtaskBonus,
+    subtaskTotal,
+    base,
+    effortKey,
+    effort,
+    baseDivEffort,
+    inProgressBonus,
+    deadlineBonus,
+    deadlineDays,
+    ageBonus,
+    ageDays,
+    depBonus,
+    unlocked,
+    maxOverdueScore: ctx.maxOverdueScore,
+    total,
+  };
+}
