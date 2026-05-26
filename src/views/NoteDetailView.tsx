@@ -4,6 +4,7 @@ import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { SubtaskList } from '../components/SubtaskList';
 import { TagsEditor } from '../components/TagsEditor';
+import TrashIcon from '../components/TrashIcon';
 import { serializeTitle } from '../lib/parser';
 import { normalizeTags } from '../lib/tags';
 import { deleteNote, patchNote } from '../repositories/notesRepo';
@@ -176,7 +177,7 @@ export function NoteDetailView({
             aria-label="apagar anotação"
             title="apagar anotação"
           >
-            ×
+            <TrashIcon size={22} />
           </button>
         </span>
       </header>
