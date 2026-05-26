@@ -435,6 +435,7 @@ function buildActivityBuckets(
 
 function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
   const max = Math.max(0, ...buckets.map((b) => b.count));
+  const todayKey = dayKey(startOfDay(new Date()));
 
   function level(value: number): number {
     if (value < 0) return -1;
@@ -447,8 +448,9 @@ function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
     return 1;
   }
 
-  function cellTitle(date: Date, value: number): string {
-    return `${formatActivityBR(date)} — ${value.toFixed(0)} tarefas`;
+  function cellTitle(date: Date, value: number, isToday: boolean): string {
+    const prefix = isToday ? 'Hoje · ' : '';
+    return `${prefix}${formatActivityBR(date)} — ${value.toFixed(0)} tarefas`;
   }
 
   if (buckets.length <= 7) {
@@ -461,16 +463,18 @@ function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
         {buckets.map((b) => {
           const v = b.count;
           const lvl = level(v);
-          const title = cellTitle(b.date, v);
+          const isToday = b.key === todayKey;
+          const title = cellTitle(b.date, v, isToday);
+          const todayClass = isToday ? ' stats-heatmap-cell--today' : '';
           return (
             <div
               key={b.key}
-              className={`stats-heatmap-cell stats-heatmap-cell--${lvl}`}
+              className={`stats-heatmap-cell stats-heatmap-cell--${lvl}${todayClass}`}
               title={title}
               aria-label={title}
               role="gridcell"
             >
-              {v > 0 ? v : ''}
+              {isToday ? 'H' : v > 0 ? v : ''}
             </div>
           );
         })}
@@ -511,16 +515,18 @@ function ActivityHeatmap({ buckets }: { buckets: ActivityDayBucket[] }) {
     >
       {cells.map((c) => {
         const lvl = level(c.value);
-        const title = c.date ? cellTitle(c.date, c.value) : '';
+        const isToday = c.date != null && dayKey(c.date) === todayKey;
+        const title = c.date ? cellTitle(c.date, c.value, isToday) : '';
+        const todayClass = isToday ? ' stats-heatmap-cell--today' : '';
         return (
           <div
             key={c.key}
-            className={`stats-heatmap-cell stats-heatmap-cell--${lvl}`}
+            className={`stats-heatmap-cell stats-heatmap-cell--${lvl}${todayClass}`}
             title={title}
             aria-label={title}
             role="gridcell"
           >
-            {c.value > 0 ? c.value : ''}
+            {isToday ? 'H' : c.value > 0 ? c.value : ''}
           </div>
         );
       })}
