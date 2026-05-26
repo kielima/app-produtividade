@@ -1596,6 +1596,73 @@ a:focus-visible {
   font-family: ui-monospace, SFMono-Regular, monospace;
   font-weight: 700;
 }
+button.badge.score.score-button {
+  border: 0;
+  cursor: pointer;
+  padding: 0.15rem 0.5rem;
+}
+button.badge.score.score-button:hover { filter: brightness(1.08); }
+button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* ===== Score detail (memorial de cálculo) ===== */
+.score-detail-body { gap: 1rem; padding-bottom: 2rem; }
+.score-detail-task-title {
+  margin: 0 0 0.5rem;
+  font-size: 1.05rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+.score-block {
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  padding: 0.85rem 1rem;
+}
+.score-block h3 {
+  margin: 0 0 0.6rem;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+.score-block-total { background: rgba(255, 140, 0, 0.07); border-color: var(--accent); }
+.score-rows { margin: 0; display: flex; flex-direction: column; gap: 0.35rem; }
+.score-rows > div { display: flex; justify-content: space-between; align-items: baseline; gap: 0.75rem; }
+.score-rows dt { margin: 0; font-size: 0.92rem; }
+.score-rows dd {
+  margin: 0;
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.score-formula { font-size: 0.82rem; font-weight: 400; }
+.score-row-sum {
+  margin-top: 0.35rem;
+  padding-top: 0.5rem;
+  border-top: 1px dashed var(--border);
+  font-weight: 700;
+}
+.score-row-sum dt, .score-row-sum dd { font-weight: 700; }
+.score-row-note {
+  font-size: 0.85rem;
+  padding-left: 0.25rem;
+  display: block !important;
+}
+.score-total-value {
+  font-size: 1.3rem;
+  color: var(--accent);
+}
+.score-total-note { margin: 0.5rem 0 0; font-size: 0.85rem; }
+.score-dep-list { list-style: none; margin: 0.3rem 0 0; padding: 0; display: flex; flex-direction: column; gap: 0.25rem; }
+.score-dep-list li {
+  display: flex !important;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.88rem;
+  padding: 0.2rem 0.4rem;
+  background: rgba(0, 0, 0, 0.03);
+  border-radius: 4px;
+}
+.score-dep-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.score-dep-pot { font-family: ui-monospace, SFMono-Regular, monospace; font-weight: 600; }
 
 /* Filters panel (toggle + collapsible) */
 .filters-toggle { font-size: 0.9rem; }

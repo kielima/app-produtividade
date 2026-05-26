@@ -9,6 +9,7 @@ import TrashIcon from '../components/TrashIcon';
 import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
+import { ScoreDetailView } from './ScoreDetailView';
 import { patchTask } from '../lib/taskMutations';
 import { deleteTask } from '../repositories/tasksRepo';
 import type {
@@ -88,6 +89,7 @@ export function TaskDetailView({
   const [depModalOpen, setDepModalOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [scoreDetailOpen, setScoreDetailOpen] = useState(false);
   const deadlineInputRef = useRef<HTMLInputElement>(null);
   const blocked = isTaskBlocked(task, ctx);
   const score = useMemo(
@@ -190,6 +192,17 @@ export function TaskDetailView({
   const modoClass = `modo-${currentModo}`;
   const esforcoClass = currentEsforco ? `esforco-${currentEsforco}` : 'esforco-none';
 
+  if (scoreDetailOpen) {
+    return (
+      <ScoreDetailView
+        task={task}
+        project={project ?? null}
+        ctx={ctx}
+        onClose={() => setScoreDetailOpen(false)}
+      />
+    );
+  }
+
   return (
     <section className="task-detail">
       <header className="topbar task-detail-topbar" role="banner">
@@ -213,9 +226,14 @@ export function TaskDetailView({
           {task.addedDate ? `Adicionada em ${task.addedDate.replace(/^\d{2}(\d{2})/, '$1')}` : ''}
         </span>
         <span className="task-detail-topbar-right">
-          <span className="badge score" title="score calculado">
+          <button
+            type="button"
+            className="badge score score-button"
+            title="ver memorial de cálculo"
+            onClick={() => setScoreDetailOpen(true)}
+          >
             {score.toFixed(2)}
-          </span>
+          </button>
           <button
             type="button"
             className="task-detail-delete"
