@@ -88,4 +88,7 @@ export interface ScoreContext {
   // Fecho transitivo de `unlocksIds`: para cada tarefa, todos os ids que estão
   // travados (direta ou indiretamente) por ela. Não inclui a própria tarefa.
   transitiveUnlocksMap: Record<string, string[]>;
+  // Score total da tarefa mais atrasada (maior |dias_atraso|). Usado como
+  // referência para o bônus de prazo de tarefas upcoming.
+  maxOverdueScore: number;
 }
