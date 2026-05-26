@@ -3402,6 +3402,14 @@ a:focus-visible {
   line-height: 1;
 }
 
+/* Destaque visual ao redor do quadradinho do dia atual + letra H dentro. */
+.activity-view .stats-heatmap-cell--today {
+  outline: 2px solid var(--fg);
+  outline-offset: 1px;
+  color: var(--fg);
+  font-weight: 800;
+}
+
 .today-section {
   display: flex;
   flex-direction: column;
