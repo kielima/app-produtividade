@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { getDisplayTitle } from '../lib/parser';
 import { normalizeForSearch } from '../lib/searchNormalize';
 import type { Project, Task } from '../types';
+import TrashIcon from './TrashIcon';
 
 /**
  * Modal pra adicionar/remover dependências de uma tarefa.
@@ -95,10 +96,9 @@ export function DepPicker({
                   <button
                     onClick={() => removeDep(d)}
                     className="icon-btn"
-                    style={{ fontSize: '25px' }}
                     aria-label="remover"
                   >
-                    ×
+                    <TrashIcon size={18} />
                   </button>
                 </li>
               ))}

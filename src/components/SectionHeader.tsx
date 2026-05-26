@@ -1,6 +1,7 @@
 import { deleteProjectWithTasks, patchProject } from '../repositories/projectsRepo';
 import type { Project } from '../types';
 import { InlineEdit } from './InlineEdit';
+import TrashIcon from './TrashIcon';
 
 export function SectionHeader({
   uid,
@@ -36,7 +37,7 @@ export function SectionHeader({
         aria-label="apagar projeto"
         title="apagar projeto"
       >
-        🗑
+        <TrashIcon size={18} />
       </button>
     </header>
   );

@@ -5,6 +5,7 @@ import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { Popover } from '../components/Popover';
 import { SubtaskList } from '../components/SubtaskList';
+import TrashIcon from '../components/TrashIcon';
 import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
@@ -222,7 +223,7 @@ export function TaskDetailView({
             aria-label="apagar tarefa"
             title="apagar tarefa"
           >
-            ×
+            <TrashIcon size={22} />
           </button>
         </span>
       </header>
