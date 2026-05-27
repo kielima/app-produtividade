@@ -3155,12 +3155,278 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-weight: 600;
 }
 
-.weather-modal {
-  max-width: 480px;
+/* Weather Page — Full Screen */
+.weather-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+  padding: 0.5rem 0 2rem;
+  min-height: 100vh;
 }
 
-.weather-modal-body {
-  padding: 1rem;
+.weather-page-topbar {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex-wrap: wrap;
+}
+
+.weather-page-back {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.weather-page-title {
+  margin: 0;
+  font-size: 1.2rem;
+  font-weight: 600;
+  flex: 1 1 auto;
+}
+
+.weather-page-cities {
+  display: flex;
+  gap: 0.3rem;
+  flex-shrink: 0;
+}
+
+.weather-city-tab {
+  padding: 0.3rem 0.8rem;
+  border-radius: 20px;
+  border: 1px solid var(--border);
+  background: transparent;
+  font-family: inherit;
+  font-size: 0.82rem;
+  cursor: pointer;
+  color: var(--muted);
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+.weather-city-tab.is-active {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+  font-weight: 600;
+}
+
+.weather-page-content {
+  display: flex;
+  flex-direction: column;
+  gap: 1.1rem;
+}
+
+.weather-page-loading,
+.weather-page-error {
+  padding: 2.5rem 1rem;
+  text-align: center;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+/* Hero */
+.weather-hero {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1.25rem 1.1rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+}
+
+.weather-hero-icon {
+  flex-shrink: 0;
+  filter: drop-shadow(0 4px 10px rgba(15, 23, 42, 0.14));
+}
+
+.weather-hero-info {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.weather-hero-city {
+  font-size: 0.78rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.weather-hero-condition {
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.weather-hero-temps {
+  font-size: 0.95rem;
+  color: var(--muted);
+  margin-top: 0.1rem;
+}
+
+.weather-hero-uv-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.18rem;
+  flex-shrink: 0;
+}
+
+.weather-hero-uv-badge {
+  width: 3rem;
+  height: 3rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  font-weight: 700;
+  box-shadow: 0 2px 8px rgba(15, 23, 42, 0.14);
+}
+
+.weather-hero-uv-label {
+  font-size: 0.68rem;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.weather-hero-uv-level {
+  font-size: 0.72rem;
+  font-weight: 600;
+  border-radius: 4px;
+  padding: 0.1rem 0.35rem;
+}
+
+/* UV max bar */
+.weather-uv-max-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.65rem 1rem;
+  border-radius: 10px;
+  font-size: 0.88rem;
+  font-weight: 500;
+}
+
+.weather-uv-max-level {
+  font-weight: 400;
+  opacity: 0.8;
+}
+
+/* Sections */
+.weather-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+.weather-section-title {
+  margin: 0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--muted);
+}
+
+/* Horizontal scroll row */
+.weather-hourly-scroll {
+  display: flex;
+  gap: 0.45rem;
+  overflow-x: auto;
+  padding-bottom: 0.4rem;
+  scrollbar-width: none;
+}
+
+.weather-hourly-scroll::-webkit-scrollbar {
+  display: none;
+}
+
+/* Hourly weather cards */
+.weather-hour-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.6rem 0.7rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 58px;
+  transition: border-color 150ms ease;
+}
+
+.weather-hour-card.is-now {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface));
+}
+
+.weather-hour-label {
+  font-size: 0.72rem;
+  color: var(--muted);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.weather-hour-card.is-now .weather-hour-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.weather-hour-temp {
+  font-size: 0.88rem;
+  font-weight: 600;
+}
+
+/* UV hour cards */
+.weather-uv-card {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.6rem 0.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 58px;
+  transition: border-color 150ms ease;
+}
+
+.weather-uv-card.is-now {
+  border-color: var(--accent);
+}
+
+.weather-uv-card.is-now .weather-hour-label {
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.weather-uv-badge {
+  width: 2.1rem;
+  height: 2.1rem;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.82rem;
+  font-weight: 700;
+}
+
+.weather-uv-level-small {
+  font-size: 0.62rem;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+  white-space: nowrap;
 }
 
 .today-streak-inline {

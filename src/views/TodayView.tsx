@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { TaskCard } from '../components/TaskCard';
 import {
@@ -29,6 +29,8 @@ import type {
 } from '../types';
 
 type WeatherLocation = { id: string; name: string; lat: number; lon: number };
+
+type HourlyPoint = { hour: number; temp: number; code: number; uv: number };
 
 const WEATHER_LOCATIONS: WeatherLocation[] = [
   { id: 'taubate', name: 'Taubaté', lat: -23.0264, lon: -45.555 },
@@ -102,6 +104,7 @@ type WeatherState =
       uvNow: number;
       uvMax: number;
       code: number;
+      hourly: HourlyPoint[];
     };
 
 // Cache em sessionStorage: ttl curto evita refetch a cada montagem da home
@@ -115,10 +118,11 @@ type WeatherCachePayload = {
   tempMax: number;
   uvNow: number;
   uvMax: number;
+  hourly: HourlyPoint[];
 };
 
 function weatherCacheKey(lat: number, lon: number): string {
-  return `weather:v1:${lat.toFixed(4)},${lon.toFixed(4)}`;
+  return `weather:v2:${lat.toFixed(4)},${lon.toFixed(4)}`;
 }
 
 function readWeatherCache(lat: number, lon: number): WeatherCachePayload | null {
@@ -186,6 +190,7 @@ function useWeather(lat: number, lon: number): {
           current: 'uv_index',
           daily:
             'weather_code,temperature_2m_max,temperature_2m_min,uv_index_max',
+          hourly: 'temperature_2m,weather_code,uv_index',
           timezone: 'auto',
           forecast_days: '1',
         });
@@ -204,6 +209,12 @@ function useWeather(lat: number, lon: number): {
             temperature_2m_min?: number[];
             uv_index_max?: number[];
           };
+          hourly?: {
+            time?: string[];
+            temperature_2m?: number[];
+            weather_code?: number[];
+            uv_index?: number[];
+          };
         };
         const code = json.daily?.weather_code?.[0];
         const tMax = json.daily?.temperature_2m_max?.[0];
@@ -219,12 +230,22 @@ function useWeather(lat: number, lon: number): {
         ) {
           throw new Error('Resposta de previsão inválida.');
         }
+        const hourlyTemps = json.hourly?.temperature_2m ?? [];
+        const hourlyCodes = json.hourly?.weather_code ?? [];
+        const hourlyUV = json.hourly?.uv_index ?? [];
+        const hourly: HourlyPoint[] = Array.from({ length: 24 }, (_, i) => ({
+          hour: i,
+          temp: hourlyTemps[i] ?? 0,
+          code: hourlyCodes[i] ?? 0,
+          uv: Math.max(0, hourlyUV[i] ?? 0),
+        }));
         const payload: WeatherCachePayload = {
           code,
           tempMin: tMin,
           tempMax: tMax,
           uvNow,
           uvMax,
+          hourly,
         };
         writeWeatherCache(lat, lon, payload);
         if (cancelled) return;
@@ -760,6 +781,15 @@ export function TodayView({
   const [weatherOpen, setWeatherOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
 
+  if (weatherOpen) {
+    return (
+      <WeatherPage
+        locations={WEATHER_LOCATIONS}
+        onClose={() => setWeatherOpen(false)}
+      />
+    );
+  }
+
   if (activityOpen) {
     return (
       <ActivityView
@@ -792,13 +822,6 @@ export function TodayView({
           onOpenActivity={() => setActivityOpen(true)}
         />
       </div>
-
-      {weatherOpen && (
-        <WeatherModal
-          locations={WEATHER_LOCATIONS}
-          onClose={() => setWeatherOpen(false)}
-        />
-      )}
 
 
       <div className="today-section">
@@ -863,13 +886,16 @@ export function TodayView({
   );
 }
 
-function WeatherModal({
+function WeatherPage({
   locations,
   onClose,
 }: {
   locations: WeatherLocation[];
   onClose: () => void;
 }) {
+  const [activeCity, setActiveCity] = useState(0);
+  const loc = locations[activeCity];
+
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key === 'Escape') onClose();
@@ -879,216 +905,147 @@ function WeatherModal({
   }, [onClose]);
 
   return (
-    <div className="modal-backdrop" onClick={onClose} role="presentation">
-      <div
-        className="modal weather-modal"
-        onClick={(e) => e.stopPropagation()}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Previsão do tempo"
-      >
-        <header className="modal-header">
-          <h3>Clima de hoje</h3>
-          <button
-            type="button"
-            onClick={onClose}
-            className="icon-btn"
-            style={{ fontSize: '25px' }}
-            aria-label="fechar"
-          >
-            ×
-          </button>
-        </header>
-        <div className="weather-modal-body">
-          <WeatherCarousel locations={locations} />
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function WeatherCarousel({ locations }: { locations: WeatherLocation[] }) {
-  const [active, setActive] = useState(0);
-  const [dragX, setDragX] = useState(0);
-  const startX = useRef<number | null>(null);
-  const trackRef = useRef<HTMLDivElement | null>(null);
-  const trackWidth = useRef(0);
-
-  const goTo = useCallback(
-    (idx: number) => {
-      const clamped = Math.max(0, Math.min(locations.length - 1, idx));
-      setActive(clamped);
-    },
-    [locations.length],
-  );
-
-  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
-    startX.current = e.clientX;
-    trackWidth.current = trackRef.current?.offsetWidth ?? 0;
-    (e.currentTarget as HTMLDivElement).setPointerCapture(e.pointerId);
-  };
-  const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (startX.current === null) return;
-    setDragX(e.clientX - startX.current);
-  };
-  const finishDrag = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (startX.current === null) return;
-    const w = trackWidth.current || trackRef.current?.offsetWidth || 0;
-    const threshold = Math.max(60, w * 0.18);
-    if (dragX <= -threshold) goTo(active + 1);
-    else if (dragX >= threshold) goTo(active - 1);
-    startX.current = null;
-    setDragX(0);
-    try {
-      (e.currentTarget as HTMLDivElement).releasePointerCapture(e.pointerId);
-    } catch {
-      /* ignore */
-    }
-  };
-
-  const dragging = startX.current !== null;
-  const w = trackWidth.current || 1;
-  const dragPercent = (dragX / w) * 100;
-  const offsetPct = -active * 100 + dragPercent;
-
-  return (
-    <div className="today-weather-carousel">
-      <div
-        className="weather-carousel-viewport"
-        onPointerDown={onPointerDown}
-        onPointerMove={onPointerMove}
-        onPointerUp={finishDrag}
-        onPointerCancel={finishDrag}
-      >
-        <div
-          ref={trackRef}
-          className="weather-carousel-track"
-          style={{
-            transform: `translateX(${offsetPct}%)`,
-            transition: dragging
-              ? 'none'
-              : 'transform 320ms cubic-bezier(0.2, 0.8, 0.2, 1)',
-          }}
+    <section className="weather-page" role="region" aria-label="Previsão do tempo">
+      <header className="weather-page-topbar">
+        <button
+          type="button"
+          className="icon-btn weather-page-back"
+          onClick={onClose}
+          aria-label="voltar"
+          title="Voltar"
         >
-          {locations.map((loc) => (
-            <div key={loc.id} className="weather-carousel-slide">
-              <WeatherSlide location={loc} />
-            </div>
-          ))}
-        </div>
-      </div>
-      {locations.length > 1 && (
-        <div
-          className="weather-carousel-dots"
-          role="tablist"
-          aria-label="Selecionar cidade"
-        >
-          {locations.map((loc, i) => (
-            <button
-              key={loc.id}
-              type="button"
-              role="tab"
-              aria-selected={i === active}
-              aria-label={loc.name}
-              className={`weather-carousel-dot${
-                i === active ? ' is-active' : ''
-              }`}
-              onClick={() => goTo(i)}
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+            <path
+              d="M15 18l-6-6 6-6"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
             />
-          ))}
-        </div>
-      )}
-    </div>
+          </svg>
+        </button>
+        <h2 className="weather-page-title">Clima</h2>
+        {locations.length > 1 && (
+          <div className="weather-page-cities" role="tablist" aria-label="Selecionar cidade">
+            {locations.map((l, i) => (
+              <button
+                key={l.id}
+                type="button"
+                role="tab"
+                aria-selected={i === activeCity}
+                className={`weather-city-tab${i === activeCity ? ' is-active' : ''}`}
+                onClick={() => setActiveCity(i)}
+              >
+                {l.name}
+              </button>
+            ))}
+          </div>
+        )}
+      </header>
+      <WeatherPageContent location={loc} />
+    </section>
   );
 }
 
-function WeatherSlide({ location }: { location: WeatherLocation }) {
+function WeatherPageContent({ location }: { location: WeatherLocation }) {
   const { state, retry } = useWeather(location.lat, location.lon);
-  return <WeatherCard state={state} city={location.name} onRetry={retry} />;
-}
-
-function WeatherCard({
-  state,
-  city,
-  onRetry,
-}: {
-  state: WeatherState;
-  city: string;
-  onRetry: () => void;
-}) {
-  const [uvExpanded, setUvExpanded] = useState(false);
+  const currentHour = new Date().getHours();
 
   if (state.kind === 'loading') {
-    return (
-      <div className="today-card today-weather">
-        <div className="today-weather-header">
-          <span className="today-card-label">Clima de hoje</span>
-          <span className="today-weather-city">{city}</span>
-        </div>
-        <div className="muted">Carregando previsão…</div>
-      </div>
-    );
+    return <div className="weather-page-loading muted">Carregando previsão…</div>;
   }
   if (state.kind === 'error') {
     return (
-      <div className="today-card today-weather">
-        <div className="today-weather-header">
-          <span className="today-card-label">Clima de hoje</span>
-          <span className="today-weather-city">{city}</span>
-        </div>
-        <div className="error">{state.message}</div>
-        <button type="button" className="link-btn" onClick={onRetry}>
+      <div className="weather-page-error">
+        <p className="error">{state.message}</p>
+        <button type="button" className="link-btn" onClick={retry}>
           Tentar novamente
         </button>
       </div>
     );
   }
+
   const kind: WeatherKind = weatherKindFromCode(state.code);
   const uvNow = describeUv(state.uvNow);
   const uvMax = describeUv(state.uvMax);
+
   return (
-    <div className="today-card today-weather">
-      <div className="today-weather-header">
-        <span className="today-card-label">Clima de hoje</span>
-        <span className="today-weather-city">{city}</span>
-      </div>
-      <div className="today-weather-main">
-        <WeatherIcon kind={kind} size={64} className="today-weather-icon" />
-        <div className="today-weather-temps">
-          <div className="today-weather-condition">{weatherLabel(kind)}</div>
-          <div className="today-weather-range">
+    <div className="weather-page-content">
+      <div className="weather-hero">
+        <WeatherIcon kind={kind} size={96} className="weather-hero-icon" />
+        <div className="weather-hero-info">
+          <div className="weather-hero-city">{location.name}</div>
+          <div className="weather-hero-condition">{weatherLabel(kind)}</div>
+          <div className="weather-hero-temps">
             {Math.round(state.tempMin)}° / {Math.round(state.tempMax)}°C
           </div>
         </div>
-        <button
-          type="button"
-          className={`today-uv-toggle ${uvNow.className}`}
-          aria-expanded={uvExpanded}
-          aria-label={`Índice UV: ${state.uvNow.toFixed(1)}, ${uvNow.level}. Toque para ${uvExpanded ? 'recolher' : 'ver'} detalhes.`}
-          title={`UV agora: ${state.uvNow.toFixed(1)} (${uvNow.level})`}
-          onClick={() => setUvExpanded((v) => !v)}
-        >
-          {Math.round(state.uvNow)}
-        </button>
-      </div>
-      {uvExpanded && (
-        <div className="today-uv-row">
-          <div className={`today-uv ${uvNow.className}`}>
-            <span className="today-uv-label">UV agora</span>
-            <span className="today-uv-value">
-              {state.uvNow.toFixed(1)}
-              <small> · {uvNow.level}</small>
-            </span>
+        <div className="weather-hero-uv-col">
+          <div className={`weather-hero-uv-badge ${uvNow.className}`}>
+            {Math.round(state.uvNow)}
           </div>
-          <div className={`today-uv ${uvMax.className}`}>
-            <span className="today-uv-label">UV máx. hoje</span>
-            <span className="today-uv-value">
-              {state.uvMax.toFixed(1)}
-              <small> · {uvMax.level}</small>
-            </span>
-          </div>
+          <span className="weather-hero-uv-label">UV agora</span>
+          <span className={`weather-hero-uv-level ${uvNow.className}`}>{uvNow.level}</span>
         </div>
-      )}
+      </div>
+
+      <div className={`weather-uv-max-bar ${uvMax.className}`}>
+        <span>UV máximo hoje</span>
+        <span>
+          <strong>{state.uvMax.toFixed(1)}</strong>
+          <span className="weather-uv-max-level"> · {uvMax.level}</span>
+        </span>
+      </div>
+
+      <div className="weather-section">
+        <h3 className="weather-section-title">Clima por hora</h3>
+        <div className="weather-hourly-scroll" role="list">
+          {state.hourly.map((pt) => {
+            const hKind = weatherKindFromCode(pt.code);
+            const isNow = pt.hour === currentHour;
+            return (
+              <div
+                key={pt.hour}
+                className={`weather-hour-card${isNow ? ' is-now' : ''}`}
+                role="listitem"
+                aria-current={isNow ? 'time' : undefined}
+              >
+                <span className="weather-hour-label">
+                  {isNow ? 'Agora' : `${pt.hour}h`}
+                </span>
+                <WeatherIcon kind={hKind} size={28} />
+                <span className="weather-hour-temp">{Math.round(pt.temp)}°</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+
+      <div className="weather-section">
+        <h3 className="weather-section-title">UV por hora</h3>
+        <div className="weather-hourly-scroll" role="list">
+          {state.hourly.map((pt) => {
+            const uvDesc = describeUv(pt.uv);
+            const isNow = pt.hour === currentHour;
+            return (
+              <div
+                key={pt.hour}
+                className={`weather-uv-card${isNow ? ' is-now' : ''}`}
+                role="listitem"
+                aria-current={isNow ? 'time' : undefined}
+              >
+                <span className="weather-hour-label">
+                  {isNow ? 'Agora' : `${pt.hour}h`}
+                </span>
+                <div className={`weather-uv-badge ${uvDesc.className}`}>
+                  {Math.round(pt.uv)}
+                </div>
+                <span className="weather-uv-level-small">{uvDesc.level}</span>
+              </div>
+            );
+          })}
+        </div>
+      </div>
     </div>
   );
 }
