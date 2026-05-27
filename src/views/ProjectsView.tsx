@@ -33,8 +33,13 @@ export function ProjectsView({
   }, [uid]);
 
   const taskCountByProject = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const t of tasks) counts[t.section] = (counts[t.section] ?? 0) + 1;
+    const counts: Record<string, { total: number; done: number }> = {};
+    for (const t of tasks) {
+      const entry = counts[t.section] ?? { total: 0, done: 0 };
+      entry.total += 1;
+      if (t.checked) entry.done += 1;
+      counts[t.section] = entry;
+    }
     return counts;
   }, [tasks]);
 
@@ -72,7 +77,8 @@ export function ProjectsView({
           <ProjectCard
             key={p.id}
             project={p}
-            taskCount={taskCountByProject[p.id] ?? 0}
+            taskCount={taskCountByProject[p.id]?.total ?? 0}
+            doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
             glickoRating={glickoMap[p.id]}
           />
         ))}
