@@ -682,13 +682,22 @@ export function TodayView({
   });
 
   useEffect(() => {
-    // Já temos picks válidos para hoje → mantém.
-    if (pickedIds !== null) {
-      const stored = loadStoredPicks(uid);
-      if (stored && stored.date === todayKey) return;
-    }
     // Aguarda os dados chegarem antes de computar pela primeira vez.
     if (tasks.length === 0) return;
+    // Já temos picks válidos para hoje → mantém, desde que nenhum tenha score 0.
+    if (pickedIds !== null) {
+      const stored = loadStoredPicks(uid);
+      if (stored && stored.date === todayKey) {
+        const byId = new Map(tasks.map((t) => [t.id, t]));
+        const allValid = pickedIds.every((id) => {
+          const t = byId.get(id);
+          if (!t || t.checked) return true;
+          return calcScore(t, projectMap[t.section] ?? null, ctx) > 0;
+        });
+        if (allValid) return;
+        // Alguma tarefa do snapshot virou score 0 → recomputa.
+      }
+    }
     const top = tasks
       .filter((t) => !t.checked)
       .map((t) => ({
@@ -718,11 +727,9 @@ export function TodayView({
       if (t.checked) {
         out.push({ id, task: t, score: undefined });
       } else {
-        out.push({
-          id,
-          task: t,
-          score: calcScore(t, projectMap[t.section] ?? null, ctx),
-        });
+        const score = calcScore(t, projectMap[t.section] ?? null, ctx);
+        if (score <= 0) continue;
+        out.push({ id, task: t, score });
       }
     }
     return out;
