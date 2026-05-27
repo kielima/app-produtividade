@@ -12,7 +12,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
-import type { CompletedTask, Task } from '../types';
+import type { Task } from '../types';
 
 function tasksCol(uid: string) {
   return collection(db, 'users', uid, 'tasks');
@@ -20,6 +20,15 @@ function tasksCol(uid: string) {
 
 function taskDocId(task: Pick<Task, 'taskId' | 'id'>): string {
   return task.taskId != null ? String(task.taskId) : task.id;
+}
+
+function readCompletedAt(raw: unknown): Date | null {
+  if (raw instanceof Timestamp) return raw.toDate();
+  if (raw && typeof raw === 'object' && 'seconds' in (raw as object)) {
+    return new Date((raw as { seconds: number }).seconds * 1000);
+  }
+  if (raw instanceof Date) return raw;
+  return null;
 }
 
 export function subscribeToTasks(
@@ -32,7 +41,10 @@ export function subscribeToTasks(
     (snap) => {
       const tasks: Task[] = snap.docs.map((d) => {
         const data = d.data() as Omit<Task, 'id'>;
-        return { ...data, id: d.id };
+        const completedAt = readCompletedAt(
+          (data as { completedAt?: unknown }).completedAt,
+        );
+        return { ...data, id: d.id, completedAt };
       });
       cb(tasks);
     },
@@ -47,6 +59,51 @@ export async function upsertTask(uid: string, task: Task): Promise<void> {
 
 export async function deleteTask(uid: string, task: Pick<Task, 'taskId' | 'id'>): Promise<void> {
   await deleteDoc(doc(db, 'users', uid, 'tasks', taskDocId(task)));
+}
+
+/**
+ * Marca/desmarca uma tarefa como concluída. Ao marcar, grava o timestamp
+ * de conclusão (`completedAt`) e um snapshot do nome do projeto naquele
+ * momento (`completedFromSectionName`) — para que as estatísticas
+ * continuem mostrando o nome mesmo se o projeto for deletado depois. Ao
+ * desmarcar, ambos voltam a null.
+ */
+export async function setTaskCompleted(
+  uid: string,
+  task: Task,
+  completed: boolean,
+): Promise<void> {
+  const id = taskDocId(task);
+  const ref = doc(db, 'users', uid, 'tasks', id);
+  if (completed) {
+    let projectName: string | null = null;
+    if (task.section) {
+      try {
+        const psnap = await getDoc(doc(db, 'users', uid, 'projects', task.section));
+        if (psnap.exists()) {
+          const data = psnap.data() as { name?: string };
+          projectName = data.name ?? null;
+        }
+      } catch {
+        // ignora — snapshot do nome é best-effort.
+      }
+    }
+    await setDoc(
+      ref,
+      {
+        checked: true,
+        completedAt: serverTimestamp(),
+        completedFromSectionName: projectName,
+      },
+      { merge: true },
+    );
+  } else {
+    await setDoc(
+      ref,
+      { checked: false, completedAt: null, completedFromSectionName: null },
+      { merge: true },
+    );
+  }
 }
 
 /**
@@ -65,86 +122,49 @@ export async function nextTaskId(uid: string): Promise<number> {
 }
 
 /**
- * Move tarefas com `checked=true` para `completedTasks/`, removendo de `tasks/`.
- * Idempotente. Retorna o número de tarefas arquivadas. Persiste também o
- * nome do projeto naquele momento (`archivedFromSectionName`) pra que a
- * aba Estatísticas consiga mostrar o nome mesmo depois que o projeto for
- * deletado.
+ * Migração one-shot: move tudo que estiver em `completedTasks/` para
+ * `tasks/`, traduzindo `archivedAt`→`completedAt` e
+ * `archivedFromSectionName`→`completedFromSectionName`. Idempotente: se
+ * `completedTasks/` estiver vazia, retorna 0 sem escrever nada. Roda no
+ * load da app até a coleção velha ser drenada.
  */
-export async function archiveCompletedTasks(uid: string): Promise<number> {
-  const [tasksSnap, projectsSnap] = await Promise.all([
-    getDocs(tasksCol(uid)),
-    getDocs(collection(db, 'users', uid, 'projects')),
-  ]);
-  const toArchive: Task[] = [];
-  tasksSnap.forEach((d) => {
-    const t = { ...(d.data() as Omit<Task, 'id'>), id: d.id } as Task;
-    if (t.checked) toArchive.push(t);
-  });
-  if (toArchive.length === 0) return 0;
+export async function migrateCompletedTasksIntoTasks(uid: string): Promise<number> {
+  const completedRef = collection(db, 'users', uid, 'completedTasks');
+  const snap = await getDocs(completedRef);
+  if (snap.empty) return 0;
 
-  const projectName = new Map<string, string>();
-  projectsSnap.forEach((d) => {
-    const p = d.data() as { name?: string };
-    if (p.name) projectName.set(d.id, p.name);
-  });
-
-  const BATCH_LIMIT = 200; // cada doc gera 2 ops (write + delete)
-  for (let i = 0; i < toArchive.length; i += BATCH_LIMIT) {
-    const slice = toArchive.slice(i, i + BATCH_LIMIT);
+  const BATCH_LIMIT = 200;
+  const docs = snap.docs;
+  for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
+    const slice = docs.slice(i, i + BATCH_LIMIT);
     const batch = writeBatch(db);
-    for (const t of slice) {
-      const id = taskDocId(t);
-      const sectionName = t.section ? projectName.get(t.section) ?? null : null;
+    for (const d of slice) {
+      const raw = d.data() as Record<string, unknown>;
+      const id = d.id;
+      const archivedAt = raw.archivedAt ?? raw.completedAt ?? null;
+      const archivedFromSectionName =
+        (raw.archivedFromSectionName as string | null | undefined) ??
+        (raw.completedFromSectionName as string | null | undefined) ??
+        null;
+      // Limpa campos antigos para não poluir os docs migrados.
+      const cleaned = { ...raw };
+      delete cleaned.archivedAt;
+      delete cleaned.archivedFromSection;
+      delete cleaned.archivedFromSectionName;
       batch.set(
-        doc(db, 'users', uid, 'completedTasks', id),
+        doc(db, 'users', uid, 'tasks', id),
         {
-          ...t,
+          ...cleaned,
           id,
-          archivedAt: serverTimestamp(),
-          archivedFromSection: t.section,
-          archivedFromSectionName: sectionName,
+          checked: true,
+          completedAt: archivedAt,
+          completedFromSectionName: archivedFromSectionName,
         },
         { merge: true },
       );
-      batch.delete(doc(db, 'users', uid, 'tasks', id));
+      batch.delete(d.ref);
     }
     await batch.commit();
   }
-  return toArchive.length;
-}
-
-export function subscribeToCompletedTasks(
-  uid: string,
-  cb: (tasks: CompletedTask[]) => void,
-  onError?: (err: Error) => void,
-): Unsubscribe {
-  return onSnapshot(
-    collection(db, 'users', uid, 'completedTasks'),
-    (snap) => {
-      const tasks: CompletedTask[] = snap.docs.map((d) => {
-        const data = d.data() as Omit<CompletedTask, 'id'>;
-        const raw = (data as { archivedAt?: unknown }).archivedAt;
-        const archivedAt =
-          raw instanceof Timestamp
-            ? raw.toDate()
-            : raw && typeof raw === 'object' && 'seconds' in (raw as object)
-              ? new Date((raw as { seconds: number }).seconds * 1000)
-              : null;
-        return { ...data, id: d.id, archivedAt };
-      });
-      cb(tasks);
-    },
-    (err) => onError?.(err),
-  );
-}
-
-export async function restoreCompletedTask(uid: string, taskId: string): Promise<void> {
-  const ref = doc(db, 'users', uid, 'completedTasks', taskId);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return;
-  const t = snap.data() as Task;
-  const restored: Task = { ...t, checked: false };
-  await setDoc(doc(db, 'users', uid, 'tasks', taskId), restored, { merge: true });
-  await deleteDoc(ref);
+  return docs.length;
 }

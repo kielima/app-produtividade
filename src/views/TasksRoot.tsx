@@ -9,7 +9,7 @@ import {
 } from '../components/TaskFiltersBar';
 import { normalizeForSearch } from '../lib/searchNormalize';
 import type { UserData } from '../lib/useUserData';
-import { archiveCompletedTasks } from '../repositories/tasksRepo';
+import { migrateCompletedTasksIntoTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
 import { PrioridadeView } from './PrioridadeView';
 
@@ -81,13 +81,13 @@ export function TasksRoot({
   filters: TaskFiltersState;
   searchQuery: string;
 }) {
-  const archivedOnLoad = useRef(false);
+  const migratedOnLoad = useRef(false);
 
   useEffect(() => {
-    if (archivedOnLoad.current) return;
-    archivedOnLoad.current = true;
-    archiveCompletedTasks(uid).catch(() => {
-      // erro silencioso — o usuário verá no próximo reload se persistir
+    if (migratedOnLoad.current) return;
+    migratedOnLoad.current = true;
+    migrateCompletedTasksIntoTasks(uid).catch(() => {
+      // erro silencioso — a próxima montagem tenta de novo se persistir
     });
   }, [uid]);
 

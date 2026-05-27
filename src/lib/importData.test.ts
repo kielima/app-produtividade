@@ -5,10 +5,9 @@ import type { ExportPayload } from './exportData';
 const SAMPLE: ExportPayload = {
   exportedAt: '2026-05-15T12:34:56.789Z',
   uid: 'user-123',
-  version: 2,
+  version: 3,
   sections: [{ id: 's1', name: 'A', moscow: 'must' }],
   tasks: [],
-  completedTasks: [],
   projects: [],
   notes: [{ id: 'n1', title: 't', note: '', items: [], addedDate: '2026-05-15', tags: [], pinned: false }],
   glicko: [{ id: 'p1', r: 1500, rd: 350, sigma: 0.06 }],

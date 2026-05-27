@@ -53,10 +53,9 @@ async function fetchGlicko(uid: string): Promise<GlickoEntry[]> {
 }
 
 export async function exportAllData(uid: string): Promise<ExportPayload> {
-  const [sections, tasks, completedTasks, projects, notes, glicko] = await Promise.all([
+  const [sections, tasks, projects, notes, glicko] = await Promise.all([
     fetchCollection<Section>(uid, 'sections'),
     fetchCollection<Task>(uid, 'tasks'),
-    fetchCollection<Task>(uid, 'completedTasks'),
     fetchCollection<Project>(uid, 'projects'),
     fetchCollection<Note>(uid, 'notes'),
     fetchGlicko(uid),
@@ -76,7 +75,6 @@ export async function exportAllData(uid: string): Promise<ExportPayload> {
     version: EXPORT_VERSION,
     sections,
     tasks,
-    completedTasks,
     projects,
     notes,
     glicko,

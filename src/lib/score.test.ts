@@ -27,6 +27,7 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     dependsOn: [],
     subtasks: [],
     section: 's',
+    completedAt: null,
     ...overrides,
   };
 }

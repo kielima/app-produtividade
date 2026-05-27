@@ -22,14 +22,12 @@ export interface Task {
   dependsOn: string[];
   subtasks: Subtask[];
   section: string;
-}
-
-export interface CompletedTask extends Task {
-  archivedAt: Date | null;
-  archivedFromSection?: string;
-  // Snapshot do nome do projeto no momento do arquivamento. Permite
-  // mostrar o nome mesmo depois que o projeto for deletado.
-  archivedFromSectionName?: string | null;
+  // Preenchido quando `checked=true`. Usado pelas estatísticas e pelo
+  // gráfico de atividade. Para tarefas ativas é null.
+  completedAt: Date | null;
+  // Snapshot do nome do projeto no momento da conclusão. Permite mostrar
+  // o nome mesmo depois que o projeto for deletado.
+  completedFromSectionName?: string | null;
 }
 
 export interface Section {
