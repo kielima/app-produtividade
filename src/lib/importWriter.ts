@@ -15,7 +15,6 @@ const BATCH_LIMIT = 450;
 export interface ImportStats {
   sections: number;
   tasks: number;
-  completedTasks: number;
   projects: number;
   notes: number;
   glicko: number;
@@ -31,7 +30,6 @@ function emptyStats(): ImportStats {
   return {
     sections: 0,
     tasks: 0,
-    completedTasks: 0,
     projects: 0,
     notes: 0,
     glicko: 0,
@@ -133,7 +131,9 @@ export async function importAllData(
 
   const sectionsRef = collection(db, 'users', uid, 'sections');
   const tasksRef = collection(db, 'users', uid, 'tasks');
-  const completedRef = collection(db, 'users', uid, 'completedTasks');
+  // Legado: até v2 existia uma coleção separada `completedTasks/`. Em
+  // modo replace, esvazia ela também para não deixar lixo pra trás.
+  const legacyCompletedRef = collection(db, 'users', uid, 'completedTasks');
   const projectsRef = collection(db, 'users', uid, 'projects');
   const notesRef = collection(db, 'users', uid, 'notes');
   const glickoRef = collection(db, 'users', uid, 'glicko');
@@ -141,7 +141,7 @@ export async function importAllData(
   if (mode === 'replace') {
     stats.deleted += await deleteAllDocs(sectionsRef);
     stats.deleted += await deleteAllDocs(tasksRef);
-    stats.deleted += await deleteAllDocs(completedRef);
+    stats.deleted += await deleteAllDocs(legacyCompletedRef);
     stats.deleted += await deleteAllDocs(projectsRef);
     stats.deleted += await deleteAllDocs(notesRef);
     stats.deleted += await deleteAllDocs(glickoRef);
@@ -149,7 +149,6 @@ export async function importAllData(
 
   stats.sections = await writeDocs(sectionsRef, payload.sections);
   stats.tasks = await writeDocs(tasksRef, payload.tasks);
-  stats.completedTasks = await writeDocs(completedRef, payload.completedTasks);
   stats.projects = await writeDocs(projectsRef, payload.projects);
   stats.notes = await writeDocs(notesRef, payload.notes);
   stats.glicko = await writeDocs(glickoRef, payload.glicko);

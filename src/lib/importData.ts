@@ -110,13 +110,40 @@ export function parseImportPayload(text: string): ExportPayload {
   const glicko =
     raw.glicko === undefined ? [] : parseGlickoEntries(raw.glicko, 'glicko');
 
+  const tasks = assertArray(raw.tasks, 'tasks') as Task[];
+  // Backward-compat: v1/v2 mantinham `completedTasks` separadas. Mescla
+  // em `tasks` ajustando os campos: `archivedAt` → `completedAt`,
+  // `archivedFromSectionName` → `completedFromSectionName`, e força
+  // `checked=true`.
+  if (raw.completedTasks !== undefined) {
+    const completed = assertArray(raw.completedTasks, 'completedTasks');
+    for (const item of completed) {
+      if (!isObject(item)) continue;
+      const t = item as Record<string, unknown>;
+      const completedAt = t.completedAt ?? t.archivedAt ?? null;
+      const completedFromSectionName =
+        (t.completedFromSectionName as string | null | undefined) ??
+        (t.archivedFromSectionName as string | null | undefined) ??
+        null;
+      const cleaned = { ...t };
+      delete cleaned.archivedAt;
+      delete cleaned.archivedFromSection;
+      delete cleaned.archivedFromSectionName;
+      tasks.push({
+        ...(cleaned as unknown as Task),
+        checked: true,
+        completedAt: completedAt as Task['completedAt'],
+        completedFromSectionName,
+      });
+    }
+  }
+
   return {
     exportedAt: assertString(raw.exportedAt, 'exportedAt'),
     uid: assertString(raw.uid, 'uid'),
     version,
     sections: assertArray(raw.sections, 'sections') as Section[],
-    tasks: assertArray(raw.tasks, 'tasks') as Task[],
-    completedTasks: assertArray(raw.completedTasks, 'completedTasks') as Task[],
+    tasks,
     projects: assertArray(raw.projects, 'projects') as Project[],
     notes,
     glicko,

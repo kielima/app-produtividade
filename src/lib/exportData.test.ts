@@ -4,7 +4,7 @@ import { defaultFilename, summarize, type ExportPayload } from './exportData';
 const SAMPLE: ExportPayload = {
   exportedAt: '2026-05-15T12:34:56.789Z',
   uid: 'user-123',
-  version: 2,
+  version: 3,
   sections: [
     { id: 's1', name: 'A', moscow: 'must' },
     { id: 's2', name: 'B', moscow: '' },
@@ -25,9 +25,9 @@ const SAMPLE: ExportPayload = {
       dependsOn: [],
       subtasks: [],
       section: 's1',
+      completedAt: null,
     },
   ],
-  completedTasks: [],
   projects: [],
   notes: [
     { id: 'n1', title: 'Nota 1', note: 'corpo', items: [], addedDate: '2026-05-15', tags: [], pinned: false },
@@ -56,7 +56,6 @@ describe('summarize', () => {
     expect(summarize(SAMPLE)).toEqual({
       sections: 2,
       tasks: 1,
-      completedTasks: 0,
       projects: 0,
       notes: 2,
       glicko: 1,

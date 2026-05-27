@@ -199,6 +199,7 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
         dependsOn,
         subtasks: [],
         section: currentSectionId!,
+        completedAt: null,
       };
       continue;
     }

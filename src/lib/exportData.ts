@@ -1,7 +1,7 @@
 import type { Note, Project, Section, Task } from '../types';
 import type { GlickoRating } from './glicko2';
 
-export const EXPORT_VERSION = 2;
+export const EXPORT_VERSION = 3;
 
 export interface MemoryDoc {
   id: string;
@@ -12,13 +12,15 @@ export interface GlickoEntry extends GlickoRating {
   id: string;
 }
 
+// v3: tarefas ativas e concluídas vivem todas em `tasks` — distintas pelo
+// campo `checked` e por `completedAt`. v2 e anteriores tinham um array
+// separado `completedTasks` que o parser de import absorve em `tasks`.
 export interface ExportPayload {
   exportedAt: string;
   uid: string;
   version: number;
   sections: Section[];
   tasks: Task[];
-  completedTasks: Task[];
   projects: Project[];
   notes: Note[];
   glicko: GlickoEntry[];
@@ -60,7 +62,6 @@ export function summarize(payload: ExportPayload): Record<string, number> {
   return {
     sections: payload.sections.length,
     tasks: payload.tasks.length,
-    completedTasks: payload.completedTasks.length,
     projects: payload.projects.length,
     notes: payload.notes.length,
     glicko: payload.glicko.length,

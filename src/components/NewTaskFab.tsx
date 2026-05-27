@@ -56,6 +56,7 @@ export function NewTaskFab({
         dependsOn: [],
         subtasks: [],
         section: sectionId,
+        completedAt: null,
       };
       await upsertTask(uid, newTask);
       openTask(String(taskId));

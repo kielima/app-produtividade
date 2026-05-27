@@ -25,7 +25,6 @@ import { importAllData, type ImportStats } from '../lib/importWriter';
 const IMPORT_STAT_LABELS: Record<keyof ImportStats, string> = {
   sections: 'sections',
   tasks: 'tasks',
-  completedTasks: 'completedTasks',
   projects: 'projects',
   notes: 'notes',
   glicko: 'glicko',

@@ -1,3 +1,5 @@
+import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from './firebase';
 import { getDisplayTitle, serializeTitle } from './parser';
 import { upsertTask } from '../repositories/tasksRepo';
 import type { Task } from '../types';
@@ -36,6 +38,33 @@ export async function patchTask(
     addedDate: merged.addedDate,
     dependsOn: merged.dependsOn,
   });
+
+  // Sincroniza `completedAt`/`completedFromSectionName` com a transição
+  // de `checked`. Snapshot do nome do projeto é gravado no momento da
+  // conclusão para sobreviver a uma deleção futura do projeto.
+  const isCompleting = patch.checked === true && task.checked !== true;
+  const isReopening = patch.checked === false && task.checked === true;
+  if (isCompleting) {
+    let projectName: string | null = null;
+    if (merged.section) {
+      try {
+        const psnap = await getDoc(doc(db, 'users', uid, 'projects', merged.section));
+        if (psnap.exists()) {
+          const data = psnap.data() as { name?: string };
+          projectName = data.name ?? null;
+        }
+      } catch {
+        // snapshot do nome é best-effort
+      }
+    }
+    // serverTimestamp() é um sentinel — escapa do tipo Task aqui de propósito.
+    (merged as unknown as { completedAt: unknown }).completedAt = serverTimestamp();
+    merged.completedFromSectionName = projectName;
+  } else if (isReopening) {
+    merged.completedAt = null;
+    merged.completedFromSectionName = null;
+  }
+
   await upsertTask(uid, merged);
   return merged;
 }
