@@ -466,6 +466,7 @@ function AppShell({
       dependsOn: [],
       subtasks: [],
       section: sectionId,
+      completedAt: null,
     };
     await upsertTask(uid, newTask);
     setShareDialog(null);

@@ -20,9 +20,7 @@ import {
 import { getDisplayTitle } from '../lib/parser';
 import { useProjectNavigation } from '../lib/projectNavigation';
 import { calcScore, isTaskBlocked } from '../lib/score';
-import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
 import type {
-  CompletedTask,
   Esforco,
   MoSCoW,
   Project,
@@ -65,11 +63,11 @@ function firstNameOf(displayName: string | null | undefined): string | null {
 
 // Calcula a sequência atual: dias consecutivos com pelo menos uma tarefa
 // concluída terminando em hoje (ou ontem, se hoje ainda não houve tarefas).
-function computeCurrentStreak(tasks: CompletedTask[], today: Date): number {
+function computeCurrentStreak(tasks: Task[], today: Date): number {
   const daysWithTasks = new Set<string>();
   for (const t of tasks) {
-    if (!t.archivedAt) continue;
-    daysWithTasks.add(dayKey(startOfDay(t.archivedAt)));
+    if (!t.checked || !t.completedAt) continue;
+    daysWithTasks.add(dayKey(startOfDay(t.completedAt)));
   }
   let cursor = startOfDay(today);
   if (!daysWithTasks.has(dayKey(cursor))) {
@@ -384,10 +382,10 @@ function formatActivityBR(d: Date): string {
 }
 
 function activityIntrinsicValue(
-  task: CompletedTask,
+  task: Task,
   projectScoreMap: Record<string, number>,
 ): number {
-  const sectionId = task.archivedFromSection || task.section;
+  const sectionId = task.section;
   const projectScore = sectionId ? projectScoreMap[sectionId] ?? 0 : 0;
   const moscowPts = ACTIVITY_MOSCOW_PTS[task.moscow] ?? 1;
   const effortDiv = ACTIVITY_EFFORT_DIV[task.esforco] ?? 1;
@@ -402,7 +400,7 @@ interface ActivityDayBucket {
 }
 
 function buildActivityBuckets(
-  tasks: CompletedTask[],
+  tasks: Task[],
   projectScoreMap: Record<string, number>,
   rangeDays: number,
 ): ActivityDayBucket[] {
@@ -422,8 +420,8 @@ function buildActivityBuckets(
     index.set(b.key, b);
   }
   for (const t of tasks) {
-    if (!t.archivedAt) continue;
-    const k = dayKey(startOfDay(t.archivedAt));
+    if (!t.checked || !t.completedAt) continue;
+    const k = dayKey(startOfDay(t.completedAt));
     const b = index.get(k);
     if (!b) continue;
     const v = activityIntrinsicValue(t, projectScoreMap);
@@ -539,7 +537,7 @@ function ActivityView({
   projectScoreMap,
   onClose,
 }: {
-  tasks: CompletedTask[];
+  tasks: Task[];
   projectScoreMap: Record<string, number>;
   onClose: () => void;
 }) {
@@ -645,11 +643,10 @@ export function TodayView({
   const greeting = useMemo(() => greetingFor(now), [now]);
   const firstName = useMemo(() => firstNameOf(user?.displayName), [user?.displayName]);
 
-  const [completed, setCompleted] = useState<CompletedTask[]>([]);
-  useEffect(() => {
-    const unsub = subscribeToCompletedTasks(uid, setCompleted);
-    return unsub;
-  }, [uid]);
+  const completed = useMemo(
+    () => tasks.filter((t) => t.checked && t.completedAt),
+    [tasks],
+  );
 
   const currentStreak = useMemo(
     () => computeCurrentStreak(completed, now),
@@ -706,33 +703,30 @@ export function TodayView({
     saveStoredPicks({ date: todayKey, uid, ids: top });
   }, [uid, todayKey, tasks, projectMap, ctx, pickedIds]);
 
-  // Resolve cada id para a tarefa atual (live) ou arquivada (completedTasks),
-  // preservando a ordem do snapshot. Score só é recalculado para live; em
-  // arquivadas não faz mais sentido.
+  // Resolve cada id para a tarefa, preservando a ordem do snapshot. Score
+  // só é recalculado para tarefas ativas; concluídas perdem o score (a
+  // posição se mantém só pra o usuário ver o que foi marcado no dia).
   const pickedTasks = useMemo<
     Array<{ id: string; task: Task; score: number | undefined }>
   >(() => {
     if (!pickedIds || pickedIds.length === 0) return [];
-    const liveById = new Map(tasks.map((t) => [t.id, t]));
-    const archivedById = new Map(completed.map((t) => [t.id, t]));
+    const byId = new Map(tasks.map((t) => [t.id, t]));
     const out: Array<{ id: string; task: Task; score: number | undefined }> = [];
     for (const id of pickedIds) {
-      const live = liveById.get(id);
-      if (live) {
+      const t = byId.get(id);
+      if (!t) continue;
+      if (t.checked) {
+        out.push({ id, task: t, score: undefined });
+      } else {
         out.push({
           id,
-          task: live,
-          score: calcScore(live, projectMap[live.section] ?? null, ctx),
+          task: t,
+          score: calcScore(t, projectMap[t.section] ?? null, ctx),
         });
-        continue;
-      }
-      const archived = archivedById.get(id);
-      if (archived) {
-        out.push({ id, task: archived, score: undefined });
       }
     }
     return out;
-  }, [pickedIds, tasks, completed, projectMap, ctx]);
+  }, [pickedIds, tasks, projectMap, ctx]);
 
   const [calendarTrigger, setCalendarTrigger] = useState(0);
   const events = useUpcomingWeekEvents(uid, calendarTrigger);
@@ -1094,8 +1088,8 @@ function WeatherCard({
 
 function ArchivedTaskCard({ task }: { task: Task }) {
   const display = getDisplayTitle(task.title);
-  // Tarefa já arquivada em completedTasks/: render só leitura — o detalhe
-  // não está mais acessível (TaskDetailView só lê de tasks/).
+  // Tarefa concluída: render só leitura no Top 3 do dia. Mantém a posição
+  // do snapshot diário mesmo depois da conclusão.
   return (
     <article className="task-card done">
       <div className="task-line">

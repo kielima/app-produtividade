@@ -117,6 +117,7 @@ export function NoteDetailView({
         dependsOn: [],
         subtasks: note.items.map((s) => ({ text: s.text, checked: s.checked })),
         section: sectionId,
+        completedAt: null,
       };
       await upsertTask(uid, newTask);
       await deleteNote(uid, note.id);

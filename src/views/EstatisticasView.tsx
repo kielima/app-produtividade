@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
 import type { StatsFiltersState } from '../components/StatsFiltersBar';
-import { subscribeToCompletedTasks } from '../repositories/tasksRepo';
+import { subscribeToTasks } from '../repositories/tasksRepo';
 import type {
-  CompletedTask,
   Esforco,
   Modo,
   MoSCoW,
   Project,
+  Task,
 } from '../types';
 
 type Metric = StatsFiltersState['metric'];
@@ -86,10 +86,10 @@ function formatBR(d: Date): string {
 }
 
 function intrinsicValue(
-  task: CompletedTask,
+  task: Task,
   projectScoreMap: Record<string, number>,
 ): number {
-  const sectionId = task.archivedFromSection || task.section;
+  const sectionId = task.section;
   const projectScore = sectionId ? projectScoreMap[sectionId] ?? 0 : 0;
   const moscowPts = MOSCOW_PTS[task.moscow] ?? 1;
   const effortDiv = EFFORT_DIV[task.esforco] ?? 1;
@@ -133,7 +133,7 @@ function emptyModoSlots(): Record<ModoBucket, Slot> {
 }
 
 function buildDailyBuckets(
-  tasks: CompletedTask[],
+  tasks: Task[],
   projectScoreMap: Record<string, number>,
   rangeDays: number,
 ): DayBucket[] {
@@ -156,8 +156,8 @@ function buildDailyBuckets(
     index.set(b.key, b);
   }
   for (const t of tasks) {
-    if (!t.archivedAt) continue;
-    const k = dayKey(startOfDay(t.archivedAt));
+    if (!t.completedAt) continue;
+    const k = dayKey(startOfDay(t.completedAt));
     const b = index.get(k);
     if (!b) continue;
     const v = intrinsicValue(t, projectScoreMap);
@@ -481,7 +481,7 @@ interface ProjectAgg {
 }
 
 interface ProjectBreakdownProps {
-  tasks: CompletedTask[];
+  tasks: Task[];
   projectNameById: Map<string, string>;
   projectScoreMap: Record<string, number>;
   metric: Metric;
@@ -497,14 +497,14 @@ function ProjectBreakdown({
     const m = new Map<string, ProjectAgg>();
     const snapshotName = new Map<string, string>();
     for (const t of tasks) {
-      const id = t.archivedFromSection || t.section || '';
+      const id = t.section || '';
       const v = intrinsicValue(t, projectScoreMap);
       const entry = m.get(id) ?? { id, name: '', count: 0, score: 0 };
       entry.count += 1;
       entry.score += v;
       m.set(id, entry);
-      if (id && t.archivedFromSectionName && !snapshotName.has(id)) {
-        snapshotName.set(id, t.archivedFromSectionName);
+      if (id && t.completedFromSectionName && !snapshotName.has(id)) {
+        snapshotName.set(id, t.completedFromSectionName);
       }
     }
     // Resolve nome final: projeto ativo > snapshot do arquivamento > placeholder
@@ -608,16 +608,16 @@ export function EstatisticasView({
   filters,
 }: EstatisticasViewProps) {
   const { range, metric, dimension, projectFilter } = filters;
-  const [tasks, setTasks] = useState<CompletedTask[]>([]);
+  const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     setLoading(true);
-    const unsub = subscribeToCompletedTasks(
+    const unsub = subscribeToTasks(
       uid,
       (next) => {
-        setTasks(next);
+        setAllTasks(next);
         setLoading(false);
       },
       (err) => {
@@ -628,11 +628,16 @@ export function EstatisticasView({
     return unsub;
   }, [uid]);
 
+  // Estatísticas operam só sobre tarefas concluídas (`checked=true` com
+  // `completedAt`). Ativas ficam de fora.
+  const tasks = useMemo(
+    () => allTasks.filter((t) => t.checked && t.completedAt),
+    [allTasks],
+  );
+
   const filteredTasks = useMemo(() => {
     if (!projectFilter) return tasks;
-    return tasks.filter(
-      (t) => (t.archivedFromSection || t.section) === projectFilter,
-    );
+    return tasks.filter((t) => t.section === projectFilter);
   }, [tasks, projectFilter]);
 
   const rangeDays = parseInt(range, 10);
@@ -680,13 +685,13 @@ export function EstatisticasView({
     const periodStart = new Date(today);
     periodStart.setDate(periodStart.getDate() - rangeDays + 1);
 
-    const periodTasks: CompletedTask[] = [];
+    const periodTasks: Task[] = [];
     const cycleDays: number[] = [];
     let withDeadline = 0;
     let onTime = 0;
     for (const t of filteredTasks) {
-      if (!t.archivedAt) continue;
-      const at = startOfDay(t.archivedAt);
+      if (!t.completedAt) continue;
+      const at = startOfDay(t.completedAt);
       if (at < periodStart || at > today) continue;
       periodTasks.push(t);
       if (t.addedDate) {
@@ -729,8 +734,8 @@ export function EstatisticasView({
     let count = 0;
     let score = 0;
     for (const t of filteredTasks) {
-      if (!t.archivedAt) continue;
-      const at = startOfDay(t.archivedAt);
+      if (!t.completedAt) continue;
+      const at = startOfDay(t.completedAt);
       if (at < prevStart || at > prevEnd) continue;
       count += 1;
       score += intrinsicValue(t, projectScoreMap);
