@@ -687,8 +687,13 @@ export function TodayView({
   }, [projects, ctx.projectScoreMap]);
 
   const taskCountByProject = useMemo(() => {
-    const counts: Record<string, number> = {};
-    for (const t of tasks) counts[t.section] = (counts[t.section] ?? 0) + 1;
+    const counts: Record<string, { total: number; done: number }> = {};
+    for (const t of tasks) {
+      const entry = counts[t.section] ?? { total: 0, done: 0 };
+      entry.total += 1;
+      if (t.checked) entry.done += 1;
+      counts[t.section] = entry;
+    }
     return counts;
   }, [tasks]);
 
@@ -828,8 +833,19 @@ export function TodayView({
         <h2 className="today-section-title">Projeto em destaque</h2>
         {topProject ? (
           (() => {
-            const count = taskCountByProject[topProject.project.id] ?? 0;
-            const countLabel = `${count} tarefa${count === 1 ? '' : 's'}`;
+            const counts = taskCountByProject[topProject.project.id] ?? {
+              total: 0,
+              done: 0,
+            };
+            const pending = Math.max(0, counts.total - counts.done);
+            const progressPct =
+              counts.total > 0
+                ? Math.round((counts.done / counts.total) * 100)
+                : null;
+            const countLabel =
+              progressPct === null
+                ? `${pending} tarefa${pending === 1 ? '' : 's'}`
+                : `${pending} tarefa${pending === 1 ? '' : 's'} (${progressPct}%)`;
             return (
               <article className="today-project-card">
                 <button
