@@ -1,4 +1,4 @@
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
 import {
@@ -66,6 +66,7 @@ const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
 const PROJECT_FILTERS_KEY = 'app-produtividade:project-filters';
 const STATS_FILTERS_KEY = 'app-produtividade:stats-filters';
 const MENU_ORDER_KEY = 'app-produtividade:menu-order';
+const NAV_TAB_KEY = 'app-produtividade:nav-tab';
 
 function loadTaskFilters(): TaskFiltersState {
   try {
@@ -131,6 +132,40 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'settings', label: 'Configurações' },
 ];
 
+function loadInitialTab(): Tab {
+  try {
+    const raw = localStorage.getItem(NAV_TAB_KEY);
+    if (!raw) return 'today';
+    const value = JSON.parse(raw);
+    if (typeof value === 'string' && TABS.some((t) => t.key === value)) {
+      return value as Tab;
+    }
+  } catch {
+    // ignora — usa o default
+  }
+  return 'today';
+}
+
+type NavSnapshot = {
+  tab: Tab;
+  taskId: string | null;
+  projectId: string | null;
+  noteId: string | null;
+  duel: boolean;
+  classify: boolean;
+};
+
+function snapshotsEqual(a: NavSnapshot, b: NavSnapshot): boolean {
+  return (
+    a.tab === b.tab &&
+    a.taskId === b.taskId &&
+    a.projectId === b.projectId &&
+    a.noteId === b.noteId &&
+    a.duel === b.duel &&
+    a.classify === b.classify
+  );
+}
+
 function loadMenuOrder(): Tab[] {
   const defaults = TABS.map((t) => t.key);
   try {
@@ -154,7 +189,7 @@ function loadMenuOrder(): Tab[] {
 
 export function App() {
   const [user, loading, error] = useAuthState(auth);
-  const [tab, setTab] = useState<Tab>('today');
+  const [tab, setTab] = useState<Tab>(loadInitialTab);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuOrder, setMenuOrder] = useState<Tab[]>(loadMenuOrder);
   const [filters, setFilters] = useState<TaskFiltersState>(loadTaskFilters);
@@ -189,6 +224,11 @@ export function App() {
   useEffect(() => {
     localStorage.setItem(MENU_ORDER_KEY, JSON.stringify(menuOrder));
   }, [menuOrder]);
+
+  // Persiste a aba ativa pra sobreviver a pull-to-refresh / reload do PWA.
+  useEffect(() => {
+    localStorage.setItem(NAV_TAB_KEY, JSON.stringify(tab));
+  }, [tab]);
 
   if (loading) {
     return (
@@ -281,6 +321,83 @@ function AppShell({
   const [shareDialog, setShareDialog] = useState<ShareTargetDialogState | null>(
     null,
   );
+
+  // Sincroniza a navegação (aba + detalhes) com o history do browser pra que
+  // o gesto/botão de voltar do Android navegue para o estado anterior em vez
+  // de fechar o PWA. Cada mudança "para a frente" empurra uma entrada; o
+  // popstate restaura o snapshot guardado. As refs separam estes três casos:
+  //  - isPoppingHistoryRef: a mudança vem do próprio popstate → não empurrar
+  //  - skipHistorySyncRef:  limpeza defensiva (item apagado) → não empurrar
+  //  - navInitializedRef:   só sincroniza depois do replaceState inicial
+  const navSnapshot = useMemo<NavSnapshot>(
+    () => ({
+      tab,
+      taskId: selectedTaskId,
+      projectId: selectedProjectId,
+      noteId: selectedNoteId,
+      duel: duelOpen,
+      classify: classifyOpen,
+    }),
+    [tab, selectedTaskId, selectedProjectId, selectedNoteId, duelOpen, classifyOpen],
+  );
+  const isPoppingHistoryRef = useRef(false);
+  const skipHistorySyncRef = useRef(false);
+  const navInitializedRef = useRef(false);
+
+  useLayoutEffect(() => {
+    if (navInitializedRef.current) return;
+    navInitializedRef.current = true;
+    window.history.replaceState(
+      { ...(window.history.state ?? {}), appNav: navSnapshot },
+      '',
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (!navInitializedRef.current) return;
+    if (isPoppingHistoryRef.current) {
+      isPoppingHistoryRef.current = false;
+      return;
+    }
+    if (skipHistorySyncRef.current) {
+      skipHistorySyncRef.current = false;
+      return;
+    }
+    const current = (window.history.state?.appNav ?? null) as NavSnapshot | null;
+    if (current && snapshotsEqual(current, navSnapshot)) return;
+    window.history.pushState(
+      { ...(window.history.state ?? {}), appNav: navSnapshot },
+      '',
+    );
+  }, [navSnapshot]);
+
+  useEffect(() => {
+    function onPop(e: PopStateEvent) {
+      const snap = (e.state?.appNav ?? null) as NavSnapshot | null;
+      if (!snap) return;
+      isPoppingHistoryRef.current = true;
+      setTab(snap.tab);
+      setSelectedTaskId(snap.taskId);
+      setSelectedProjectId(snap.projectId);
+      setSelectedNoteId(snap.noteId);
+      setDuelOpen(snap.duel);
+      setClassifyOpen(snap.classify);
+      // Fecha overlays (menu/pesquisa) em qualquer back — evita ficarem
+      // sobrepostos ao conteúdo da aba restaurada.
+      setMenuOpen(false);
+      setSearchOpen(false);
+    }
+    window.addEventListener('popstate', onPop);
+    return () => window.removeEventListener('popstate', onPop);
+  }, [setTab, setMenuOpen]);
+
+  // Helper para os botões "fechar" dos detalhes: delega no history para que
+  // o popstate restaure o estado anterior — assim o botão e o gesto Android
+  // têm o mesmo efeito (e não criam uma entrada futura "vazia").
+  const goBack = useCallback(() => {
+    window.history.back();
+  }, []);
 
   useEffect(() => {
     setSearchOpen(false);
@@ -519,18 +636,21 @@ function AppShell({
 
   useEffect(() => {
     if (selectedTaskId && !selectedTask && data.tasks.length > 0) {
+      skipHistorySyncRef.current = true;
       setSelectedTaskId(null);
     }
   }, [selectedTaskId, selectedTask, data.tasks.length]);
 
   useEffect(() => {
     if (selectedProjectId && !selectedProject && data.projects.length > 0) {
+      skipHistorySyncRef.current = true;
       setSelectedProjectId(null);
     }
   }, [selectedProjectId, selectedProject, data.projects.length]);
 
   useEffect(() => {
     if (selectedNoteId && !selectedNote && notes.length > 0) {
+      skipHistorySyncRef.current = true;
       setSelectedNoteId(null);
     }
   }, [selectedNoteId, selectedNote, notes.length]);
@@ -628,7 +748,7 @@ function AppShell({
                   setTab('tasks');
                   setSelectedTaskId(taskId);
                 }}
-                onClose={() => setSelectedNoteId(null)}
+                onClose={goBack}
               />
             </main>
             <UpdatePrompt />
@@ -652,7 +772,7 @@ function AppShell({
                 projects={data.projects}
                 projectMap={data.projectMap}
                 ctx={data.ctx}
-                onClose={() => setSelectedTaskId(null)}
+                onClose={goBack}
               />
             </main>
             <UpdatePrompt />
@@ -672,7 +792,7 @@ function AppShell({
               <ProjectDuelView
                 uid={uid}
                 projects={data.projects}
-                onClose={() => setDuelOpen(false)}
+                onClose={goBack}
               />
             </main>
             <UpdatePrompt />
@@ -692,7 +812,7 @@ function AppShell({
               <ClassifyView
                 uid={uid}
                 tasks={data.tasks}
-                onClose={() => setClassifyOpen(false)}
+                onClose={goBack}
               />
             </main>
             <UpdatePrompt />
@@ -714,7 +834,7 @@ function AppShell({
                 project={selectedProject}
                 taskCount={selectedProjectTaskCount}
                 score={data.ctx.projectScoreMap[selectedProject.id]}
-                onClose={() => setSelectedProjectId(null)}
+                onClose={goBack}
               />
             </main>
             <UpdatePrompt />
