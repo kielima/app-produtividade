@@ -4,11 +4,19 @@ import remarkGfm from 'remark-gfm';
 import { NewNoteFab } from '../components/NewNoteFab';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import { normalizeForSearch } from '../lib/searchNormalize';
-import type { Note } from '../types';
+import type { Note, Project } from '../types';
 
 const HIDDEN_BY_DEFAULT_TAG = 'porno';
 
-function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
+function NoteCard({
+  note,
+  project,
+  onClick,
+}: {
+  note: Note;
+  project?: Project;
+  onClick: () => void;
+}) {
   const hasItems = note.items.length > 0;
   const checkedCount = note.items.filter((i) => i.checked).length;
 
@@ -45,15 +53,22 @@ function NoteCard({ note, onClick }: { note: Note; onClick: () => void }) {
           Lista: {checkedCount}/{note.items.length}
         </p>
       )}
-      {note.tags.length > 0 && (
-        <div className="note-card-tags">
-          {note.tags.map((tag) => (
-            <span key={tag} className="tag-chip tag-chip-static">
-              {tag}
-            </span>
-          ))}
-        </div>
-      )}
+      <div className="note-card-footer">
+        {project && (
+          <span className="note-card-project-badge" title={project.name}>
+            {project.name}
+          </span>
+        )}
+        {note.tags.length > 0 && (
+          <div className="note-card-tags">
+            {note.tags.map((tag) => (
+              <span key={tag} className="tag-chip tag-chip-static">
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
     </article>
   );
 }
@@ -63,24 +78,35 @@ export function NotesView({
   notes,
   selectedTags,
   searchQuery,
+  projectFilter,
+  projects = [],
 }: {
   uid: string;
   notes: Note[];
   selectedTags: string[];
   searchQuery: string;
+  projectFilter?: string | null;
+  projects?: Project[];
 }) {
   const { openNote } = useNoteNavigation();
+
+  const projectMap = useMemo(
+    () => new Map(projects.map((p) => [p.id, p])),
+    [projects],
+  );
 
   const filteredNotes = useMemo(() => {
     const q = normalizeForSearch(searchQuery.trim());
     const required = selectedTags.length > 0 ? new Set(selectedTags) : null;
-    // Oculta notas com a tag 'porno' a menos que ela tenha sido selecionada no filtro.
     const hideHidden = !required || !required.has(HIDDEN_BY_DEFAULT_TAG);
     return notes.filter((n) => {
       if (hideHidden && n.tags.includes(HIDDEN_BY_DEFAULT_TAG)) return false;
       if (required) {
         const noteTags = new Set(n.tags);
         for (const t of required) if (!noteTags.has(t)) return false;
+      }
+      if (projectFilter) {
+        if (n.projectId !== projectFilter) return false;
       }
       if (q) {
         const haystack = normalizeForSearch(
@@ -90,7 +116,7 @@ export function NotesView({
       }
       return true;
     });
-  }, [notes, selectedTags, searchQuery]);
+  }, [notes, selectedTags, searchQuery, projectFilter]);
 
   const hasSearch = searchQuery.trim().length > 0;
   const pinnedNotes = filteredNotes.filter((n) => n.pinned);
@@ -106,7 +132,9 @@ export function NotesView({
             ? 'Nenhuma anotação ainda. Toque em + para criar.'
             : hasSearch
               ? 'Nenhuma anotação corresponde à pesquisa.'
-              : 'Nenhuma anotação corresponde às tags selecionadas.'}
+              : projectFilter
+                ? 'Nenhuma anotação associada a este projeto.'
+                : 'Nenhuma anotação corresponde às tags selecionadas.'}
         </p>
       ) : (
         <>
@@ -115,7 +143,12 @@ export function NotesView({
               <h2 className="note-section-heading">Fixadas</h2>
               <div className="note-list">
                 {pinnedNotes.map((n) => (
-                  <NoteCard key={n.id} note={n} onClick={() => openNote(n.id)} />
+                  <NoteCard
+                    key={n.id}
+                    note={n}
+                    project={n.projectId ? projectMap.get(n.projectId) : undefined}
+                    onClick={() => openNote(n.id)}
+                  />
                 ))}
               </div>
             </>
@@ -125,7 +158,12 @@ export function NotesView({
               {hasPinned && <h2 className="note-section-heading">Outras</h2>}
               <div className="note-list">
                 {otherNotes.map((n) => (
-                  <NoteCard key={n.id} note={n} onClick={() => openNote(n.id)} />
+                  <NoteCard
+                    key={n.id}
+                    note={n}
+                    project={n.projectId ? projectMap.get(n.projectId) : undefined}
+                    onClick={() => openNote(n.id)}
+                  />
                 ))}
               </div>
             </>

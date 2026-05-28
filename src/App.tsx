@@ -313,6 +313,7 @@ function AppShell({
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteTags, setSelectedNoteTags] = useState<string[]>([]);
+  const [noteProjectFilter, setNoteProjectFilter] = useState<string | null>(null);
   const [duelOpen, setDuelOpen] = useState(false);
   const [classifyOpen, setClassifyOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
@@ -695,6 +696,11 @@ function AppShell({
     return data.tasks.filter((t) => t.section === selectedProject.id).length;
   }, [selectedProject, data.tasks]);
 
+  const selectedProjectNotes = useMemo(() => {
+    if (!selectedProject) return [];
+    return notes.filter((n) => n.projectId === selectedProject.id);
+  }, [selectedProject, notes]);
+
   const classifyCount = useMemo(
     () =>
       data.tasks.filter(
@@ -825,6 +831,7 @@ function AppShell({
 
   if (selectedProject) {
     return (
+      <NoteNavigationContext.Provider value={noteNavValue}>
       <TaskNavigationContext.Provider value={taskNavValue}>
         <ProjectNavigationContext.Provider value={projectNavValue}>
           <div className="app app--detail">
@@ -835,6 +842,7 @@ function AppShell({
                 allProjects={data.projects}
                 taskCount={selectedProjectTaskCount}
                 score={data.ctx.projectScoreMap[selectedProject.id]}
+                notes={selectedProjectNotes}
                 onClose={goBack}
               />
             </main>
@@ -843,6 +851,7 @@ function AppShell({
           </div>
         </ProjectNavigationContext.Provider>
       </TaskNavigationContext.Provider>
+      </NoteNavigationContext.Provider>
     );
   }
 
@@ -897,6 +906,9 @@ function AppShell({
               setSelectedTags={setSelectedNoteTags}
               searchQuery={noteSearchQuery}
               onClearSearch={() => setNoteSearchQuery('')}
+              projects={data.projects}
+              projectFilter={noteProjectFilter}
+              setProjectFilter={setNoteProjectFilter}
             />
           </>
         )}
@@ -1005,6 +1017,8 @@ function AppShell({
             notes={notes}
             selectedTags={selectedNoteTags}
             searchQuery={noteSearchQuery}
+            projectFilter={noteProjectFilter}
+            projects={data.projects}
           />
         )}
         {tab === 'tasks' && (
