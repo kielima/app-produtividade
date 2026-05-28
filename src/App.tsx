@@ -849,7 +849,7 @@ function AppShell({
     <NoteNavigationContext.Provider value={noteNavValue}>
     <TaskNavigationContext.Provider value={taskNavValue}>
     <ProjectNavigationContext.Provider value={projectNavValue}>
-    <div className="app">
+    <div className={`app${tab === 'notes' ? ' app--notes' : ''}`}>
       <header
         className="topbar"
         role="banner"
