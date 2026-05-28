@@ -3045,6 +3045,34 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-weight: 500;
 }
 
+.swipeable-event-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  user-select: none;
+}
+
+.swipeable-event-inner {
+  transition: transform 280ms ease, opacity 280ms ease;
+}
+
+.swipeable-event-inner.dragging {
+  transition: none;
+}
+
+.swipe-dismiss-hint {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  padding: 0 1.25rem;
+  background: color-mix(in srgb, #22c55e 18%, transparent);
+  border-radius: 10px;
+  color: #22c55e;
+  pointer-events: none;
+  transition: opacity 120ms ease;
+}
+
 .countdown-actions {
   display: flex;
   justify-content: space-between;
