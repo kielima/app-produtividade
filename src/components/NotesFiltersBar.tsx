@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import type { Project } from '../types';
 
 export function NotesFiltersBar({
   allTags,
@@ -6,12 +7,18 @@ export function NotesFiltersBar({
   setSelectedTags,
   searchQuery,
   onClearSearch,
+  projects = [],
+  projectFilter,
+  setProjectFilter,
 }: {
   allTags: string[];
   selectedTags: string[];
   setSelectedTags: (next: string[]) => void;
   searchQuery?: string;
   onClearSearch?: () => void;
+  projects?: Project[];
+  projectFilter?: string | null;
+  setProjectFilter?: (id: string | null) => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -44,11 +51,20 @@ export function NotesFiltersBar({
 
   function clearFilters() {
     setSelectedTags([]);
+    setProjectFilter?.(null);
     onClearSearch?.();
     setOpen(false);
   }
 
-  const count = selectedTags.length;
+  const activeProjects = projects.filter(
+    (p) => p.status !== 'Concluído' && p.status !== 'Cancelado',
+  );
+  const inactiveProjects = projects.filter(
+    (p) => p.status === 'Concluído' || p.status === 'Cancelado',
+  );
+  const allSortedProjects = [...activeProjects, ...inactiveProjects];
+
+  const count = selectedTags.length + (projectFilter ? 1 : 0);
   const hasSearch = !!searchQuery;
 
   return (
@@ -111,6 +127,34 @@ export function NotesFiltersBar({
               </svg>
             </button>
           </div>
+
+          {setProjectFilter && allSortedProjects.length > 0 && (
+            <fieldset>
+              <legend>Projeto</legend>
+              <div className="chip-group">
+                <button
+                  type="button"
+                  className={`tag-chip tag-chip-toggle${!projectFilter ? ' active' : ''}`}
+                  onClick={() => setProjectFilter(null)}
+                  aria-pressed={!projectFilter}
+                >
+                  Todos
+                </button>
+                {allSortedProjects.map((p) => (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={`tag-chip tag-chip-toggle${projectFilter === p.id ? ' active' : ''}`}
+                    onClick={() => setProjectFilter(projectFilter === p.id ? null : p.id)}
+                    aria-pressed={projectFilter === p.id}
+                  >
+                    {p.name}
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+          )}
+
           <fieldset>
             <legend>Tags</legend>
             {allTags.length === 0 ? (
