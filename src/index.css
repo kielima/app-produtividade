@@ -265,6 +265,9 @@ a:focus-visible {
 @media (min-width: 720px) {
   .app { padding: 0 1.5rem 4rem; }
 }
+.app--notes {
+  max-width: none;
+}
 
 .topbar {
   display: flex;
