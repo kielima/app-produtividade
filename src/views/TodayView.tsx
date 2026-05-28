@@ -998,6 +998,21 @@ function WeatherPage({
 function WeatherPageContent({ location }: { location: WeatherLocation }) {
   const { state, retry } = useWeather(location.lat, location.lon);
   const currentHour = new Date().getHours();
+  const hourlyScrollRef = useRef<HTMLDivElement>(null);
+  const uvScrollRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (state.kind !== 'ready') return;
+    const scrollToNow = (container: HTMLDivElement | null) => {
+      if (!container) return;
+      const nowCard = container.querySelector('.is-now') as HTMLElement | null;
+      if (nowCard) {
+        container.scrollLeft = Math.max(0, nowCard.offsetLeft - 8);
+      }
+    };
+    scrollToNow(hourlyScrollRef.current);
+    scrollToNow(uvScrollRef.current);
+  }, [state.kind, location.id]);
 
   if (state.kind === 'loading') {
     return <div className="weather-page-loading muted">Carregando previsão…</div>;
@@ -1047,7 +1062,7 @@ function WeatherPageContent({ location }: { location: WeatherLocation }) {
 
       <div className="weather-section">
         <h3 className="weather-section-title">Clima por hora</h3>
-        <div className="weather-hourly-scroll" role="list">
+        <div className="weather-hourly-scroll" ref={hourlyScrollRef} role="list">
           {state.hourly.map((pt) => {
             const hKind = weatherKindFromCode(pt.code);
             const isNow = pt.hour === currentHour;
@@ -1071,7 +1086,7 @@ function WeatherPageContent({ location }: { location: WeatherLocation }) {
 
       <div className="weather-section">
         <h3 className="weather-section-title">UV por hora</h3>
-        <div className="weather-hourly-scroll" role="list">
+        <div className="weather-hourly-scroll" ref={uvScrollRef} role="list">
           {state.hourly.map((pt) => {
             const uvDesc = describeUv(pt.uv);
             const isNow = pt.hour === currentHour;
