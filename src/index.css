@@ -1265,6 +1265,22 @@ a:focus-visible {
   word-break: break-word;
   overflow-wrap: anywhere;
 }
+.modal .cur-deps li > .cur-dep-open {
+  flex: 1;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: none;
+  padding: 0;
+  font: inherit;
+  color: var(--accent);
+  cursor: pointer;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+.modal .cur-deps li > .cur-dep-open:hover {
+  text-decoration: underline;
+}
 .candidate-list {
   list-style: none;
   padding-left: 0;

@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { getDisplayTitle } from '../lib/parser';
 import { normalizeForSearch } from '../lib/searchNormalize';
+import { useTaskNavigation } from '../lib/taskNavigation';
 import type { Project, Task } from '../types';
 import TrashIcon from './TrashIcon';
 
@@ -21,6 +22,7 @@ export function DepPicker({
   onClose: () => void;
   onChange: (newDeps: string[]) => void;
 }) {
+  const { openTask } = useTaskNavigation();
   const [filter, setFilter] = useState('');
   const [projectFilter, setProjectFilter] = useState('');
   const [deps, setDeps] = useState<string[]>(task.dependsOn);
@@ -45,14 +47,19 @@ export function DepPicker({
       .sort((a, b) => (a.taskId ?? 0) - (b.taskId ?? 0));
   }, [allTasks, task.id, filter, projectFilter]);
 
-  const resolveLabel = (dep: string): string => {
+  const resolveDep = (dep: string): { task: Task | null; label: string } => {
     const m = dep.trim().match(/^#(\d+)$/);
     if (m) {
       const other = allTasks.find((t) => t.taskId === parseInt(m[1]!, 10));
-      if (other) return `${dep} — ${getDisplayTitle(other.title)}`;
+      if (other) return { task: other, label: `${dep} — ${getDisplayTitle(other.title)}` };
     }
-    return dep;
+    return { task: null, label: dep };
   };
+
+  function openDep(other: Task) {
+    onClose();
+    openTask(other.id);
+  }
 
   function addDep(other: Task) {
     if (other.taskId == null) return;
@@ -90,18 +97,32 @@ export function DepPicker({
             <p className="muted">Sem dependências.</p>
           ) : (
             <ul>
-              {deps.map((d) => (
-                <li key={d}>
-                  <span>{resolveLabel(d)}</span>
-                  <button
-                    onClick={() => removeDep(d)}
-                    className="icon-btn"
-                    aria-label="remover"
-                  >
-                    <TrashIcon size={18} />
-                  </button>
-                </li>
-              ))}
+              {deps.map((d) => {
+                const { task: depTask, label } = resolveDep(d);
+                return (
+                  <li key={d}>
+                    {depTask ? (
+                      <button
+                        type="button"
+                        onClick={() => openDep(depTask)}
+                        className="cur-dep-open"
+                        title="Abrir tarefa"
+                      >
+                        {label}
+                      </button>
+                    ) : (
+                      <span>{label}</span>
+                    )}
+                    <button
+                      onClick={() => removeDep(d)}
+                      className="icon-btn"
+                      aria-label="remover"
+                    >
+                      <TrashIcon size={18} />
+                    </button>
+                  </li>
+                );
+              })}
             </ul>
           )}
         </section>
