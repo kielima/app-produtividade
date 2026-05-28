@@ -55,7 +55,7 @@ export function useUserData(uid: string): UserData {
   }, [projects]);
 
   const ctx = useMemo(() => {
-    const projectScoreMap = buildProjectScoreMap(projects);
+    const projectScoreMap = buildProjectScoreMap(projects, tasks);
     return buildDependencyMap(
       tasks.map((task) => ({ task, section: projectMap[task.section] ?? null })),
       projectScoreMap,

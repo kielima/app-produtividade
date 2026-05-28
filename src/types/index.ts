@@ -58,7 +58,7 @@ export interface Project {
   nextSteps: string;
   deadline: string;
   estimatedDuration: string;
-  dependsOn: string;
+  dependsOn: string | null;
   notes: string;
   order?: number;
 }

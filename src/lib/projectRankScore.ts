@@ -62,24 +62,39 @@ function inverseNormalCDF(p: number): number {
 /**
  * Mapeia projetos já ordenados (índice 0 = maior prioridade) para o
  * score derivado da curva. Não reordena: confia na ordem recebida.
+ *
+ * Se um projeto tem `dependsOn` apontando para outro projeto cujas
+ * tarefas ainda não estão 100% concluídas, o score é forçado a 0
+ * (projeto bloqueado). Projetos sem tarefas não bloqueiam.
  */
 export function buildProjectScoreMap(
-  orderedProjects: ReadonlyArray<{ id: string }>,
+  orderedProjects: ReadonlyArray<{ id: string; dependsOn?: string | null }>,
+  tasks: ReadonlyArray<{ section: string; checked: boolean }> = [],
 ): Record<string, number> {
   const total = orderedProjects.length;
   const out: Record<string, number> = {};
   if (total === 0) return out;
   if (total === 1) {
     out[orderedProjects[0]!.id] = 3;
-    return out;
+  } else {
+    const z = (rank: number) => inverseNormalCDF((total - rank + 0.5) / total);
+    const zMax = z(1);
+    const zMin = z(total);
+    const range = zMax - zMin;
+    orderedProjects.forEach((p, idx) => {
+      const rank = idx + 1;
+      out[p.id] = (3 * (z(rank) - zMin)) / range;
+    });
   }
-  const z = (rank: number) => inverseNormalCDF((total - rank + 0.5) / total);
-  const zMax = z(1);
-  const zMin = z(total);
-  const range = zMax - zMin;
-  orderedProjects.forEach((p, idx) => {
-    const rank = idx + 1;
-    out[p.id] = (3 * (z(rank) - zMin)) / range;
-  });
+
+  const projectIds = new Set(orderedProjects.map((p) => p.id));
+  for (const p of orderedProjects) {
+    if (!p.dependsOn || !projectIds.has(p.dependsOn)) continue;
+    const depTasks = tasks.filter((t) => t.section === p.dependsOn);
+    if (depTasks.length === 0) continue;
+    const allDone = depTasks.every((t) => t.checked);
+    if (!allDone) out[p.id] = 0;
+  }
+
   return out;
 }

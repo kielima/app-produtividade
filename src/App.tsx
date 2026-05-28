@@ -832,6 +832,7 @@ function AppShell({
               <ProjectDetailView
                 uid={uid}
                 project={selectedProject}
+                allProjects={data.projects}
                 taskCount={selectedProjectTaskCount}
                 score={data.ctx.projectScoreMap[selectedProject.id]}
                 onClose={goBack}

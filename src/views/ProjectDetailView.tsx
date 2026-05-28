@@ -1,6 +1,7 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { InlineEdit } from '../components/InlineEdit';
 import { Popover } from '../components/Popover';
+import { ProjectDepPicker } from '../components/ProjectDepPicker';
 import TrashIcon from '../components/TrashIcon';
 import {
   deleteProjectWithTasks,
@@ -38,17 +39,20 @@ const STATUS_SLUG: Record<ProjectStatus, string> = {
 export function ProjectDetailView({
   uid,
   project,
+  allProjects,
   taskCount,
   score,
   onClose,
 }: {
   uid: string;
   project: Project;
+  allProjects: Project[];
   taskCount: number;
   score?: number;
   onClose: () => void;
 }) {
   const deadlineInputRef = useRef<HTMLInputElement>(null);
+  const [depPickerOpen, setDepPickerOpen] = useState(false);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -58,7 +62,7 @@ export function ProjectDetailView({
     return () => document.removeEventListener('keydown', onKey);
   }, [onClose]);
 
-  async function patch(field: keyof Project, value: string) {
+  async function patch(field: keyof Project, value: string | null) {
     await patchProject(uid, project.id, { [field]: value } as Partial<Project>);
   }
 
@@ -219,12 +223,21 @@ export function ProjectDetailView({
             onSave={(v) => patch('estimatedDuration', v)}
             placeholder="(ex: 3 meses)"
           />
-          <Field
-            label="🔗 Depende de"
-            value={project.dependsOn}
-            onSave={(v) => patch('dependsOn', v)}
-            placeholder="(outro projeto, opcional)"
-          />
+          <div className="task-detail-field">
+            <dt>🔗 Depende de</dt>
+            <dd>
+              <button
+                type="button"
+                className={`badge dep-project-badge${project.dependsOn ? ' has-dep' : ''}`}
+                onClick={() => setDepPickerOpen(true)}
+                title="Selecionar projeto bloqueante"
+              >
+                {project.dependsOn
+                  ? (allProjects.find((p) => p.id === project.dependsOn)?.name ?? project.dependsOn)
+                  : '(nenhum)'}
+              </button>
+            </dd>
+          </div>
         </dl>
 
         <section className="task-detail-section">
@@ -238,6 +251,15 @@ export function ProjectDetailView({
           />
         </section>
       </div>
+
+      {depPickerOpen && (
+        <ProjectDepPicker
+          currentProject={project}
+          allProjects={allProjects}
+          onClose={() => setDepPickerOpen(false)}
+          onChange={(id) => patch('dependsOn', id)}
+        />
+      )}
     </section>
   );
 }
