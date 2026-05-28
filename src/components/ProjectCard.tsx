@@ -18,15 +18,23 @@ const STATUS_SLUG: Record<ProjectStatus, string> = {
 export function ProjectCard({
   project,
   taskCount,
+  doneTaskCount,
   glickoRating,
 }: {
   project: Project;
   taskCount: number;
+  doneTaskCount: number;
   glickoRating?: GlickoRating;
 }) {
   const { openProject, openProjectTasks } = useProjectNavigation();
   const isDone = project.status === 'Concluído' || project.status === 'Cancelado';
-  const countLabel = `${taskCount} tarefa${taskCount === 1 ? '' : 's'}`;
+  const pendingCount = Math.max(0, taskCount - doneTaskCount);
+  const progressPct =
+    taskCount > 0 ? Math.round((doneTaskCount / taskCount) * 100) : null;
+  const countLabel =
+    progressPct === null
+      ? `${pendingCount} tarefa${pendingCount === 1 ? '' : 's'}`
+      : `${pendingCount} tarefa${pendingCount === 1 ? '' : 's'} (${progressPct}%)`;
   const statusClass = STATUS_SLUG[project.status];
 
   const volatility = glickoRating ? classifyVolatility(glickoRating.sigma) : null;
