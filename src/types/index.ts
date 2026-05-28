@@ -71,6 +71,7 @@ export interface Note {
   addedDate: string;
   tags: string[];
   pinned: boolean;
+  projectId?: string;
 }
 
 export interface DependencyEntry {

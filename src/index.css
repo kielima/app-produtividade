@@ -2037,12 +2037,35 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-size: 0.8rem;
 }
 
+.note-card-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.1rem;
+}
+
 .note-card-tags {
   display: flex;
   flex-wrap: wrap;
   gap: 0.3rem;
-  margin-top: 0.1rem;
   pointer-events: none;
+}
+
+.note-card-project-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.15rem 0.5rem;
+  border-radius: 999px;
+  background: var(--accent-muted, color-mix(in srgb, var(--accent) 15%, transparent));
+  color: var(--accent);
+  font-size: 0.72rem;
+  font-weight: 500;
+  pointer-events: none;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 /* ===== Tags (chips + editor) ===== */
@@ -2433,6 +2456,72 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-size: 0.95rem;
   white-space: pre-wrap;
 }
+.note-detail-project-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.note-detail-project-select {
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font-size: 0.9rem;
+  cursor: pointer;
+}
+
+.project-detail-notes-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.project-detail-note-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font-size: 0.9rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.12s;
+}
+
+.project-detail-note-item:hover {
+  background: var(--surface-3, var(--surface-2));
+}
+
+.project-detail-note-title {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.project-detail-note-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.2rem;
+  flex-shrink: 0;
+}
+
+.tag-chip-xs {
+  font-size: 0.68rem;
+  padding: 0.1rem 0.4rem;
+}
+
 .note-detail-actions {
   display: flex;
   justify-content: flex-end;

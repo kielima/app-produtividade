@@ -228,6 +228,36 @@ export function NoteDetailView({
           />
         </section>
 
+        <section className="task-detail-section">
+          <h3>Projeto</h3>
+          <div className="note-detail-project-row">
+            <select
+              className="note-detail-project-select"
+              value={note.projectId ?? ''}
+              onChange={(e) =>
+                patchNote(uid, note.id, { projectId: e.target.value || undefined })
+              }
+              aria-label="projeto associado"
+            >
+              <option value="">(nenhum)</option>
+              {projects
+                .filter((p) => p.status !== 'Concluído' && p.status !== 'Cancelado')
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+              {projects
+                .filter((p) => p.status === 'Concluído' || p.status === 'Cancelado')
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} ({p.status})
+                  </option>
+                ))}
+            </select>
+          </div>
+        </section>
+
         <div className="note-detail-actions">
           <button
             type="button"

@@ -3,11 +3,12 @@ import { InlineEdit } from '../components/InlineEdit';
 import { Popover } from '../components/Popover';
 import { ProjectDepPicker } from '../components/ProjectDepPicker';
 import TrashIcon from '../components/TrashIcon';
+import { useNoteNavigation } from '../lib/noteNavigation';
 import {
   deleteProjectWithTasks,
   patchProject,
 } from '../repositories/projectsRepo';
-import type { Project, ProjectStatus } from '../types';
+import type { Note, Project, ProjectStatus } from '../types';
 
 const STATUS_OPTS: ProjectStatus[] = [
   'A iniciar',
@@ -42,6 +43,7 @@ export function ProjectDetailView({
   allProjects,
   taskCount,
   score,
+  notes = [],
   onClose,
 }: {
   uid: string;
@@ -49,8 +51,10 @@ export function ProjectDetailView({
   allProjects: Project[];
   taskCount: number;
   score?: number;
+  notes?: Note[];
   onClose: () => void;
 }) {
+  const { openNote } = useNoteNavigation();
   const deadlineInputRef = useRef<HTMLInputElement>(null);
   const [depPickerOpen, setDepPickerOpen] = useState(false);
 
@@ -250,6 +254,36 @@ export function ProjectDetailView({
             className="task-detail-note"
           />
         </section>
+
+        {notes.length > 0 && (
+          <section className="task-detail-section">
+            <h3>🗒️ Anotações do Keep ({notes.length})</h3>
+            <ul className="project-detail-notes-list">
+              {notes.map((n) => (
+                <li key={n.id}>
+                  <button
+                    type="button"
+                    className="project-detail-note-item"
+                    onClick={() => openNote(n.id)}
+                  >
+                    <span className="project-detail-note-title">
+                      {n.title || <span className="muted">(sem título)</span>}
+                    </span>
+                    {n.tags.length > 0 && (
+                      <span className="project-detail-note-tags">
+                        {n.tags.map((t) => (
+                          <span key={t} className="tag-chip tag-chip-static tag-chip-xs">
+                            {t}
+                          </span>
+                        ))}
+                      </span>
+                    )}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
       </div>
 
       {depPickerOpen && (
