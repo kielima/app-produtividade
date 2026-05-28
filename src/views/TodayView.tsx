@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { TaskCard } from '../components/TaskCard';
 import {
@@ -339,6 +339,38 @@ function daysLabel(days: number): { value: string; label: string } {
 }
 
 const TODAY_PICKS_KEY = 'app-produtividade:today-picks';
+
+const DISMISSED_EVENTS_KEY = 'app-produtividade:dismissed-events';
+
+function loadDismissedEvents(): Set<string> {
+  try {
+    const raw = JSON.parse(
+      localStorage.getItem(DISMISSED_EVENTS_KEY) ?? '{}'
+    ) as Record<string, string>;
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    return new Set(
+      Object.entries(raw)
+        .filter(([, iso]) => new Date(iso).getTime() > cutoff)
+        .map(([id]) => id)
+    );
+  } catch {
+    return new Set();
+  }
+}
+
+function saveDismissedEvent(id: string): void {
+  try {
+    const raw = JSON.parse(
+      localStorage.getItem(DISMISSED_EVENTS_KEY) ?? '{}'
+    ) as Record<string, string>;
+    raw[id] = new Date().toISOString();
+    const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+    for (const [k, v] of Object.entries(raw)) {
+      if (new Date(v).getTime() <= cutoff) delete raw[k];
+    }
+    localStorage.setItem(DISMISSED_EVENTS_KEY, JSON.stringify(raw));
+  } catch {}
+}
 
 interface StoredPicks {
   date: string;
@@ -1119,7 +1151,150 @@ function StreakInline({
   );
 }
 
+const SWIPE_DISMISS_THRESHOLD = 80;
+
+function SwipeableEventCard({
+  event,
+  onDismiss,
+}: {
+  event: CalendarEvent;
+  onDismiss: () => void;
+}) {
+  const [dragX, setDragX] = useState(0);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isDismissing, setIsDismissing] = useState(false);
+  const startXRef = useRef<number | null>(null);
+  const hasDraggedRef = useRef(false);
+
+  const now = new Date();
+  const days = daysUntil(event, now);
+  const { value, label } = daysLabel(days);
+
+  function handlePointerDown(e: React.PointerEvent<HTMLDivElement>) {
+    startXRef.current = e.clientX;
+    hasDraggedRef.current = false;
+    setIsDragging(true);
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  }
+
+  function handlePointerMove(e: React.PointerEvent<HTMLDivElement>) {
+    if (startXRef.current === null) return;
+    const delta = e.clientX - startXRef.current;
+    if (Math.abs(delta) > 6) hasDraggedRef.current = true;
+    setDragX(delta);
+  }
+
+  function handlePointerUp() {
+    setIsDragging(false);
+    startXRef.current = null;
+    if (Math.abs(dragX) >= SWIPE_DISMISS_THRESHOLD) {
+      setIsDismissing(true);
+      setTimeout(onDismiss, 280);
+    } else {
+      setDragX(0);
+    }
+  }
+
+  function handleClick(e: React.MouseEvent) {
+    if (hasDraggedRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+    }
+  }
+
+  const progress = Math.min(1, Math.abs(dragX) / SWIPE_DISMISS_THRESHOLD);
+  const opacity = isDismissing ? 0 : Math.max(0.15, 1 - progress * 0.85);
+  const translateX = isDismissing ? (dragX >= 0 ? 160 : -160) : dragX;
+  const showHint = Math.abs(dragX) > 12;
+
+  const card = (
+    <article className="countdown-card">
+      <div className="countdown-card-icon" aria-hidden="true">
+        <svg
+          width="22"
+          height="22"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        >
+          <rect x="3" y="4" width="18" height="18" rx="2" />
+          <line x1="16" x2="16" y1="2" y2="6" />
+          <line x1="8" x2="8" y1="2" y2="6" />
+          <line x1="3" x2="21" y1="10" y2="10" />
+        </svg>
+      </div>
+      <div className="countdown-card-body">
+        <p className="countdown-card-title">{event.summary}</p>
+        <p className="countdown-card-date muted">{formatEventDate(event)}</p>
+      </div>
+      <div className="countdown-card-count">
+        <span className="countdown-card-value">{value}</span>
+        {label && <span className="countdown-card-label">{label}</span>}
+      </div>
+    </article>
+  );
+
+  return (
+    <div
+      className="swipeable-event-wrapper"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerUp}
+      onClick={handleClick}
+      style={{ touchAction: 'pan-y' }}
+    >
+      {showHint && (
+        <div
+          className="swipe-dismiss-hint"
+          style={{ opacity: progress, justifyContent: dragX > 0 ? 'flex-start' : 'flex-end' }}
+        >
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.5"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          >
+            <polyline points="20 6 9 17 4 12" />
+          </svg>
+        </div>
+      )}
+      <div
+        className={isDragging && !isDismissing ? 'swipeable-event-inner dragging' : 'swipeable-event-inner'}
+        style={{ transform: `translateX(${translateX}px)`, opacity }}
+      >
+        {event.htmlLink ? (
+          <a
+            href={event.htmlLink}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="countdown-card-link"
+          >
+            {card}
+          </a>
+        ) : (
+          card
+        )}
+      </div>
+    </div>
+  );
+}
+
 function EventsList({ state, onConnect }: { state: EventsState; onConnect?: () => void }) {
+  const [dismissed, setDismissed] = useState<Set<string>>(() => loadDismissedEvents());
+
+  function handleDismiss(id: string) {
+    saveDismissedEvent(id);
+    setDismissed((prev) => new Set([...prev, id]));
+  }
+
   if (state.kind === 'idle' || state.kind === 'loading') {
     return <p className="muted">Carregando eventos…</p>;
   }
@@ -1140,61 +1315,22 @@ function EventsList({ state, onConnect }: { state: EventsState; onConnect?: () =
   if (state.kind === 'error') {
     return <p className="error">{state.message}</p>;
   }
-  if (state.events.length === 0) {
+
+  const visible = state.events.filter((e) => !dismissed.has(e.id));
+
+  if (visible.length === 0) {
     return <p className="muted">Nenhum evento nos próximos 7 dias.</p>;
   }
-  const now = new Date();
+
   return (
     <div className="countdown-list">
-      {state.events.map((event) => {
-        const days = daysUntil(event, now);
-        const { value, label } = daysLabel(days);
-        const card = (
-          <article className="countdown-card" key={event.id}>
-            <div className="countdown-card-icon" aria-hidden="true">
-              <svg
-                width="22"
-                height="22"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.6"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="3" y="4" width="18" height="18" rx="2" />
-                <line x1="16" x2="16" y1="2" y2="6" />
-                <line x1="8" x2="8" y1="2" y2="6" />
-                <line x1="3" x2="21" y1="10" y2="10" />
-              </svg>
-            </div>
-            <div className="countdown-card-body">
-              <p className="countdown-card-title">{event.summary}</p>
-              <p className="countdown-card-date muted">
-                {formatEventDate(event)}
-              </p>
-            </div>
-            <div className="countdown-card-count">
-              <span className="countdown-card-value">{value}</span>
-              {label && <span className="countdown-card-label">{label}</span>}
-            </div>
-          </article>
-        );
-        if (event.htmlLink) {
-          return (
-            <a
-              key={event.id}
-              href={event.htmlLink}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="countdown-card-link"
-            >
-              {card}
-            </a>
-          );
-        }
-        return card;
-      })}
+      {visible.map((event) => (
+        <SwipeableEventCard
+          key={event.id}
+          event={event}
+          onDismiss={() => handleDismiss(event.id)}
+        />
+      ))}
     </div>
   );
 }
