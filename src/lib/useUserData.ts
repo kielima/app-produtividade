@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { subscribeToProjects } from '../repositories/projectsRepo';
+import { patchProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import { migrateSectionsToProjects } from './migrateSectionsToProjects';
 import { buildProjectScoreMap } from './projectRankScore';
@@ -61,6 +61,20 @@ export function useUserData(uid: string): UserData {
       projectScoreMap,
     );
   }, [tasks, projects, projectMap]);
+
+  // Auto-pausa projetos bloqueados por dependência não concluída.
+  useEffect(() => {
+    const projectIds = new Set(projects.map((p) => p.id));
+    for (const p of projects) {
+      if (!p.dependsOn || !projectIds.has(p.dependsOn)) continue;
+      const depTasks = tasks.filter((t) => t.section === p.dependsOn);
+      if (depTasks.length === 0) continue;
+      const allDone = depTasks.every((t) => t.checked);
+      if (!allDone && p.status !== 'Pausado') {
+        patchProject(uid, p.id, { status: 'Pausado' });
+      }
+    }
+  }, [uid, tasks, projects]);
 
   return { tasks, projects, projectMap, ctx, error };
 }
