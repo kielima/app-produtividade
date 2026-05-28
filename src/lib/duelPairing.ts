@@ -47,9 +47,11 @@ export function pickNextPair(input: PairingInput): Pair | null {
   const { candidateIds, ratings, lastPair = null, rng = Math.random } = input;
   if (candidateIds.length < 2) return null;
 
+  // Peso quadrático no RD: projetos com baixa confiabilidade (RD alto)
+  // ganham preferência muito maior do que com peso linear.
   const firstWeights = candidateIds.map((id) => {
     const rd = ratingOf(ratings, id).rd;
-    return Math.max(rd, 50); // floor pra todos terem alguma chance
+    return Math.pow(Math.max(rd, 50), 2);
   });
   const first = weightedPick(candidateIds, firstWeights, rng);
   if (!first) return null;
@@ -60,7 +62,7 @@ export function pickNextPair(input: PairingInput): Pair | null {
     const rating = ratingOf(ratings, id);
     const diff = Math.abs(rating.r - firstR);
     const proximity = Math.exp(-Math.pow(diff / 200, 2));
-    let w = Math.max(rating.rd, 50) * proximity;
+    let w = Math.pow(Math.max(rating.rd, 50), 2) * proximity;
     // Penaliza repetir o par anterior (não bane, só reduz a chance).
     if (
       lastPair &&
