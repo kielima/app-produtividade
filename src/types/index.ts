@@ -61,6 +61,11 @@ export interface Project {
   dependsOn: string | null;
   notes: string;
   order?: number;
+  // Snapshot do status que o projeto tinha antes de ser pausado
+  // automaticamente por estar bloqueado por uma dependência. Quando o
+  // bloqueio é levantado, o status é restaurado a partir daqui e o campo
+  // volta a null. Em projetos não bloqueados é null/undefined.
+  statusBeforeBlock?: ProjectStatus | null;
 }
 
 export interface Note {

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { patchProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import { migrateSectionsToProjects } from './migrateSectionsToProjects';
+import { computeBlockTransitions } from './projectBlocking';
 import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
 import type { Project, ScoreContext, Task } from '../types';
@@ -62,17 +63,11 @@ export function useUserData(uid: string): UserData {
     );
   }, [tasks, projects, projectMap]);
 
-  // Auto-pausa projetos bloqueados por dependência não concluída.
+  // Auto-pausa projetos bloqueados por dependência não concluída e reverte
+  // para o status anterior quando o bloqueio é levantado (dependência 100%).
   useEffect(() => {
-    const projectIds = new Set(projects.map((p) => p.id));
-    for (const p of projects) {
-      if (!p.dependsOn || !projectIds.has(p.dependsOn)) continue;
-      const depTasks = tasks.filter((t) => t.section === p.dependsOn);
-      if (depTasks.length === 0) continue;
-      const allDone = depTasks.every((t) => t.checked);
-      if (!allDone && p.status !== 'Pausado') {
-        patchProject(uid, p.id, { status: 'Pausado' });
-      }
+    for (const { id, patch } of computeBlockTransitions(projects, tasks)) {
+      patchProject(uid, id, patch);
     }
   }, [uid, tasks, projects]);
 
