@@ -818,6 +818,7 @@ function AppShell({
               <ClassifyView
                 uid={uid}
                 tasks={data.tasks}
+                projects={data.projects}
                 onClose={goBack}
               />
             </main>
