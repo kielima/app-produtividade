@@ -31,6 +31,8 @@ export function subscribeToNotes(
           addedDate: data.addedDate ?? '',
           tags: Array.isArray(data.tags) ? data.tags : [],
           pinned: data.pinned === true,
+          ...(data.projectId != null ? { projectId: data.projectId } : {}),
+          ...(data.color != null ? { color: data.color } : {}),
         };
       });
       notes.sort((a, b) => {
