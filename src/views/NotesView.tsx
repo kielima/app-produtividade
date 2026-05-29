@@ -27,6 +27,7 @@ function NoteCard({
       role="button"
       tabIndex={0}
       onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') onClick(); }}
+      style={note.color ? { background: note.color, borderColor: 'transparent' } : undefined}
     >
       <p className="note-card-title">
         {note.pinned && (

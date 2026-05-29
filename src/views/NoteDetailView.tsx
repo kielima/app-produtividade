@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
 import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
@@ -43,6 +43,39 @@ export function NoteDetailView({
   onClose: () => void;
 }) {
   const [converting, setConverting] = useState(false);
+  const [showColorPicker, setShowColorPicker] = useState(false);
+  const colorPickerRef = useRef<HTMLDivElement>(null);
+
+  const NOTE_COLORS = [
+    { label: 'Padrão', value: '' },
+    { label: 'Vermelho', value: '#f28b82' },
+    { label: 'Laranja', value: '#fbbc04' },
+    { label: 'Amarelo', value: '#fff475' },
+    { label: 'Verde claro', value: '#ccff90' },
+    { label: 'Verde', value: '#a8d8a8' },
+    { label: 'Azul claro', value: '#cbf0f8' },
+    { label: 'Azul', value: '#aecbfa' },
+    { label: 'Lilás', value: '#d7aefb' },
+    { label: 'Rosa', value: '#fdcfe8' },
+    { label: 'Bege', value: '#e6c9a8' },
+    { label: 'Cinza', value: '#e8eaed' },
+  ];
+
+  useEffect(() => {
+    if (!showColorPicker) return;
+    function handleClickOutside(e: MouseEvent) {
+      if (colorPickerRef.current && !colorPickerRef.current.contains(e.target as Node)) {
+        setShowColorPicker(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [showColorPicker]);
+
+  async function setColor(color: string) {
+    await patchNote(uid, note.id, { color: color || undefined });
+    setShowColorPicker(false);
+  }
   const targetProject = pickConvertTargetProject(projects);
   const canConvert = targetProject != null;
   useEffect(() => {
@@ -129,8 +162,13 @@ export function NoteDetailView({
   }
 
   return (
-    <section className="task-detail">
-      <header className="topbar task-detail-topbar" role="banner">
+    <section
+      className="task-detail"
+      style={note.color ? { background: note.color, minHeight: '100vh' } : undefined}
+    >
+      <header className="topbar task-detail-topbar" role="banner"
+        style={note.color ? { background: note.color, borderBottomColor: 'rgba(0,0,0,0.08)' } : undefined}
+      >
         <button
           type="button"
           className="menu-toggle"
@@ -153,6 +191,48 @@ export function NoteDetailView({
             : ''}
         </span>
         <span className="task-detail-topbar-right">
+          <div className="note-color-picker-wrapper" ref={colorPickerRef}>
+            <button
+              type="button"
+              className="note-color-picker-btn"
+              onClick={() => setShowColorPicker((v) => !v)}
+              aria-label="cor da anotação"
+              title="cor da anotação"
+              aria-expanded={showColorPicker}
+            >
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+                <path d="M12 3a9 9 0 1 0 9 9c0-1.66-1.34-3-3-3h-1.59c-.47 0-.85-.38-.85-.85 0-.23.09-.45.25-.61L16.95 6.4A8.93 8.93 0 0 0 12 3z" fill="currentColor" opacity="0.8"/>
+                <circle cx="6.5" cy="11.5" r="1.25" fill="#f28b82"/>
+                <circle cx="8.5" cy="7.5" r="1.25" fill="#fbbc04"/>
+                <circle cx="12" cy="6" r="1.25" fill="#ccff90"/>
+                <circle cx="15.5" cy="7.5" r="1.25" fill="#aecbfa"/>
+              </svg>
+              {note.color && (
+                <span className="note-color-picker-dot" style={{ background: note.color }} />
+              )}
+            </button>
+            {showColorPicker && (
+              <div className="note-color-palette" role="dialog" aria-label="paleta de cores">
+                {NOTE_COLORS.map(({ label, value }) => (
+                  <button
+                    key={value || 'default'}
+                    type="button"
+                    className={`note-color-swatch${note.color === value || (!note.color && !value) ? ' selected' : ''}`}
+                    style={value ? { background: value } : undefined}
+                    onClick={() => setColor(value)}
+                    aria-label={label}
+                    title={label}
+                  >
+                    {(!value) && (
+                      <svg width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                        <line x1="4" y1="4" x2="20" y2="20" stroke="#aaa" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                    )}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
           <button
             type="button"
             className={`note-pin-toggle${note.pinned ? ' is-pinned' : ''}`}

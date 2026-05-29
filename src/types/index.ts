@@ -72,6 +72,7 @@ export interface Note {
   tags: string[];
   pinned: boolean;
   projectId?: string;
+  color?: string;
 }
 
 export interface DependencyEntry {
