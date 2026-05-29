@@ -2904,6 +2904,21 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   border-radius: 14px;
   background: var(--surface);
 }
+.classify-project {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin: -0.75rem 0 0;
+}
+.classify-project-label {
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-size: 0.8rem;
+}
+.classify-project-name {
+  color: var(--fg);
+  font-weight: 600;
+}
 .classify-done-row {
   display: flex;
   align-items: stretch;

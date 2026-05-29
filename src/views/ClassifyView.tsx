@@ -3,7 +3,7 @@ import TrashIcon from '../components/TrashIcon';
 import { getDisplayTitle } from '../lib/parser';
 import { patchTask } from '../lib/taskMutations';
 import { deleteTask } from '../repositories/tasksRepo';
-import type { Esforco, MoSCoW, Task } from '../types';
+import type { Esforco, MoSCoW, Project, Task } from '../types';
 
 const MOSCOW_OPTIONS: Array<{ key: Exclude<MoSCoW, ''>; label: string }> = [
   { key: 'must', label: 'Must' },
@@ -32,10 +32,12 @@ function needsClassification(t: Task): boolean {
 export function ClassifyView({
   uid,
   tasks,
+  projects,
   onClose,
 }: {
   uid: string;
   tasks: Task[];
+  projects: Project[];
   onClose: () => void;
 }) {
   const [queue, setQueue] = useState<string[]>([]);
@@ -63,7 +65,16 @@ export function ClassifyView({
     return m;
   }, [tasks]);
 
+  const projectNameById = useMemo(() => {
+    const m: Record<string, string> = {};
+    for (const p of projects) m[p.id] = p.name;
+    return m;
+  }, [projects]);
+
   const currentTask = index < queue.length ? taskById[queue[index]] ?? null : null;
+  const currentProjectName = currentTask
+    ? projectNameById[currentTask.section] ?? null
+    : null;
 
   // Reseta o pending quando o item atual muda.
   useEffect(() => {
@@ -192,6 +203,12 @@ export function ClassifyView({
         <div className="classify-card">
           <p className="classify-prompt">Classifique:</p>
           <h2 className="classify-title">{getDisplayTitle(currentTask.title)}</h2>
+          {currentProjectName && (
+            <p className="classify-project" aria-label="projeto da tarefa">
+              <span className="classify-project-label">Projeto:</span>{' '}
+              <span className="classify-project-name">{currentProjectName}</span>
+            </p>
+          )}
 
           <div className="classify-done-row">
             <label className="classify-done-toggle">
