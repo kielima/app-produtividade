@@ -3580,6 +3580,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   overflow-x: auto;
   padding-bottom: 0.4rem;
   scrollbar-width: none;
+  cursor: grab;
+}
+
+.weather-hourly-scroll:active {
+  cursor: grabbing;
 }
 
 .weather-hourly-scroll::-webkit-scrollbar {

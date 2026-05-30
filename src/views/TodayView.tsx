@@ -1,4 +1,42 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+
+function useDragScroll() {
+  const ref = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    let isDown = false;
+    let startX = 0;
+    let scrollLeft = 0;
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'touch') return;
+      isDown = true;
+      startX = e.clientX;
+      scrollLeft = el.scrollLeft;
+      el.setPointerCapture(e.pointerId);
+      el.style.cursor = 'grabbing';
+    };
+    const onPointerMove = (e: PointerEvent) => {
+      if (!isDown) return;
+      el.scrollLeft = scrollLeft - (e.clientX - startX);
+    };
+    const onPointerUp = () => {
+      isDown = false;
+      el.style.cursor = '';
+    };
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', onPointerUp);
+    el.addEventListener('pointercancel', onPointerUp);
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', onPointerUp);
+      el.removeEventListener('pointercancel', onPointerUp);
+    };
+  }, []);
+  return ref;
+}
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { TaskCard } from '../components/TaskCard';
 import {
@@ -998,8 +1036,8 @@ function WeatherPage({
 function WeatherPageContent({ location }: { location: WeatherLocation }) {
   const { state, retry } = useWeather(location.lat, location.lon);
   const currentHour = new Date().getHours();
-  const hourlyScrollRef = useRef<HTMLDivElement>(null);
-  const uvScrollRef = useRef<HTMLDivElement>(null);
+  const hourlyScrollRef = useDragScroll();
+  const uvScrollRef = useDragScroll();
 
   useEffect(() => {
     if (state.kind !== 'ready') return;
@@ -1291,6 +1329,8 @@ function SwipeableEventCard({
             target="_blank"
             rel="noopener noreferrer"
             className="countdown-card-link"
+            draggable={false}
+            onDragStart={(e) => e.preventDefault()}
           >
             {card}
           </a>
