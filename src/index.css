@@ -2032,6 +2032,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   pointer-events: none;
 }
 
+/* reativa o clique apenas nos links: abrem no navegador em vez da nota */
+.note-card-preview a {
+  pointer-events: auto;
+}
+
 .note-card-items {
   margin: 0;
   font-size: 0.8rem;
