@@ -46,7 +46,21 @@ function NoteCard({
       </p>
       {note.note && (
         <div className="note-card-preview markdown-note-preview">
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{note.note}</ReactMarkdown>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
+              a: ({ node, ...props }) => (
+                <a
+                  {...props}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                />
+              ),
+            }}
+          >
+            {note.note}
+          </ReactMarkdown>
         </div>
       )}
       {hasItems && (
