@@ -131,27 +131,28 @@ export function NotesFiltersBar({
           {setProjectFilter && allSortedProjects.length > 0 && (
             <fieldset>
               <legend>Projeto</legend>
-              <div className="chip-group">
-                <button
-                  type="button"
-                  className={`tag-chip tag-chip-toggle${!projectFilter ? ' active' : ''}`}
-                  onClick={() => setProjectFilter(null)}
-                  aria-pressed={!projectFilter}
-                >
-                  Todos
-                </button>
-                {allSortedProjects.map((p) => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    className={`tag-chip tag-chip-toggle${projectFilter === p.id ? ' active' : ''}`}
-                    onClick={() => setProjectFilter(projectFilter === p.id ? null : p.id)}
-                    aria-pressed={projectFilter === p.id}
-                  >
-                    {p.name}
-                  </button>
-                ))}
-              </div>
+              <select
+                className="filter-select"
+                value={projectFilter ?? ''}
+                onChange={(e) => setProjectFilter(e.target.value || null)}
+                aria-label="Filtrar por projeto"
+              >
+                <option value="">Todos</option>
+                {activeProjects.length > 0 && (
+                  <optgroup label="Ativos">
+                    {activeProjects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+                {inactiveProjects.length > 0 && (
+                  <optgroup label="Concluídos / Cancelados">
+                    {inactiveProjects.map((p) => (
+                      <option key={p.id} value={p.id}>{p.name}</option>
+                    ))}
+                  </optgroup>
+                )}
+              </select>
             </fieldset>
           )}
 

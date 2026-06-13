@@ -1730,6 +1730,20 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.6rem;
   align-items: center;
 }
+.filter-select {
+  width: 100%;
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--surface-2);
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  outline: none;
+}
+.filter-select:focus {
+  border-color: var(--accent);
+}
 .filters-panel legend {
   font-size: 0.8rem;
   font-weight: 600;
