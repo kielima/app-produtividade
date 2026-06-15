@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import TrashIcon from '../components/TrashIcon';
+import { hapticCelebrate, hapticSuccess, hapticTap } from '../lib/haptics';
 import { getDisplayTitle } from '../lib/parser';
 import { patchTask } from '../lib/taskMutations';
 import { deleteTask } from '../repositories/tasksRepo';
@@ -48,7 +49,16 @@ export function ClassifyView({
   const [pendingEsforco, setPendingEsforco] = useState<Esforco | null>(null);
   const [busy, setBusy] = useState(false);
   const [classifiedCount, setClassifiedCount] = useState(0);
+  // Incrementa a cada classificação concluída pra re-disparar a animação de
+  // recompensa (a barra pulsa). Usado como `key` no elemento de brilho.
+  const [rewardPulse, setRewardPulse] = useState(0);
   const initialTotalRef = useRef(0);
+
+  // Dispara o reforço positivo: vibração + animação na barra de progresso.
+  function triggerReward() {
+    hapticSuccess();
+    setRewardPulse((n) => n + 1);
+  }
 
   // Captura snapshot da fila no mount. Não reage a mudanças no `tasks` pra
   // não embaralhar a ordem enquanto o usuário classifica.
@@ -108,6 +118,7 @@ export function ClassifyView({
       await patchTask(uid, task, { moscow: nextMoscow, esforco: nextEsforco });
       if (willComplete) {
         setClassifiedCount((c) => c + 1);
+        triggerReward();
         advance();
       }
     } catch (err) {
@@ -131,11 +142,13 @@ export function ClassifyView({
 
   function handleSkip() {
     if (busy) return;
+    hapticTap();
     advance();
   }
 
   function handlePrev() {
     if (busy || index === 0) return;
+    hapticTap();
     setIndex((i) => Math.max(0, i - 1));
   }
 
@@ -145,6 +158,7 @@ export function ClassifyView({
     try {
       await patchTask(uid, currentTask, { checked: true });
       setClassifiedCount((c) => c + 1);
+      triggerReward();
       advance();
     } catch (err) {
       console.error('Falha ao marcar como concluída', err);
@@ -171,6 +185,16 @@ export function ClassifyView({
   const total = initialTotalRef.current;
   const done = index >= queue.length && queue.length > 0;
   const empty = queue.length === 0;
+  const progressPct = total > 0 ? Math.round((classifiedCount / total) * 100) : 0;
+
+  // Comemora com vibração mais longa quando a sessão termina.
+  const celebratedRef = useRef(false);
+  useEffect(() => {
+    if (done && !celebratedRef.current) {
+      celebratedRef.current = true;
+      hapticCelebrate();
+    }
+  }, [done]);
 
   return (
     <section className="classify-view">
@@ -180,6 +204,31 @@ export function ClassifyView({
         onClose={onClose}
         showCount={!empty}
       />
+
+      {!empty && (
+        <div
+          className="classify-progress"
+          role="progressbar"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={progressPct}
+          aria-label="progresso da classificação"
+        >
+          <div className="classify-progress-track">
+            <div
+              className="classify-progress-fill"
+              style={{ width: `${progressPct}%` }}
+            >
+              {rewardPulse > 0 && (
+                <span key={rewardPulse} className="classify-progress-spark" aria-hidden="true" />
+              )}
+            </div>
+          </div>
+          <span className="classify-progress-label">
+            {classifiedCount} de {total} classificada{total === 1 ? '' : 's'} · {progressPct}%
+          </span>
+        </div>
+      )}
 
       {empty ? (
         <div className="classify-empty">
