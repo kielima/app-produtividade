@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import Confetti from '../components/Confetti';
 import TrashIcon from '../components/TrashIcon';
 import { hapticCelebrate, hapticSuccess, hapticTap } from '../lib/haptics';
 import { getDisplayTitle } from '../lib/parser';
@@ -187,17 +188,22 @@ export function ClassifyView({
   const empty = queue.length === 0;
   const progressPct = total > 0 ? Math.round((classifiedCount / total) * 100) : 0;
 
-  // Comemora com vibração mais longa quando a sessão termina.
+  // Comemora com vibração mais longa quando a sessão termina. E, se TODAS as
+  // tarefas da fila foram classificadas (100%, sem pulos), solta confetes.
+  const allClassified = total > 0 && classifiedCount >= total;
+  const [showConfetti, setShowConfetti] = useState(false);
   const celebratedRef = useRef(false);
   useEffect(() => {
     if (done && !celebratedRef.current) {
       celebratedRef.current = true;
       hapticCelebrate();
+      if (allClassified) setShowConfetti(true);
     }
-  }, [done]);
+  }, [done, allClassified]);
 
   return (
     <section className="classify-view">
+      {showConfetti && <Confetti onDone={() => setShowConfetti(false)} />}
       <ClassifyTopbar
         current={done ? total : Math.min(index + 1, total)}
         total={total}
