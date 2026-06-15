@@ -3021,6 +3021,43 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   .classify-progress-spark { animation: none; }
 }
 
+/* ===== Confetes (recompensa ao concluir 100% da classificação) ===== */
+.confetti {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  z-index: 9999;
+}
+.confetti-piece {
+  position: absolute;
+  top: -8%;
+  opacity: 0;
+  animation-name: confetti-fall;
+  animation-timing-function: cubic-bezier(0.2, 0.6, 0.4, 1);
+  animation-fill-mode: forwards;
+  will-change: transform, opacity;
+}
+@keyframes confetti-fall {
+  0% {
+    transform: translate(0, 0) rotate(0deg);
+    opacity: 1;
+  }
+  85% {
+    opacity: 1;
+  }
+  100% {
+    transform: translate(var(--confetti-drift, 0), 108vh)
+      rotate(var(--confetti-rotate, 360deg));
+    opacity: 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .confetti {
+    display: none;
+  }
+}
+
 .classify-card {
   width: 100%;
   max-width: 600px;
