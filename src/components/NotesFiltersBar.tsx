@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { Project } from '../types';
+import { ProjectCombobox } from './TaskFiltersBar';
 
 export function NotesFiltersBar({
   allTags,
@@ -131,28 +132,11 @@ export function NotesFiltersBar({
           {setProjectFilter && allSortedProjects.length > 0 && (
             <fieldset>
               <legend>Projeto</legend>
-              <select
-                className="filter-select"
+              <ProjectCombobox
                 value={projectFilter ?? ''}
-                onChange={(e) => setProjectFilter(e.target.value || null)}
-                aria-label="Filtrar por projeto"
-              >
-                <option value="">Todos</option>
-                {activeProjects.length > 0 && (
-                  <optgroup label="Ativos">
-                    {activeProjects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-                {inactiveProjects.length > 0 && (
-                  <optgroup label="Concluídos / Cancelados">
-                    {inactiveProjects.map((p) => (
-                      <option key={p.id} value={p.id}>{p.name}</option>
-                    ))}
-                  </optgroup>
-                )}
-              </select>
+                onChange={(next) => setProjectFilter(next || null)}
+                projects={allSortedProjects}
+              />
             </fieldset>
           )}
 
