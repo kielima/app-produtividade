@@ -8,11 +8,16 @@ export function TaskCard({
   task,
   blocked,
   score,
+  projectName,
 }: {
   uid: string;
   task: Task;
   blocked: boolean;
   score?: number;
+  // Quando presente, mostra o nome do projeto por baixo do título. Usado em
+  // listas planas (Prioridade, Top 3, Concluídas) onde o card não está já
+  // agrupado por projeto.
+  projectName?: string;
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
@@ -41,6 +46,7 @@ export function TaskCard({
         </button>
         {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}
       </div>
+      {projectName && <span className="task-project">{projectName}</span>}
     </article>
   );
 }
