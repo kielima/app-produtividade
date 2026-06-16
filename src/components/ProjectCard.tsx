@@ -1,3 +1,4 @@
+import type { CSSProperties } from 'react';
 import { useProjectNavigation } from '../lib/projectNavigation';
 import {
   classifyConfidence,
@@ -43,7 +44,15 @@ export function ProjectCard({
   return (
     <article
       className={`project-card status-${statusClass}${isDone ? ' done' : ''}`}
+      style={
+        progressPct !== null
+          ? ({ '--progress-pct': `${progressPct}%` } as CSSProperties)
+          : undefined
+      }
     >
+      {progressPct !== null && (
+        <span className="project-progress-fill" aria-hidden="true" />
+      )}
       <div className="project-line">
         <button
           type="button"

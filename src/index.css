@@ -1473,19 +1473,34 @@ a:focus-visible {
 .project-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
 .project-card {
+  position: relative;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
+  border-left: 4px solid var(--status-color, #94a3b8);
   border-radius: 6px;
   padding: 0.7rem 0.9rem;
 }
-.project-card.status-a-iniciar { border-left: 4px solid #94a3b8; }
-.project-card.status-em-planejamento { border-left: 4px solid #a78bfa; }
-.project-card.status-em-andamento { border-left: 4px solid #60a5fa; }
-.project-card.status-pausado { border-left: 4px solid #fbbf24; }
-.project-card.status-concluido { border-left: 4px solid #34d399; }
-.project-card.status-cancelado { border-left: 4px solid #f87171; }
+.project-card.status-a-iniciar { --status-color: #94a3b8; }
+.project-card.status-em-planejamento { --status-color: #a78bfa; }
+.project-card.status-em-andamento { --status-color: #60a5fa; }
+.project-card.status-pausado { --status-color: #fbbf24; }
+.project-card.status-concluido { --status-color: #34d399; }
+.project-card.status-cancelado { --status-color: #f87171; }
 .project-card.done { opacity: 0.55; }
+/* Barra de progresso que preenche o card horizontalmente com a cor do status */
+.project-progress-fill {
+  position: absolute;
+  inset: 0;
+  width: var(--progress-pct, 0%);
+  background: color-mix(in srgb, var(--status-color, #94a3b8) 22%, transparent);
+  border-right: 1px solid
+    color-mix(in srgb, var(--status-color, #94a3b8) 45%, transparent);
+  pointer-events: none;
+  transition: width 0.4s ease;
+}
 .project-card .project-line {
+  position: relative;
   display: flex;
   gap: 0.5rem;
   align-items: center;
