@@ -42,6 +42,7 @@ export function PrioridadeView({
             task={task}
             blocked={isTaskBlocked(task, ctx)}
             score={score}
+            projectName={projectMap[task.section]?.name}
           />
         ))}
         {scored.length === 0 && <p className="muted">Nenhuma tarefa.</p>}
