@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { CompletedTasksList } from '../components/CompletedTasksList';
 import type { StatsFiltersState } from '../components/StatsFiltersBar';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import type {
@@ -611,6 +612,7 @@ export function EstatisticasView({
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [error, setError] = useState<Error | null>(null);
   const [loading, setLoading] = useState(true);
+  const [viewMode, setViewMode] = useState<'charts' | 'list'>('charts');
 
   useEffect(() => {
     setLoading(true);
@@ -761,6 +763,39 @@ export function EstatisticasView({
 
   return (
     <section className="estatisticas-view">
+      <div
+        className="stats-control-group stats-view-toggle"
+        role="radiogroup"
+        aria-label="Modo de visualização"
+      >
+        <button
+          type="button"
+          role="radio"
+          aria-checked={viewMode === 'charts'}
+          className={`stats-chip ${viewMode === 'charts' ? 'stats-chip--active' : ''}`}
+          onClick={() => setViewMode('charts')}
+        >
+          Gráficos
+        </button>
+        <button
+          type="button"
+          role="radio"
+          aria-checked={viewMode === 'list'}
+          className={`stats-chip ${viewMode === 'list' ? 'stats-chip--active' : ''}`}
+          onClick={() => setViewMode('list')}
+        >
+          Lista
+        </button>
+      </div>
+
+      {viewMode === 'list' ? (
+        loading ? (
+          <p className="muted">Carregando…</p>
+        ) : (
+          <CompletedTasksList uid={uid} tasks={filteredTasks} projects={projects} />
+        )
+      ) : (
+      <>
       <div className="stats-summary">
         <div className="stats-card">
           <span className="stats-card-label">Total no período</span>
@@ -882,6 +917,8 @@ export function EstatisticasView({
             </div>
           )}
         </>
+      )}
+      </>
       )}
     </section>
   );
