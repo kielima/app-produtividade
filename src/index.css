@@ -2493,6 +2493,68 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .task-detail-subtasks-header h3 {
   margin: 0;
 }
+/* Hierarquia pai/filho */
+.task-detail-parent {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+}
+.task-detail-parent-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: var(--accent, #3b82f6);
+  font: inherit;
+  cursor: pointer;
+  text-decoration: underline;
+}
+.task-detail-parent-remove {
+  margin-left: 0.6rem;
+  font-size: 0.8rem;
+  opacity: 0.7;
+}
+.task-detail-hierarchy-actions {
+  display: flex;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin: 0.4rem 0 0.6rem;
+}
+.task-detail-children {
+  list-style: none;
+  padding-left: 0;
+  margin: 0.4rem 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.task-detail-child {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.task-detail-child.done .task-detail-child-link {
+  text-decoration: line-through;
+  opacity: 0.6;
+}
+.task-detail-child-link {
+  background: none;
+  border: none;
+  padding: 0;
+  color: inherit;
+  font: inherit;
+  cursor: pointer;
+  text-align: left;
+  flex: 1;
+}
+.task-detail-child-link:hover {
+  text-decoration: underline;
+}
+.task-child-count {
+  font-size: 0.78rem;
+  opacity: 0.7;
+  margin-left: 0.4rem;
+  white-space: nowrap;
+}
+
 .task-detail-section-header {
   display: flex;
   align-items: center;

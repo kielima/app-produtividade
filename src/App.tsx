@@ -704,7 +704,7 @@ function AppShell({
   const classifyCount = useMemo(
     () =>
       data.tasks.filter(
-        (t) => !t.checked && (t.moscow === '' || t.esforco === ''),
+        (t) => !t.checked && !t.parentId && (t.moscow === '' || t.esforco === ''),
       ).length,
     [data.tasks],
   );

@@ -8,6 +8,7 @@ import {
   STATUS_VALUES,
 } from '../components/TaskFiltersBar';
 import { normalizeForSearch } from '../lib/searchNormalize';
+import { buildChildStatsMap } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
 import { migrateCompletedTasksIntoTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
@@ -91,8 +92,12 @@ export function TasksRoot({
     });
   }, [uid]);
 
+  // Subtarefas (filhas) ficam ocultas da lista principal — só aparecem dentro
+  // da página do pai. Mantemos `data.tasks` completo para calcular o progresso
+  // das filhas via `childStats`.
+  const childStats = useMemo(() => buildChildStatsMap(data.tasks), [data.tasks]);
   const filteredTasks = useMemo(
-    () => applyFilters(data.tasks, filters, searchQuery),
+    () => applyFilters(data.tasks.filter((t) => !t.parentId), filters, searchQuery),
     [data.tasks, filters, searchQuery],
   );
 
@@ -106,6 +111,7 @@ export function TasksRoot({
         projectMap={data.projectMap}
         ctx={data.ctx}
         hideZero={filters.hideZero}
+        childStats={childStats}
       />
       <NewTaskFab
         uid={uid}
