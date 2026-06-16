@@ -21,6 +21,10 @@ export interface Task {
   addedDate: string;
   dependsOn: string[];
   subtasks: Subtask[];
+  // Id (doc id) da tarefa pai. Quando preenchido, esta tarefa é uma
+  // subtarefa (filha): fica oculta das listas principais e aparece apenas
+  // dentro da página do pai. null/ausente = tarefa de topo.
+  parentId?: string | null;
   section: string;
   // Preenchido quando `checked=true`. Usado pelas estatísticas e pelo
   // gráfico de atividade. Para tarefas ativas é null.
