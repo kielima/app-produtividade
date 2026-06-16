@@ -5,7 +5,6 @@ import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { ParentPicker } from '../components/ParentPicker';
 import { Popover } from '../components/Popover';
-import { SubtaskList } from '../components/SubtaskList';
 import TrashIcon from '../components/TrashIcon';
 import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
@@ -27,7 +26,6 @@ import type {
   MoSCoW,
   Project,
   ScoreContext,
-  Subtask,
   Task,
 } from '../types';
 
@@ -175,15 +173,11 @@ export function TaskDetailView({
     await patchTask(uid, child, { checked: !child.checked });
   }
 
-  async function setSubtasks(next: Subtask[]) {
-    await patchTask(uid, task, { subtasks: next });
-  }
-
   async function handleGenerateSubtasks() {
     setAiError(null);
     setAiLoading(true);
     try {
-      const existing = task.subtasks.map((s) => s.text);
+      const existing = children.map((c) => getDisplayTitle(c.title));
       const generated = await generateSubtasks({
         title: display,
         note: task.note,
@@ -195,10 +189,11 @@ export function TaskDetailView({
         setAiError('A IA não sugeriu nada novo.');
         return;
       }
-      await setSubtasks([
-        ...task.subtasks,
-        ...fresh.map((text) => ({ text, checked: false })),
-      ]);
+      // Cria uma subtarefa (filha) por sugestão, em série para manter os
+      // taskIds sequenciais (nextTaskId lê o máximo atual a cada chamada).
+      for (const title of fresh) {
+        await createChildTask(uid, task, title);
+      }
     } catch (e) {
       const msg =
         e instanceof AiSubtasksError
@@ -564,19 +559,37 @@ export function TaskDetailView({
           </dl>
         )}
 
-        {children.length > 0 && (
-          <section className="task-detail-section">
-            <div className="task-detail-subtasks-header">
-              <h3>
-                Subtarefas{' '}
+        <section className="task-detail-section">
+          <div className="task-detail-subtasks-header">
+            <h3>
+              Subtarefas{' '}
+              {children.length > 0 && (
                 <span className="muted">
                   ({doneChildren}/{children.length})
                 </span>
-              </h3>
+              )}
+            </h3>
+            <div className="task-detail-subtasks-actions">
               <button type="button" className="link-btn" onClick={handleAddChild}>
                 + adicionar
               </button>
+              <button
+                type="button"
+                className="btn-ai-subtasks"
+                onClick={handleGenerateSubtasks}
+                disabled={aiLoading}
+                title={
+                  hasGeminiApiKey()
+                    ? 'Gerar subtarefas a partir do título e da nota'
+                    : 'Configure a chave Gemini em Configurações primeiro'
+                }
+              >
+                {aiLoading ? '⏳ Gerando…' : '✨ Gerar com IA'}
+              </button>
             </div>
+          </div>
+          {aiError && <p className="error task-detail-ai-error">{aiError}</p>}
+          {children.length > 0 ? (
             <ul className="task-detail-children">
               {children.map((c) => (
                 <li
@@ -599,8 +612,10 @@ export function TaskDetailView({
                 </li>
               ))}
             </ul>
-          </section>
-        )}
+          ) : (
+            <p className="muted">Sem subtarefas.</p>
+          )}
+        </section>
 
         <section className="task-detail-section">
           <div className="task-detail-section-header">
@@ -612,34 +627,6 @@ export function TaskDetailView({
             onSave={setNote}
             placeholder="(sem nota)"
           />
-        </section>
-
-        <section className="task-detail-section">
-          <div className="task-detail-subtasks-header">
-            <h3>
-              Checklist{' '}
-              {task.subtasks.length > 0 && (
-                <span className="muted">
-                  ({task.subtasks.filter((s) => s.checked).length}/{task.subtasks.length})
-                </span>
-              )}
-            </h3>
-            <button
-              type="button"
-              className="btn-ai-subtasks"
-              onClick={handleGenerateSubtasks}
-              disabled={aiLoading}
-              title={
-                hasGeminiApiKey()
-                  ? 'Gerar subtarefas a partir do título e da nota'
-                  : 'Configure a chave Gemini em Configurações primeiro'
-              }
-            >
-              {aiLoading ? '⏳ Gerando…' : '✨ Gerar com IA'}
-            </button>
-          </div>
-          {aiError && <p className="error task-detail-ai-error">{aiError}</p>}
-          <SubtaskList subtasks={task.subtasks} onChange={setSubtasks} />
         </section>
       </div>
 
