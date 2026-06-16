@@ -9,6 +9,7 @@ export function TaskCard({
   blocked,
   score,
   projectName,
+  childStats,
 }: {
   uid: string;
   task: Task;
@@ -18,11 +19,19 @@ export function TaskCard({
   // listas planas (Prioridade, Top 3, Concluídas) onde o card não está já
   // agrupado por projeto.
   projectName?: string;
+  // Progresso das subtarefas (filhas) desta tarefa, quando houver. Usado para
+  // mostrar o contador e travar a conclusão enquanto houver filhas abertas.
+  childStats?: { total: number; done: number };
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
+  const hasOpenChildren = !!childStats && childStats.done < childStats.total;
 
   async function toggleChecked() {
+    if (!task.checked && hasOpenChildren) {
+      window.alert('Conclua todas as subtarefas antes de concluir esta tarefa.');
+      return;
+    }
     await patchTask(uid, task, { checked: !task.checked });
   }
 
@@ -44,6 +53,11 @@ export function TaskCard({
         >
           {display}
         </button>
+        {childStats && childStats.total > 0 && (
+          <span className="task-child-count" title="subtarefas concluídas">
+            {childStats.done}/{childStats.total}
+          </span>
+        )}
         {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}
       </div>
       {projectName && <span className="task-project">{projectName}</span>}

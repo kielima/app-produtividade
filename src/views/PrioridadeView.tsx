@@ -15,12 +15,14 @@ export function PrioridadeView({
   projectMap,
   ctx,
   hideZero,
+  childStats,
 }: {
   uid: string;
   tasks: Task[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
   hideZero: boolean;
+  childStats?: Record<string, { total: number; done: number }>;
 }) {
   const scored = useMemo(() => {
     return tasks
@@ -43,6 +45,7 @@ export function PrioridadeView({
             blocked={isTaskBlocked(task, ctx)}
             score={score}
             projectName={projectMap[task.section]?.name}
+            childStats={childStats?.[task.id]}
           />
         ))}
         {scored.length === 0 && <p className="muted">Nenhuma tarefa.</p>}

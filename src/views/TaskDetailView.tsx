@@ -3,6 +3,7 @@ import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
 import { DepPicker } from '../components/DepPicker';
 import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
+import { ParentPicker } from '../components/ParentPicker';
 import { Popover } from '../components/Popover';
 import { SubtaskList } from '../components/SubtaskList';
 import TrashIcon from '../components/TrashIcon';
@@ -10,7 +11,15 @@ import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSub
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import { ScoreDetailView } from './ScoreDetailView';
-import { patchTask } from '../lib/taskMutations';
+import {
+  createChildTask,
+  createParentTask,
+  orphanChildren,
+  patchTask,
+  setTaskParent,
+} from '../lib/taskMutations';
+import { getChildren, hasIncompleteChildren } from '../lib/taskHierarchy';
+import { useTaskNavigation } from '../lib/taskNavigation';
 import { deleteTask } from '../repositories/tasksRepo';
 import type {
   Esforco,
@@ -86,11 +95,21 @@ export function TaskDetailView({
   onClose: () => void;
 }) {
   const display = getDisplayTitle(task.title);
+  const { openTask } = useTaskNavigation();
   const [depModalOpen, setDepModalOpen] = useState(false);
+  const [parentModalOpen, setParentModalOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [scoreDetailOpen, setScoreDetailOpen] = useState(false);
   const deadlineInputRef = useRef<HTMLInputElement>(null);
+  const parent = task.parentId
+    ? allTasks.find((t) => t.id === task.parentId) ?? null
+    : null;
+  const children = useMemo(
+    () => getChildren(task.id, allTasks).sort((a, b) => (a.taskId ?? 0) - (b.taskId ?? 0)),
+    [task.id, allTasks],
+  );
+  const doneChildren = children.filter((c) => c.checked).length;
   const blocked = isTaskBlocked(task, ctx);
   const score = useMemo(
     () => calcScore(task, projectMap[task.section] ?? null, ctx),
@@ -119,7 +138,41 @@ export function TaskDetailView({
   }
 
   async function setStatus(next: KanbanStatus) {
+    if (next === 'done' && hasIncompleteChildren(task.id, allTasks)) {
+      window.alert('Conclua todas as subtarefas antes de concluir esta tarefa.');
+      return;
+    }
     await patchTask(uid, task, statusPatch(next));
+  }
+
+  async function handleAddChild() {
+    const childId = await createChildTask(uid, task);
+    openTask(childId);
+  }
+
+  async function selectParent(parentId: string) {
+    await setTaskParent(uid, task, parentId);
+    setParentModalOpen(false);
+  }
+
+  async function createNewParent() {
+    // Cria um novo pai (cópia dos detalhes) e vincula a tarefa atual a ele.
+    const newParentId = await createParentTask(uid, task);
+    await setTaskParent(uid, task, newParentId);
+    setParentModalOpen(false);
+    openTask(newParentId);
+  }
+
+  async function removeParent() {
+    await setTaskParent(uid, task, null);
+  }
+
+  async function toggleChild(child: Task) {
+    if (!child.checked && hasIncompleteChildren(child.id, allTasks)) {
+      window.alert('Conclua as subtarefas desta subtarefa primeiro.');
+      return;
+    }
+    await patchTask(uid, child, { checked: !child.checked });
   }
 
   async function setSubtasks(next: Subtask[]) {
@@ -179,7 +232,12 @@ export function TaskDetailView({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Apagar "${display}"?`)) return;
+    const msg =
+      children.length > 0
+        ? `Apagar "${display}"? As ${children.length} subtarefa(s) voltarão a ser tarefas normais.`
+        : `Apagar "${display}"?`;
+    if (!window.confirm(msg)) return;
+    if (children.length > 0) await orphanChildren(uid, task.id, allTasks);
     await deleteTask(uid, task);
     onClose();
   }
@@ -260,6 +318,42 @@ export function TaskDetailView({
         {blocked && (
           <p className="badge blocked task-detail-blocked">🔒 bloqueada por dependências</p>
         )}
+
+        {parent && (
+          <div className="task-detail-parent">
+            <span className="muted">Subtarefa de</span>{' '}
+            <button
+              type="button"
+              className="task-detail-parent-link"
+              onClick={() => openTask(parent.id)}
+            >
+              {getDisplayTitle(parent.title)}
+            </button>
+            <button
+              type="button"
+              className="link-btn task-detail-parent-remove"
+              onClick={removeParent}
+              title="desvincular do pai"
+            >
+              remover pai
+            </button>
+          </div>
+        )}
+
+        <div className="task-detail-hierarchy-actions">
+          {!parent && (
+            <button
+              type="button"
+              className="link-btn"
+              onClick={() => setParentModalOpen(true)}
+            >
+              ⬆️ Adicionar pai
+            </button>
+          )}
+          <button type="button" className="link-btn" onClick={handleAddChild}>
+            ➕ Adicionar filho
+          </button>
+        </div>
 
         <div className="task-detail-badges">
           <Popover
@@ -470,6 +564,44 @@ export function TaskDetailView({
           </dl>
         )}
 
+        {children.length > 0 && (
+          <section className="task-detail-section">
+            <div className="task-detail-subtasks-header">
+              <h3>
+                Subtarefas{' '}
+                <span className="muted">
+                  ({doneChildren}/{children.length})
+                </span>
+              </h3>
+              <button type="button" className="link-btn" onClick={handleAddChild}>
+                + adicionar
+              </button>
+            </div>
+            <ul className="task-detail-children">
+              {children.map((c) => (
+                <li
+                  key={c.id}
+                  className={`task-detail-child${c.checked ? ' done' : ''}`}
+                >
+                  <input
+                    type="checkbox"
+                    checked={c.checked}
+                    onChange={() => toggleChild(c)}
+                    aria-label="alternar subtarefa"
+                  />
+                  <button
+                    type="button"
+                    className="task-detail-child-link"
+                    onClick={() => openTask(c.id)}
+                  >
+                    {getDisplayTitle(c.title) || '(sem título)'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </section>
+        )}
+
         <section className="task-detail-section">
           <div className="task-detail-section-header">
             <h3>Nota</h3>
@@ -485,7 +617,7 @@ export function TaskDetailView({
         <section className="task-detail-section">
           <div className="task-detail-subtasks-header">
             <h3>
-              Subtarefas{' '}
+              Checklist{' '}
               {task.subtasks.length > 0 && (
                 <span className="muted">
                   ({task.subtasks.filter((s) => s.checked).length}/{task.subtasks.length})
@@ -518,6 +650,17 @@ export function TaskDetailView({
           projects={projects}
           onClose={() => setDepModalOpen(false)}
           onChange={setDeps}
+        />
+      )}
+
+      {parentModalOpen && (
+        <ParentPicker
+          task={task}
+          allTasks={allTasks}
+          projects={projects}
+          onClose={() => setParentModalOpen(false)}
+          onSelectParent={selectParent}
+          onCreateNewParent={createNewParent}
         />
       )}
     </section>

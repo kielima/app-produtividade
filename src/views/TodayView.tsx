@@ -58,6 +58,7 @@ import {
 import { getDisplayTitle } from '../lib/parser';
 import { useProjectNavigation } from '../lib/projectNavigation';
 import { calcScore, isTaskBlocked } from '../lib/score';
+import { buildChildStatsMap } from '../lib/taskHierarchy';
 import type {
   Esforco,
   MoSCoW,
@@ -756,6 +757,8 @@ export function TodayView({
     return best;
   }, [projects, ctx.projectScoreMap]);
 
+  const childStatsMap = useMemo(() => buildChildStatsMap(tasks), [tasks]);
+
   const taskCountByProject = useMemo(() => {
     const counts: Record<string, { total: number; done: number }> = {};
     for (const t of tasks) {
@@ -795,7 +798,7 @@ export function TodayView({
       }
     }
     const top = tasks
-      .filter((t) => !t.checked)
+      .filter((t) => !t.checked && !t.parentId)
       .map((t) => ({
         task: t,
         score: calcScore(t, projectMap[t.section] ?? null, ctx),
@@ -956,6 +959,7 @@ export function TodayView({
                   task={task}
                   blocked={isTaskBlocked(task, ctx)}
                   projectName={projectMap[task.section]?.name}
+                  childStats={childStatsMap[task.id]}
                 />
               ) : (
                 <ArchivedTaskCard key={id} task={task} />

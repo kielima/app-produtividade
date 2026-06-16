@@ -1,7 +1,8 @@
 import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from './firebase';
 import { getDisplayTitle, serializeTitle } from './parser';
-import { upsertTask } from '../repositories/tasksRepo';
+import { getChildren } from './taskHierarchy';
+import { nextTaskId, upsertTask } from '../repositories/tasksRepo';
 import type { Task } from '../types';
 
 /**
@@ -67,4 +68,85 @@ export async function patchTask(
 
   await upsertTask(uid, merged);
   return merged;
+}
+
+/**
+ * Cria uma nova tarefa derivada de `source`, copiando os detalhes (moscow,
+ * modo, esforço, prazo, projeto, título) — todos editáveis depois. Quando
+ * `asChild` é true, a nova tarefa vira filha de `source` (parentId =
+ * source.id) e fica oculta das listas; quando false, vira uma tarefa de topo
+ * (para servir de pai de `source`). Devolve o doc id da nova tarefa.
+ */
+async function createDerivedTask(
+  uid: string,
+  source: Task,
+  asChild: boolean,
+): Promise<string> {
+  const taskId = await nextTaskId(uid);
+  const today = new Date().toISOString().slice(0, 10);
+  const display = getDisplayTitle(source.title);
+  const created: Task = {
+    id: String(taskId),
+    taskId,
+    title: serializeTitle(display, {
+      taskId,
+      modo: source.modo,
+      moscow: source.moscow,
+      esforco: source.esforco,
+      deadline: source.deadline,
+      addedDate: today,
+      dependsOn: [],
+    }),
+    note: '',
+    checked: false,
+    inProgress: false,
+    moscow: source.moscow,
+    modo: source.modo,
+    esforco: source.esforco,
+    deadline: source.deadline,
+    addedDate: today,
+    dependsOn: [],
+    subtasks: [],
+    parentId: asChild ? source.id : null,
+    section: source.section,
+    completedAt: null,
+  };
+  await upsertTask(uid, created);
+  return String(taskId);
+}
+
+/** Cria uma filha de `parent` copiando seus detalhes. Devolve o doc id. */
+export function createChildTask(uid: string, parent: Task): Promise<string> {
+  return createDerivedTask(uid, parent, true);
+}
+
+/**
+ * Cria uma nova tarefa de topo copiando os detalhes de `child`, para servir
+ * de pai dela. Devolve o doc id; o chamador deve vincular `child.parentId`.
+ */
+export function createParentTask(uid: string, child: Task): Promise<string> {
+  return createDerivedTask(uid, child, false);
+}
+
+/** Vincula `task` a um pai existente (ou desvincula com null). */
+export async function setTaskParent(
+  uid: string,
+  task: Task,
+  parentId: string | null,
+): Promise<void> {
+  await patchTask(uid, task, { parentId });
+}
+
+/**
+ * Promove as filhas diretas de um pai a tarefas de topo (parentId = null).
+ * Usado antes de apagar o pai: as filhas voltam à lista principal em vez de
+ * serem apagadas junto. Netas permanecem vinculadas às suas próprias mães.
+ */
+export async function orphanChildren(
+  uid: string,
+  parentId: string,
+  allTasks: Task[],
+): Promise<void> {
+  const children = getChildren(parentId, allTasks);
+  await Promise.all(children.map((c) => patchTask(uid, c, { parentId: null })));
 }

@@ -21,7 +21,8 @@ const ESFORCO_OPTIONS: Array<{ key: Exclude<Esforco, ''>; label: string }> = [
 ];
 
 function needsClassification(t: Task): boolean {
-  return !t.checked && (t.moscow === '' || t.esforco === '');
+  // Subtarefas (filhas) ficam ocultas e são classificadas na sua própria página.
+  return !t.checked && !t.parentId && (t.moscow === '' || t.esforco === '');
 }
 
 /**
