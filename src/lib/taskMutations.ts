@@ -81,10 +81,11 @@ async function createDerivedTask(
   uid: string,
   source: Task,
   asChild: boolean,
+  displayOverride?: string,
 ): Promise<string> {
   const taskId = await nextTaskId(uid);
   const today = new Date().toISOString().slice(0, 10);
-  const display = getDisplayTitle(source.title);
+  const display = displayOverride ?? getDisplayTitle(source.title);
   const created: Task = {
     id: String(taskId),
     taskId,
@@ -115,9 +116,17 @@ async function createDerivedTask(
   return String(taskId);
 }
 
-/** Cria uma filha de `parent` copiando seus detalhes. Devolve o doc id. */
-export function createChildTask(uid: string, parent: Task): Promise<string> {
-  return createDerivedTask(uid, parent, true);
+/**
+ * Cria uma filha de `parent` copiando seus detalhes. Devolve o doc id. Se
+ * `displayTitle` for passado, usa-o como título (em vez de copiar o do pai) —
+ * útil para gerar várias filhas distintas, ex: pela IA.
+ */
+export function createChildTask(
+  uid: string,
+  parent: Task,
+  displayTitle?: string,
+): Promise<string> {
+  return createDerivedTask(uid, parent, true, displayTitle);
 }
 
 /**
