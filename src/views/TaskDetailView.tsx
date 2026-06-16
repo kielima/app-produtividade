@@ -99,6 +99,8 @@ export function TaskDetailView({
   const [aiLoading, setAiLoading] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
   const [scoreDetailOpen, setScoreDetailOpen] = useState(false);
+  const [addingChild, setAddingChild] = useState(false);
+  const [childDraft, setChildDraft] = useState('');
   const deadlineInputRef = useRef<HTMLInputElement>(null);
   const parent = task.parentId
     ? allTasks.find((t) => t.id === task.parentId) ?? null
@@ -146,6 +148,20 @@ export function TaskDetailView({
   async function handleAddChild() {
     const childId = await createChildTask(uid, task);
     openTask(childId);
+  }
+
+  // Adição rápida inline: cria uma subtarefa (filha) com o título digitado,
+  // copiando os detalhes do pai, sem sair da tela.
+  async function handleQuickAddChild() {
+    const title = childDraft.trim();
+    if (!title) {
+      setAddingChild(false);
+      setChildDraft('');
+      return;
+    }
+    await createChildTask(uid, task, title);
+    setChildDraft('');
+    // Mantém o campo aberto para adicionar várias em sequência.
   }
 
   async function selectParent(parentId: string) {
@@ -570,7 +586,11 @@ export function TaskDetailView({
               )}
             </h3>
             <div className="task-detail-subtasks-actions">
-              <button type="button" className="link-btn" onClick={handleAddChild}>
+              <button
+                type="button"
+                className="link-btn"
+                onClick={() => setAddingChild(true)}
+              >
                 + adicionar
               </button>
               <button
@@ -589,7 +609,10 @@ export function TaskDetailView({
             </div>
           </div>
           {aiError && <p className="error task-detail-ai-error">{aiError}</p>}
-          {children.length > 0 ? (
+          {children.length === 0 && !addingChild && (
+            <p className="muted">Sem subtarefas.</p>
+          )}
+          {(children.length > 0 || addingChild) && (
             <ul className="task-detail-children">
               {children.map((c) => (
                 <li
@@ -611,9 +634,30 @@ export function TaskDetailView({
                   </button>
                 </li>
               ))}
+              {addingChild && (
+                <li className="task-detail-child task-detail-child-add">
+                  <input
+                    type="text"
+                    className="inline-edit-input"
+                    value={childDraft}
+                    onChange={(e) => setChildDraft(e.target.value)}
+                    onBlur={handleQuickAddChild}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleQuickAddChild();
+                      }
+                      if (e.key === 'Escape') {
+                        setChildDraft('');
+                        setAddingChild(false);
+                      }
+                    }}
+                    placeholder="Nova subtarefa…"
+                    autoFocus
+                  />
+                </li>
+              )}
             </ul>
-          ) : (
-            <p className="muted">Sem subtarefas.</p>
           )}
         </section>
 
