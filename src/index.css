@@ -1005,6 +1005,8 @@ a:focus-visible {
 .task-list { display: flex; flex-direction: column; gap: 0.5rem; }
 
 .task-card {
+  position: relative;
+  overflow: hidden;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
@@ -1013,8 +1015,19 @@ a:focus-visible {
 .task-card.dep-blocked { opacity: 0.55; }
 .task-card.done { opacity: 0.5; }
 .task-card.done .task-title { text-decoration: line-through; }
+/* Barra de progresso das subtarefas, preenche o card horizontalmente */
+.task-progress-fill {
+  position: absolute;
+  inset: 0;
+  width: var(--progress-pct, 0%);
+  background: color-mix(in srgb, #34d399 20%, transparent);
+  border-right: 1px solid color-mix(in srgb, #34d399 45%, transparent);
+  pointer-events: none;
+  transition: width 0.4s ease;
+}
 
 .task-line {
+  position: relative;
   display: flex;
   gap: 0.5rem;
   align-items: center;
@@ -1045,6 +1058,7 @@ a:focus-visible {
   color: inherit;
 }
 .task-project {
+  position: relative;
   display: block;
   margin-top: 0.2rem;
   margin-left: 1.6rem;
