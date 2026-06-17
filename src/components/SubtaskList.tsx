@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { Fragment, useRef, useState } from 'react';
 import {
   DndContext,
   KeyboardSensor,
@@ -57,13 +57,36 @@ export function SubtaskList({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
+  // Uma subtarefa está bloqueada quando depende da anterior (blockedByPrev) e
+  // essa anterior ainda não foi concluída.
+  function isBlocked(idx: number) {
+    return idx > 0 && !!subtasks[idx].blockedByPrev && !subtasks[idx - 1].checked;
+  }
+
   function toggle(idx: number) {
+    if (isBlocked(idx)) return;
     onChange(subtasks.map((s, i) => (i === idx ? { ...s, checked: !s.checked } : s)));
   }
 
   function remove(idx: number) {
     keysRef.current = keysRef.current.filter((_, i) => i !== idx);
-    onChange(subtasks.filter((_, i) => i !== idx));
+    // Ao remover, a subtarefa seguinte deixa de poder depender da anterior por
+    // posição; limpamos esse vínculo para não criar dependência inesperada.
+    onChange(
+      subtasks
+        .filter((_, i) => i !== idx)
+        .map((s, i) => (i === idx ? { ...s, blockedByPrev: false } : s)),
+    );
+  }
+
+  // Alterna a dependência da subtarefa em `idx` face à subtarefa anterior.
+  function toggleLink(idx: number) {
+    if (idx <= 0) return;
+    onChange(
+      subtasks.map((s, i) =>
+        i === idx ? { ...s, blockedByPrev: !s.blockedByPrev } : s,
+      ),
+    );
   }
 
   function rename(idx: number, text: string) {
@@ -106,14 +129,40 @@ export function SubtaskList({
       >
         <SortableContext items={keys} strategy={verticalListSortingStrategy}>
           {subtasks.map((s, i) => (
-            <SortableSubtaskRow
-              key={keys[i]}
-              id={keys[i]}
-              subtask={s}
-              onToggle={() => toggle(i)}
-              onRename={(v) => rename(i, v)}
-              onRemove={() => remove(i)}
-            />
+            <Fragment key={keys[i]}>
+              {i > 0 && (
+                <li className="subtask-link-row">
+                  <button
+                    type="button"
+                    className={
+                      'subtask-link-btn' + (s.blockedByPrev ? ' linked' : '')
+                    }
+                    onClick={() => toggleLink(i)}
+                    aria-pressed={!!s.blockedByPrev}
+                    title={
+                      s.blockedByPrev
+                        ? 'Remover dependência: esta subtarefa deixa de ficar bloqueada pela anterior'
+                        : 'Criar dependência: esta subtarefa fica bloqueada até a anterior ser concluída'
+                    }
+                    aria-label={
+                      s.blockedByPrev
+                        ? 'remover dependência entre subtarefas'
+                        : 'criar dependência entre subtarefas'
+                    }
+                  >
+                    <LinkIcon size={16} />
+                  </button>
+                </li>
+              )}
+              <SortableSubtaskRow
+                id={keys[i]}
+                subtask={s}
+                blocked={isBlocked(i)}
+                onToggle={() => toggle(i)}
+                onRename={(v) => rename(i, v)}
+                onRemove={() => remove(i)}
+              />
+            </Fragment>
           ))}
         </SortableContext>
       </DndContext>
@@ -147,15 +196,37 @@ export function SubtaskList({
   );
 }
 
+function LinkIcon({ size = 16 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="2"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </svg>
+  );
+}
+
 function SortableSubtaskRow({
   id,
   subtask,
+  blocked,
   onToggle,
   onRename,
   onRemove,
 }: {
   id: string;
   subtask: Subtask;
+  blocked: boolean;
   onToggle: () => void;
   onRename: (v: string) => void;
   onRemove: () => void;
@@ -180,7 +251,9 @@ function SortableSubtaskRow({
     <li
       ref={setNodeRef}
       style={style}
-      className={subtask.checked ? 'done' : ''}
+      className={
+        (subtask.checked ? 'done' : '') + (blocked ? ' subtask-blocked' : '')
+      }
     >
       <button
         type="button"
@@ -208,7 +281,9 @@ function SortableSubtaskRow({
         type="checkbox"
         checked={subtask.checked}
         onChange={onToggle}
+        disabled={blocked}
         aria-label="alternar subtarefa"
+        title={blocked ? 'Bloqueada: conclua a subtarefa anterior primeiro' : undefined}
       />
       <InlineEdit value={subtask.text} onSave={onRename} className="subtask-text" />
       <button

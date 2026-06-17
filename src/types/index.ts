@@ -5,6 +5,9 @@ export type Esforco = 'rapido' | 'medio' | 'longo' | '';
 export interface Subtask {
   text: string;
   checked: boolean;
+  // Quando true, esta subtarefa depende da subtarefa imediatamente anterior:
+  // fica bloqueada (não pode ser concluída) até a anterior estar concluída.
+  blockedByPrev?: boolean;
 }
 
 export interface Task {
