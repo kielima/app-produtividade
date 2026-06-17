@@ -2596,6 +2596,18 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   text-decoration: line-through;
   opacity: 0.6;
 }
+.task-detail-child.subtask-blocked {
+  opacity: 0.55;
+}
+.task-detail-child.subtask-blocked .task-detail-child-link {
+  font-style: italic;
+}
+/* Linha do botão de ligação (dependência) entre subtarefas adjacentes. */
+.task-detail-child-link-row {
+  display: flex;
+  justify-content: center;
+  margin: -0.15rem 0;
+}
 .task-detail-child-link {
   background: none;
   border: none;
