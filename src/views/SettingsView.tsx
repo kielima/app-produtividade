@@ -21,6 +21,11 @@ import {
   type ImportMode,
 } from '../lib/importData';
 import { importAllData, type ImportStats } from '../lib/importWriter';
+import {
+  formatChangelogDate,
+  getLatestChangelogEntry,
+} from '../lib/changelog';
+import { ChangelogDialog } from '../components/ChangelogDialog';
 
 const IMPORT_STAT_LABELS: Record<keyof ImportStats, string> = {
   sections: 'sections',
@@ -54,6 +59,9 @@ export function SettingsView({ uid }: { uid: string }) {
   const [importing, setImporting] = useState(false);
   const [importError, setImportError] = useState<string | null>(null);
   const [importResult, setImportResult] = useState<ImportStats | null>(null);
+
+  const [changelogOpen, setChangelogOpen] = useState(false);
+  const latestEntry = getLatestChangelogEntry();
 
   async function handleGenerate() {
     setLoading(true);
@@ -144,6 +152,34 @@ export function SettingsView({ uid }: { uid: string }) {
   return (
     <section className="settings-view">
       <h2>Configurações</h2>
+
+      {latestEntry && (
+        <article className="settings-card">
+          <h3>Novidades</h3>
+          <p className="muted">
+            Última atualização de novas funções. Toque na data para ver o log
+            completo das features lançadas.
+          </p>
+          <button
+            type="button"
+            className="changelog-stamp"
+            onClick={() => setChangelogOpen(true)}
+            title="Ver log de novas funcionalidades"
+          >
+            <span className="changelog-stamp-icon" aria-hidden="true">
+              🕒
+            </span>
+            <span className="changelog-stamp-text">
+              <span className="changelog-stamp-date">
+                {formatChangelogDate(latestEntry.date)}
+              </span>
+              <span className="changelog-stamp-title">
+                {latestEntry.title}
+              </span>
+            </span>
+          </button>
+        </article>
+      )}
 
       <article className="settings-card">
         <h3>Conta</h3>
@@ -444,6 +480,10 @@ export function SettingsView({ uid }: { uid: string }) {
           .
         </p>
       </article>
+
+      {changelogOpen && (
+        <ChangelogDialog onClose={() => setChangelogOpen(false)} />
+      )}
     </section>
   );
 }
