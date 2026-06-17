@@ -4435,3 +4435,91 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   to { transform: rotate(360deg); }
 }
 
+/* Carimbo de data da última atualização (card Novidades) */
+.changelog-stamp {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface-2);
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background 0.15s, border-color 0.15s;
+}
+.changelog-stamp:hover {
+  background: var(--surface);
+  border-color: var(--text);
+}
+.changelog-stamp-icon {
+  font-size: 1.3rem;
+  line-height: 1;
+}
+.changelog-stamp-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.changelog-stamp-date {
+  font-weight: 600;
+  font-size: 0.95rem;
+}
+.changelog-stamp-title {
+  font-size: 0.85rem;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Lista do diálogo de novidades */
+.changelog-list {
+  list-style: none;
+  margin: 0.75rem 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+.changelog-entry {
+  border-left: 2px solid var(--border);
+  padding-left: 0.8rem;
+}
+.changelog-entry-head {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+.changelog-entry-date {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.changelog-entry-version {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.changelog-entry-title {
+  display: block;
+  margin: 0.2rem 0 0.3rem;
+  font-size: 0.95rem;
+}
+.changelog-entry-items {
+  margin: 0;
+  padding-left: 1.1rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.88rem;
+  line-height: 1.4;
+}
+
