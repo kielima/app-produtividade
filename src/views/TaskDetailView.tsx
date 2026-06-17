@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
+import LinkIcon from '../components/LinkIcon';
 import { DepPicker } from '../components/DepPicker';
 import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
@@ -186,7 +187,35 @@ export function TaskDetailView({
       window.alert('Conclua as subtarefas desta subtarefa primeiro.');
       return;
     }
+    if (!child.checked && isTaskBlocked(child, ctx)) {
+      window.alert('Esta subtarefa está bloqueada: conclua a subtarefa anterior primeiro.');
+      return;
+    }
     await patchTask(uid, child, { checked: !child.checked });
+  }
+
+  // Referência usada em dependsOn para apontar para `task` (#id quando existe).
+  function depRefFor(t: Task): string | null {
+    if (t.taskId != null) return `#${t.taskId}`;
+    const title = getDisplayTitle(t.title).trim();
+    return title || null;
+  }
+
+  // Alterna a dependência da subtarefa `cur` face à subtarefa anterior `prev`:
+  // quando ligadas, `cur` fica bloqueada até `prev` ser concluída.
+  async function toggleChildLink(prev: Task, cur: Task) {
+    const ref = depRefFor(prev);
+    if (!ref) return;
+    const deps = cur.dependsOn ?? [];
+    const has = deps.includes(ref);
+    const next = has ? deps.filter((d) => d !== ref) : [...deps, ref];
+    await patchTask(uid, cur, { dependsOn: next });
+  }
+
+  // Indica se `cur` já depende de `prev` (vínculo direto criado pelo botão).
+  function childDependsOn(prev: Task, cur: Task): boolean {
+    const ref = depRefFor(prev);
+    return !!ref && (cur.dependsOn ?? []).includes(ref);
   }
 
   async function handleGenerateSubtasks() {
@@ -614,26 +643,55 @@ export function TaskDetailView({
           )}
           {(children.length > 0 || addingChild) && (
             <ul className="task-detail-children">
-              {children.map((c) => (
-                <li
-                  key={c.id}
-                  className={`task-detail-child${c.checked ? ' done' : ''}`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={c.checked}
-                    onChange={() => toggleChild(c)}
-                    aria-label="alternar subtarefa"
-                  />
-                  <button
-                    type="button"
-                    className="task-detail-child-link"
-                    onClick={() => openTask(c.id)}
-                  >
-                    {getDisplayTitle(c.title) || '(sem título)'}
-                  </button>
-                </li>
-              ))}
+              {children.map((c, i) => {
+                const prev = i > 0 ? children[i - 1] : null;
+                const childBlocked = !c.checked && isTaskBlocked(c, ctx);
+                return (
+                  <Fragment key={c.id}>
+                    {prev && (
+                      <li className="task-detail-child-link-row">
+                        <button
+                          type="button"
+                          className={`subtask-link-btn${childDependsOn(prev, c) ? ' linked' : ''}`}
+                          onClick={() => toggleChildLink(prev, c)}
+                          aria-pressed={childDependsOn(prev, c)}
+                          title={
+                            childDependsOn(prev, c)
+                              ? 'Remover dependência: esta subtarefa deixa de ficar bloqueada pela anterior'
+                              : 'Criar dependência: esta subtarefa fica bloqueada até a anterior ser concluída'
+                          }
+                          aria-label={
+                            childDependsOn(prev, c)
+                              ? 'remover dependência entre subtarefas'
+                              : 'criar dependência entre subtarefas'
+                          }
+                        >
+                          <LinkIcon size={16} />
+                        </button>
+                      </li>
+                    )}
+                    <li
+                      className={`task-detail-child${c.checked ? ' done' : ''}${childBlocked ? ' subtask-blocked' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={c.checked}
+                        onChange={() => toggleChild(c)}
+                        disabled={childBlocked}
+                        aria-label="alternar subtarefa"
+                        title={childBlocked ? 'Bloqueada: conclua a subtarefa anterior primeiro' : undefined}
+                      />
+                      <button
+                        type="button"
+                        className="task-detail-child-link"
+                        onClick={() => openTask(c.id)}
+                      >
+                        {getDisplayTitle(c.title) || '(sem título)'}
+                      </button>
+                    </li>
+                  </Fragment>
+                );
+              })}
               {addingChild && (
                 <li className="task-detail-child task-detail-child-add">
                   <input
