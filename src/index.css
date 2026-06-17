@@ -1082,6 +1082,32 @@ a:focus-visible {
 .subtask-drag-handle:hover { background: var(--surface-2); color: var(--fg); }
 .subtask-drag-handle:active { cursor: grabbing; }
 
+/* Botão de ligação (dependência) entre duas subtarefas adjacentes. */
+.subtasks li.subtask-link-row {
+  padding: 0;
+  justify-content: center;
+  min-height: 0;
+}
+.subtask-link-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  opacity: 0.4;
+  padding: 0.1rem 0.35rem;
+  border-radius: 4px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.12s ease, color 0.12s ease, background 0.12s ease;
+}
+.subtask-link-btn:hover { opacity: 1; background: var(--surface-2); color: var(--fg); }
+.subtask-link-btn.linked { opacity: 1; color: var(--accent, #e6873c); }
+
+/* Subtarefa bloqueada por dependência da anterior. */
+.subtasks li.subtask-blocked { opacity: 0.55; }
+.subtasks li.subtask-blocked .subtask-text { font-style: italic; }
+
 /* ===== Badges ===== */
 .badge {
   display: inline-flex;
