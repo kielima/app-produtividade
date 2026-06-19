@@ -195,10 +195,14 @@ export const DEFAULT_VOLATILITY_BANDS: VolatilityBands = Object.freeze({
 });
 
 /**
- * Abaixo deste espalhamento (max−min) consideramos a população praticamente
- * uniforme: ninguém se destaca, então todos caem em "média".
+ * Espalhamento mínimo (max−min) para dividir a população em terços. Mantido
+ * num epsilon minúsculo de propósito: a volatilidade do Glicko-2 varia muito
+ * pouco entre projetos (tipicamente ~1e-5), então qualquer diferença REAL de
+ * σ deve diferenciar baixa/média/alta. Só uma população literalmente uniforme
+ * (ex.: projetos novos, todos no σ default, sem nenhum duelo) colapsa em
+ * "média" — aí não há sinal nenhum para ranquear.
  */
-const MIN_VOLATILITY_SPREAD = 1e-4;
+const MIN_VOLATILITY_SPREAD = 1e-9;
 
 /** Quantil (interpolação linear) de um array JÁ ordenado de forma crescente. */
 function quantile(sorted: ReadonlyArray<number>, q: number): number {
@@ -216,8 +220,8 @@ function quantile(sorted: ReadonlyArray<number>, q: number): number {
  *
  * Casos de borda:
  *   - menos de 3 valores → cai nas bandas fixas (`DEFAULT_VOLATILITY_BANDS`);
- *   - população quase uniforme (espalhamento < `MIN_VOLATILITY_SPREAD`) →
- *     bandas que fazem todos lerem "média".
+ *   - população literalmente uniforme (espalhamento < `MIN_VOLATILITY_SPREAD`,
+ *     i.e. todos no mesmo σ) → bandas que fazem todos lerem "média".
  */
 export function computeVolatilityBands(
   sigmas: ReadonlyArray<number>,

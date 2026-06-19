@@ -143,12 +143,21 @@ describe('computeVolatilityBands (adaptativas)', () => {
     expect(classifyVolatility(target, highPop)).toBe('baixa');
   });
 
-  it('treats a near-uniform population as all "média"', () => {
-    const sigmas = [0.06, 0.06, 0.060001, 0.059999, 0.06];
+  it('treats a literally uniform population as all "média"', () => {
+    const sigmas = [0.06, 0.06, 0.06, 0.06, 0.06];
     const bands = computeVolatilityBands(sigmas);
     for (const s of sigmas) {
       expect(classifyVolatility(s, bands)).toBe('média');
     }
+  });
+
+  it('splits even tiny real differences (volatilidade quase não varia)', () => {
+    // Diferenças minúsculas como as que o Glicko-2 produz na prática: o menor
+    // σ deve ler "baixa" e o maior "alta", mesmo separados por ~1e-5.
+    const sigmas = [0.059990, 0.059995, 0.060000, 0.060005, 0.060010];
+    const bands = computeVolatilityBands(sigmas);
+    expect(classifyVolatility(0.05999, bands)).toBe('baixa');
+    expect(classifyVolatility(0.06001, bands)).toBe('alta');
   });
 });
 
