@@ -1594,15 +1594,36 @@ a:focus-visible {
 .project-category-group { margin-bottom: 1.2rem; }
 
 .project-category-heading {
+  margin: 0 0 0.5rem;
+}
+
+.project-category-toggle {
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  margin: 0 0 0.5rem;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.15rem 0;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font: inherit;
   font-size: 0.85rem;
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted, #94a3b8);
+  text-align: left;
+}
+
+.project-category-toggle:hover { color: var(--fg); }
+
+.project-category-chevron {
+  flex-shrink: 0;
+  transition: transform 0.18s ease;
+}
+
+.project-category-chevron.collapsed {
+  transform: rotate(-90deg);
 }
 
 .project-category-count {
