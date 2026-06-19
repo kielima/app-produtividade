@@ -1,5 +1,6 @@
 import type { CSSProperties } from 'react';
 import { getDisplayTitle } from '../lib/parser';
+import { formatSnoozeDate, isSnoozed } from '../lib/snooze';
 import { patchTask } from '../lib/taskMutations';
 import { useTaskNavigation } from '../lib/taskNavigation';
 import type { Task } from '../types';
@@ -26,6 +27,7 @@ export function TaskCard({
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
+  const snoozed = !task.checked && isSnoozed(task);
   const hasOpenChildren = !!childStats && childStats.done < childStats.total;
   const childProgressPct =
     childStats && childStats.total > 0
@@ -42,7 +44,7 @@ export function TaskCard({
 
   return (
     <article
-      className={`task-card${blocked ? ' dep-blocked' : ''}${task.checked ? ' done' : ''}`}
+      className={`task-card${blocked ? ' dep-blocked' : ''}${snoozed ? ' snoozed' : ''}${task.checked ? ' done' : ''}`}
       style={
         childProgressPct !== null
           ? ({ '--progress-pct': `${childProgressPct}%` } as CSSProperties)
@@ -71,6 +73,14 @@ export function TaskCard({
         {childStats && childStats.total > 0 && (
           <span className="task-child-count" title="subtarefas concluídas">
             {childStats.done}/{childStats.total}
+          </span>
+        )}
+        {snoozed && (
+          <span
+            className="task-snooze-tag"
+            title={`Adiada até ${formatSnoozeDate(task.snoozedUntil!)}`}
+          >
+            💤 {formatSnoozeDate(task.snoozedUntil!)}
           </span>
         )}
         {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}

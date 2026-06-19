@@ -58,6 +58,7 @@ import {
 import { getDisplayTitle } from '../lib/parser';
 import { useProjectNavigation } from '../lib/projectNavigation';
 import { calcScore, isTaskBlocked } from '../lib/score';
+import { isSnoozed } from '../lib/snooze';
 import { buildChildStatsMap } from '../lib/taskHierarchy';
 import type {
   Esforco,
@@ -791,14 +792,15 @@ export function TodayView({
         const allValid = pickedIds.every((id) => {
           const t = byId.get(id);
           if (!t || t.checked) return true;
+          if (isSnoozed(t)) return false;
           return calcScore(t, projectMap[t.section] ?? null, ctx) > 0;
         });
         if (allValid) return;
-        // Alguma tarefa do snapshot virou score 0 → recomputa.
+        // Alguma tarefa do snapshot virou score 0 ou foi adiada → recomputa.
       }
     }
     const top = tasks
-      .filter((t) => !t.checked && !t.parentId)
+      .filter((t) => !t.checked && !t.parentId && !isSnoozed(t))
       .map((t) => ({
         task: t,
         score: calcScore(t, projectMap[t.section] ?? null, ctx),
@@ -826,6 +828,7 @@ export function TodayView({
       if (t.checked) {
         out.push({ id, task: t, score: undefined });
       } else {
+        if (isSnoozed(t)) continue;
         const score = calcScore(t, projectMap[t.section] ?? null, ctx);
         if (score <= 0) continue;
         out.push({ id, task: t, score });

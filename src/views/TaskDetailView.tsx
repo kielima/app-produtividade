@@ -11,6 +11,13 @@ import TrashIcon from '../components/TrashIcon';
 import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
+import {
+  formatSnoozeDate,
+  isSnoozed,
+  snoozeDaysRemaining,
+  snoozeUntilForDays,
+  SNOOZE_PRESETS,
+} from '../lib/snooze';
 import { ScoreDetailView } from './ScoreDetailView';
 import {
   createChildTask,
@@ -103,7 +110,9 @@ export function TaskDetailView({
   const [scoreDetailOpen, setScoreDetailOpen] = useState(false);
   const [addingChild, setAddingChild] = useState(false);
   const [childDraft, setChildDraft] = useState('');
+  const [customSnoozeDays, setCustomSnoozeDays] = useState('');
   const deadlineInputRef = useRef<HTMLInputElement>(null);
+  const snoozed = isSnoozed(task);
   const parent = task.parentId
     ? allTasks.find((t) => t.id === task.parentId) ?? null
     : null;
@@ -257,6 +266,21 @@ export function TaskDetailView({
     await patchTask(uid, task, { dependsOn: next });
   }
 
+  async function snoozeForDays(days: number) {
+    await patchTask(uid, task, { snoozedUntil: snoozeUntilForDays(days) });
+  }
+
+  async function clearSnooze() {
+    await patchTask(uid, task, { snoozedUntil: null });
+  }
+
+  function handleCustomSnooze() {
+    const days = parseInt(customSnoozeDays, 10);
+    if (!Number.isFinite(days) || days < 1) return;
+    void snoozeForDays(days);
+    setCustomSnoozeDays('');
+  }
+
   async function moveToSection(newSectionId: string) {
     await patchTask(uid, task, { section: newSectionId });
   }
@@ -358,6 +382,13 @@ export function TaskDetailView({
 
         {blocked && (
           <p className="badge blocked task-detail-blocked">🔒 bloqueada por dependências</p>
+        )}
+
+        {snoozed && (
+          <p className="badge snoozed-banner task-detail-blocked">
+            💤 adiada até {formatSnoozeDate(task.snoozedUntil!)} ·{' '}
+            {snoozeDaysRemaining(task)} dia{snoozeDaysRemaining(task) === 1 ? '' : 's'}
+          </p>
         )}
 
         {parent && (
@@ -571,6 +602,87 @@ export function TaskDetailView({
           >
             🔗 {task.dependsOn.length || '—'}
           </button>
+
+          <Popover
+            align="end"
+            trigger={(open, isOpen) => (
+              <button
+                type="button"
+                className={`badge snooze${snoozed ? ' active' : ''}${isOpen ? ' open' : ''}`}
+                onClick={open}
+                title={
+                  snoozed
+                    ? `Adiada até ${formatSnoozeDate(task.snoozedUntil!)}`
+                    : 'Adiar (silenciar temporariamente)'
+                }
+              >
+                💤 {snoozed ? `até ${formatSnoozeDate(task.snoozedUntil!)}` : 'Adiar'}
+              </button>
+            )}
+          >
+            {(close) => (
+              <div className="snooze-menu">
+                <p className="snooze-menu-title">Adiar por…</p>
+                <ul className="picker-list">
+                  {SNOOZE_PRESETS.map((p) => (
+                    <li key={p.days}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void snoozeForDays(p.days);
+                          close();
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+                <div className="snooze-custom">
+                  <input
+                    type="number"
+                    min={1}
+                    inputMode="numeric"
+                    className="snooze-custom-input"
+                    placeholder="nº de dias"
+                    value={customSnoozeDays}
+                    onChange={(e) => setCustomSnoozeDays(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleCustomSnooze();
+                        close();
+                      }
+                    }}
+                    aria-label="número de dias para adiar"
+                  />
+                  <button
+                    type="button"
+                    className="btn-secondary snooze-custom-btn"
+                    onClick={() => {
+                      handleCustomSnooze();
+                      close();
+                    }}
+                    disabled={!customSnoozeDays.trim()}
+                  >
+                    Adiar
+                  </button>
+                </div>
+                {snoozed && (
+                  <button
+                    type="button"
+                    className="snooze-clear"
+                    onClick={() => {
+                      void clearSnooze();
+                      close();
+                    }}
+                  >
+                    Reativar agora
+                  </button>
+                )}
+              </div>
+            )}
+          </Popover>
         </div>
 
         {task.dependsOn.length > 0 && (

@@ -8,6 +8,7 @@ import {
   STATUS_VALUES,
 } from '../components/TaskFiltersBar';
 import { normalizeForSearch } from '../lib/searchNormalize';
+import { isSnoozed, todayISO } from '../lib/snooze';
 import { buildChildStatsMap } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
 import { migrateCompletedTasksIntoTasks } from '../repositories/tasksRepo';
@@ -26,6 +27,7 @@ function applyFilters(
   searchQuery: string,
 ): Task[] {
   const applyHideCompleted = filters.hideCompleted;
+  const applyHideSnoozed = filters.hideSnoozed;
   const applyOnlyWithoutDeadline = filters.onlyWithoutDeadline;
   const applyModo = filters.modoFilter.size !== MODO_VALUES.length;
   const applyMoscow = filters.moscowFilter.size !== MOSCOW_VALUES.length;
@@ -34,8 +36,10 @@ function applyFilters(
   const applyProject = !!filters.projectFilter;
   const q = normalizeForSearch(searchQuery.trim());
   const applySearch = q.length > 0;
+  const today = todayISO();
   if (
     !applyHideCompleted &&
+    !applyHideSnoozed &&
     !applyOnlyWithoutDeadline &&
     !applyModo &&
     !applyMoscow &&
@@ -48,6 +52,9 @@ function applyFilters(
 
   return tasks.filter((t) => {
     if (applyHideCompleted && t.checked) return false;
+    // Tarefas adiadas só somem se ainda não concluídas — uma tarefa adiada
+    // que foi concluída deve continuar visível ao desligar "concluídas".
+    if (applyHideSnoozed && !t.checked && isSnoozed(t, today)) return false;
     if (applyOnlyWithoutDeadline && t.deadline) return false;
     if (applyProject && t.section !== filters.projectFilter) return false;
     if (applyModo && !filters.modoFilter.has(t.modo)) return false;
