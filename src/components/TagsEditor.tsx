@@ -39,6 +39,7 @@ export function TagsEditor({
 
   function addSuggestion(tag: string) {
     const next = normalizeTags([...tags, tag]);
+    setDraft('');
     if (next.length !== tags.length) onChange(next);
   }
 
@@ -87,6 +88,9 @@ export function TagsEditor({
               key={s}
               type="button"
               className="tag-chip tag-chip-suggestion"
+              // Evita que o clique tire o foco do input antes do onClick: o
+              // onBlur dispararia commitDraft() e a sugestão não seria adicionada.
+              onMouseDown={(e) => e.preventDefault()}
               onClick={() => addSuggestion(s)}
               title={`adicionar tag ${s}`}
             >
