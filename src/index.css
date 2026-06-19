@@ -1194,6 +1194,32 @@ a:focus-visible {
 .popover-panel.align-start { left: 0; }
 .popover-panel.align-end { right: 0; }
 
+.project-picker {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+.project-picker-search {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  background: var(--surface-2);
+  color: var(--fg);
+  font-size: 0.85rem;
+}
+.project-picker-search:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.project-picker-empty {
+  margin: 0;
+  padding: 0.4rem 0.6rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
 .picker-list {
   list-style: none;
   margin: 0;

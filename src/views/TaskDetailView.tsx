@@ -6,6 +6,7 @@ import { InlineEdit } from '../components/InlineEdit';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { ParentPicker } from '../components/ParentPicker';
 import { Popover } from '../components/Popover';
+import { ProjectPicker } from '../components/ProjectPicker';
 import TrashIcon from '../components/TrashIcon';
 import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
@@ -408,22 +409,14 @@ export function TaskDetailView({
             )}
           >
             {(close) => (
-              <ul className="picker-list">
-                {projects.map((p) => (
-                  <li key={p.id}>
-                    <button
-                      type="button"
-                      className={p.id === task.section ? 'active' : ''}
-                      onClick={() => {
-                        moveToSection(p.id);
-                        close();
-                      }}
-                    >
-                      {p.name}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+              <ProjectPicker
+                projects={projects}
+                currentSection={task.section}
+                onSelect={(id) => {
+                  moveToSection(id);
+                  close();
+                }}
+              />
             )}
           </Popover>
 
