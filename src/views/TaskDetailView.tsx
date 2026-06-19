@@ -604,7 +604,7 @@ export function TaskDetailView({
           </button>
 
           <Popover
-            align="end"
+            align="start"
             trigger={(open, isOpen) => (
               <button
                 type="button"
