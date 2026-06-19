@@ -21,24 +21,47 @@ export const PROJECT_STATUS_VALUES: ProjectStatusKey[] = [
   'Cancelado',
 ];
 
+export type ProjectSortMode = 'score' | 'progress';
+export type ProjectViewMode = 'list' | 'category';
+
+export const PROJECT_SORT_LABEL: Record<ProjectSortMode, string> = {
+  score: 'Maior nota',
+  progress: 'Maior progresso',
+};
+
+export const PROJECT_VIEW_LABEL: Record<ProjectViewMode, string> = {
+  list: 'Lista',
+  category: 'Por categoria',
+};
+
 export interface ProjectFiltersState {
   statusFilter: Set<ProjectStatusKey>;
+  sortMode: ProjectSortMode;
+  viewMode: ProjectViewMode;
 }
 
 export function defaultProjectFiltersState(): ProjectFiltersState {
   return {
     statusFilter: new Set<ProjectStatusKey>(PROJECT_STATUS_VALUES),
+    sortMode: 'score',
+    viewMode: 'list',
   };
 }
 
 interface SerializedProjectFilters {
   statusFilter: ProjectStatusKey[];
+  sortMode: ProjectSortMode;
+  viewMode: ProjectViewMode;
 }
 
 export function serializeProjectFiltersState(
   state: ProjectFiltersState,
 ): SerializedProjectFilters {
-  return { statusFilter: [...state.statusFilter] };
+  return {
+    statusFilter: [...state.statusFilter],
+    sortMode: state.sortMode,
+    viewMode: state.viewMode,
+  };
 }
 
 export function deserializeProjectFiltersState(
@@ -47,11 +70,17 @@ export function deserializeProjectFiltersState(
   const base = defaultProjectFiltersState();
   if (!raw || typeof raw !== 'object') return base;
   const v = raw as Partial<SerializedProjectFilters>;
-  if (!Array.isArray(v.statusFilter)) return base;
+  const sortMode: ProjectSortMode =
+    v.sortMode === 'progress' || v.sortMode === 'score' ? v.sortMode : base.sortMode;
+  const viewMode: ProjectViewMode =
+    v.viewMode === 'category' || v.viewMode === 'list' ? v.viewMode : base.viewMode;
+  if (!Array.isArray(v.statusFilter)) {
+    return { ...base, sortMode, viewMode };
+  }
   const filtered = v.statusFilter.filter((x): x is ProjectStatusKey =>
     (PROJECT_STATUS_VALUES as readonly string[]).includes(x as string),
   );
-  return { statusFilter: new Set(filtered) };
+  return { statusFilter: new Set(filtered), sortMode, viewMode };
 }
 
 export function activeProjectFilterCount(state: ProjectFiltersState): number {
@@ -103,6 +132,8 @@ export function ProjectFiltersBar({
   }
 
   const count = activeProjectFilterCount(state);
+  const isDefault =
+    count === 0 && state.sortMode === 'score' && state.viewMode === 'list';
 
   return (
     <div className="topbar-filter" ref={wrapRef}>
@@ -166,6 +197,40 @@ export function ProjectFiltersBar({
             </button>
           </div>
           <fieldset>
+            <legend>Ordenação</legend>
+            <div className="chip-group">
+              {(Object.keys(PROJECT_SORT_LABEL) as ProjectSortMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`chip${state.sortMode === m ? ' active' : ''}`}
+                  onClick={() => setState({ ...state, sortMode: m })}
+                  aria-pressed={state.sortMode === m}
+                >
+                  {PROJECT_SORT_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Visualização</legend>
+            <div className="chip-group">
+              {(Object.keys(PROJECT_VIEW_LABEL) as ProjectViewMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`chip${state.viewMode === m ? ' active' : ''}`}
+                  onClick={() => setState({ ...state, viewMode: m })}
+                  aria-pressed={state.viewMode === m}
+                >
+                  {PROJECT_VIEW_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
             <legend>Status</legend>
             <div className="chip-group">
               {PROJECT_STATUS_VALUES.map((s) => (
@@ -186,7 +251,7 @@ export function ProjectFiltersBar({
             type="button"
             className="btn-link"
             onClick={clearFilters}
-            disabled={count === 0}
+            disabled={isDefault}
           >
             limpar filtros
           </button>

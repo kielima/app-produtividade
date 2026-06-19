@@ -6,6 +6,7 @@ function makeProject(p: Partial<Project> & { id: string }): Project {
   return {
     name: p.id,
     area: '',
+    category: '',
     status: 'Em andamento',
     priority: '',
     objective: '',

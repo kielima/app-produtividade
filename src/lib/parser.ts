@@ -324,6 +324,7 @@ export function parseProjectMarkdown(content: string): Project[] {
         id: taskSectionId(name),
         name,
         area: '',
+        category: '',
         status,
         priority,
         objective: '',

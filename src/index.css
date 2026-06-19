@@ -1512,6 +1512,27 @@ a:focus-visible {
 /* ===== Projects view ===== */
 .project-list { display: flex; flex-direction: column; gap: 0.6rem; }
 
+.project-category-group { margin-bottom: 1.2rem; }
+
+.project-category-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted, #94a3b8);
+}
+
+.project-category-count {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
 .project-card {
   position: relative;
   overflow: hidden;

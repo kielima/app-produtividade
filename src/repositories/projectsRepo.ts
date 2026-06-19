@@ -29,6 +29,7 @@ export function subscribeToProjects(
         const merged = {
           name: '',
           area: '',
+          category: '',
           status: 'A iniciar',
           priority: '',
           objective: '',
@@ -142,6 +143,7 @@ export async function createProject(
     id,
     name,
     area: '',
+    category: '',
     status: 'A iniciar',
     priority: '',
     objective: '',
