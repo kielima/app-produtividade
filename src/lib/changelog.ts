@@ -20,6 +20,14 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-06-19T15:00:00-03:00',
+    title: 'Reordenar subtarefas arrastando',
+    items: [
+      'Agora dá para segurar uma subtarefa pelo "punho" (⋮⋮) e arrastá-la para cima ou para baixo para reorganizar a ordem.',
+      'A nova ordem fica guardada e é respeitada sempre que a tarefa é aberta.',
+    ],
+  },
+  {
     date: '2026-06-17T12:00:00-03:00',
     version: 'v0.0.1',
     title: 'Histórico de novidades nas Configurações',

@@ -1,4 +1,22 @@
 import { Fragment, useEffect, useMemo, useRef, useState } from 'react';
+import {
+  DndContext,
+  KeyboardSensor,
+  PointerSensor,
+  TouchSensor,
+  closestCenter,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core';
+import {
+  SortableContext,
+  arrayMove,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy,
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
 import LinkIcon from '../components/LinkIcon';
 import { DepPicker } from '../components/DepPicker';
@@ -116,10 +134,14 @@ export function TaskDetailView({
   const parent = task.parentId
     ? allTasks.find((t) => t.id === task.parentId) ?? null
     : null;
-  const children = useMemo(
-    () => getChildren(task.id, allTasks).sort((a, b) => (a.taskId ?? 0) - (b.taskId ?? 0)),
-    [task.id, allTasks],
-  );
+  // Ordena as filhas pela ordem manual (`order`, definida ao arrastar) e, na
+  // ausência dela, pela ordem de criação (`taskId`). Filhas ainda sem `order`
+  // (ex.: recém-criadas) caem no fim, depois das já reordenadas.
+  const children = useMemo(() => {
+    const orderKey = (t: Task) =>
+      t.order != null ? t.order : (t.taskId ?? 0);
+    return getChildren(task.id, allTasks).sort((a, b) => orderKey(a) - orderKey(b));
+  }, [task.id, allTasks]);
   const doneChildren = children.filter((c) => c.checked).length;
   const blocked = isTaskBlocked(task, ctx);
   const score = useMemo(
@@ -127,6 +149,15 @@ export function TaskDetailView({
     [task, projectMap, ctx],
   );
   const project = projectMap[task.section];
+
+  // Sensores de arraste para reordenar subtarefas. PointerSensor com pequena
+  // distância evita disparar em cliques; TouchSensor com atraso permite
+  // rolar a página normalmente no telemóvel até segurar a subtarefa.
+  const dragSensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
+    useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
+  );
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -173,6 +204,22 @@ export function TaskDetailView({
     await createChildTask(uid, task, title);
     setChildDraft('');
     // Mantém o campo aberto para adicionar várias em sequência.
+  }
+
+  // Reordena as subtarefas ao arrastar: calcula a nova sequência e persiste
+  // um `order` sequencial (0, 1, 2, …) em cada filha cuja posição mudou.
+  async function handleChildrenDragEnd(event: DragEndEvent) {
+    const { active, over } = event;
+    if (!over || active.id === over.id) return;
+    const oldIndex = children.findIndex((c) => c.id === active.id);
+    const newIndex = children.findIndex((c) => c.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+    const reordered = arrayMove(children, oldIndex, newIndex);
+    await Promise.all(
+      reordered
+        .map((c, i) => (c.order === i ? null : patchTask(uid, c, { order: i })))
+        .filter((p): p is Promise<Task> => p !== null),
+    );
   }
 
   async function selectParent(parentId: string) {
@@ -748,55 +795,55 @@ export function TaskDetailView({
           )}
           {(children.length > 0 || addingChild) && (
             <ul className="task-detail-children">
-              {children.map((c, i) => {
-                const prev = i > 0 ? children[i - 1] : null;
-                const childBlocked = !c.checked && isTaskBlocked(c, ctx);
-                return (
-                  <Fragment key={c.id}>
-                    {prev && (
-                      <li className="task-detail-child-link-row">
-                        <button
-                          type="button"
-                          className={`subtask-link-btn${childDependsOn(prev, c) ? ' linked' : ''}`}
-                          onClick={() => toggleChildLink(prev, c)}
-                          aria-pressed={childDependsOn(prev, c)}
-                          title={
-                            childDependsOn(prev, c)
-                              ? 'Remover dependência: esta subtarefa deixa de ficar bloqueada pela anterior'
-                              : 'Criar dependência: esta subtarefa fica bloqueada até a anterior ser concluída'
-                          }
-                          aria-label={
-                            childDependsOn(prev, c)
-                              ? 'remover dependência entre subtarefas'
-                              : 'criar dependência entre subtarefas'
-                          }
-                        >
-                          <LinkIcon size={16} />
-                        </button>
-                      </li>
-                    )}
-                    <li
-                      className={`task-detail-child${c.checked ? ' done' : ''}${childBlocked ? ' subtask-blocked' : ''}`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={c.checked}
-                        onChange={() => toggleChild(c)}
-                        disabled={childBlocked}
-                        aria-label="alternar subtarefa"
-                        title={childBlocked ? 'Bloqueada: conclua a subtarefa anterior primeiro' : undefined}
-                      />
-                      <button
-                        type="button"
-                        className="task-detail-child-link"
-                        onClick={() => openTask(c.id)}
-                      >
-                        {getDisplayTitle(c.title) || '(sem título)'}
-                      </button>
-                    </li>
-                  </Fragment>
-                );
-              })}
+              <DndContext
+                sensors={dragSensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleChildrenDragEnd}
+              >
+                <SortableContext
+                  items={children.map((c) => c.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  {children.map((c, i) => {
+                    const prev = i > 0 ? children[i - 1] : null;
+                    const childBlocked = !c.checked && isTaskBlocked(c, ctx);
+                    return (
+                      <Fragment key={c.id}>
+                        {prev && (
+                          <li className="task-detail-child-link-row">
+                            <button
+                              type="button"
+                              className={`subtask-link-btn${childDependsOn(prev, c) ? ' linked' : ''}`}
+                              onClick={() => toggleChildLink(prev, c)}
+                              aria-pressed={childDependsOn(prev, c)}
+                              title={
+                                childDependsOn(prev, c)
+                                  ? 'Remover dependência: esta subtarefa deixa de ficar bloqueada pela anterior'
+                                  : 'Criar dependência: esta subtarefa fica bloqueada até a anterior ser concluída'
+                              }
+                              aria-label={
+                                childDependsOn(prev, c)
+                                  ? 'remover dependência entre subtarefas'
+                                  : 'criar dependência entre subtarefas'
+                              }
+                            >
+                              <LinkIcon size={16} />
+                            </button>
+                          </li>
+                        )}
+                        <SortableChildRow
+                          id={c.id}
+                          title={getDisplayTitle(c.title) || '(sem título)'}
+                          checked={c.checked}
+                          blocked={childBlocked}
+                          onToggle={() => toggleChild(c)}
+                          onOpen={() => openTask(c.id)}
+                        />
+                      </Fragment>
+                    );
+                  })}
+                </SortableContext>
+              </DndContext>
               {addingChild && (
                 <li className="task-detail-child task-detail-child-add">
                   <input
@@ -858,5 +905,81 @@ export function TaskDetailView({
         />
       )}
     </section>
+  );
+}
+
+// Linha de uma subtarefa (filha) arrastável: traz um "punho" à esquerda para
+// segurar e reordenar, além do checkbox e do link para abrir a subtarefa.
+function SortableChildRow({
+  id,
+  title,
+  checked,
+  blocked,
+  onToggle,
+  onOpen,
+}: {
+  id: string;
+  title: string;
+  checked: boolean;
+  blocked: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id });
+
+  const style: React.CSSProperties = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.6 : 1,
+    zIndex: isDragging ? 1 : undefined,
+  };
+
+  return (
+    <li
+      ref={setNodeRef}
+      style={style}
+      className={`task-detail-child${checked ? ' done' : ''}${blocked ? ' subtask-blocked' : ''}`}
+    >
+      <button
+        type="button"
+        className="subtask-drag-handle"
+        aria-label="arrastar para reordenar"
+        {...attributes}
+        {...listeners}
+      >
+        <svg
+          width="12"
+          height="18"
+          viewBox="0 0 14 20"
+          aria-hidden="true"
+          focusable="false"
+        >
+          <circle cx="4" cy="4" r="1.4" fill="currentColor" />
+          <circle cx="10" cy="4" r="1.4" fill="currentColor" />
+          <circle cx="4" cy="10" r="1.4" fill="currentColor" />
+          <circle cx="10" cy="10" r="1.4" fill="currentColor" />
+          <circle cx="4" cy="16" r="1.4" fill="currentColor" />
+          <circle cx="10" cy="16" r="1.4" fill="currentColor" />
+        </svg>
+      </button>
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={onToggle}
+        disabled={blocked}
+        aria-label="alternar subtarefa"
+        title={blocked ? 'Bloqueada: conclua a subtarefa anterior primeiro' : undefined}
+      />
+      <button type="button" className="task-detail-child-link" onClick={onOpen}>
+        {title}
+      </button>
+    </li>
   );
 }
