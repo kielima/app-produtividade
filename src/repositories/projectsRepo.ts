@@ -10,6 +10,7 @@ import {
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { taskSectionId } from '../lib/parser';
+import { normalizeTags } from '../lib/tags';
 import type { Project, Task } from '../types';
 
 function projectsCol(uid: string) {
@@ -25,11 +26,14 @@ export function subscribeToProjects(
     projectsCol(uid),
     (snap) => {
       const projects: Project[] = snap.docs.map((d) => {
-        const data = d.data() as Partial<Omit<Project, 'id'>>;
+        // `category` (string) é o campo legado; `categories` (array) é o atual.
+        const data = d.data() as Partial<Omit<Project, 'id'>> & {
+          category?: string;
+        };
         const merged = {
           name: '',
           area: '',
-          category: '',
+          categories: [],
           status: 'A iniciar',
           priority: '',
           objective: '',
@@ -43,6 +47,13 @@ export function subscribeToProjects(
           id: d.id,
         } as Project;
         if (!merged.status) merged.status = 'A iniciar';
+        // Deriva as categorias: usa o array quando existe, senão recai sobre o
+        // campo legado `category` (string única), normalizando em ambos os casos.
+        merged.categories = Array.isArray(data.categories)
+          ? normalizeTags(data.categories)
+          : typeof data.category === 'string' && data.category.trim()
+            ? normalizeTags([data.category])
+            : [];
         return merged;
       });
       projects.sort(
@@ -143,7 +154,7 @@ export async function createProject(
     id,
     name,
     area: '',
-    category: '',
+    categories: [],
     status: 'A iniciar',
     priority: '',
     objective: '',

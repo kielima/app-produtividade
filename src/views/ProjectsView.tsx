@@ -111,14 +111,18 @@ export function ProjectsView({
     return list;
   }, [projects, filters, progressByProject]);
 
-  // Agrupamento por categoria para a visualização "Por categoria".
+  // Agrupamento por categoria para a visualização "Por categoria". Um projeto
+  // com várias categorias aparece em cada grupo correspondente; sem categorias
+  // entra no grupo "" ("(sem categoria)").
   const groupedByCategory = useMemo(() => {
     const groups = new Map<string, Project[]>();
     for (const p of filtered) {
-      const key = p.category?.trim() || '';
-      const arr = groups.get(key);
-      if (arr) arr.push(p);
-      else groups.set(key, [p]);
+      const keys = p.categories.length > 0 ? p.categories : [''];
+      for (const key of keys) {
+        const arr = groups.get(key);
+        if (arr) arr.push(p);
+        else groups.set(key, [p]);
+      }
     }
     // Ordena categorias alfabeticamente; "(sem categoria)" sempre por último.
     return [...groups.entries()].sort((a, b) => {

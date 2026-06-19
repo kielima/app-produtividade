@@ -1,7 +1,8 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { InlineEdit } from '../components/InlineEdit';
 import { Popover } from '../components/Popover';
 import { ProjectDepPicker } from '../components/ProjectDepPicker';
+import { TagsEditor } from '../components/TagsEditor';
 import TrashIcon from '../components/TrashIcon';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import {
@@ -57,6 +58,15 @@ export function ProjectDetailView({
   const { openNote } = useNoteNavigation();
   const deadlineInputRef = useRef<HTMLInputElement>(null);
   const [depPickerOpen, setDepPickerOpen] = useState(false);
+
+  // Categorias já usadas noutros projetos, oferecidas como sugestões.
+  const categorySuggestions = useMemo(() => {
+    const all = new Set<string>();
+    for (const p of allProjects) {
+      for (const c of p.categories) all.add(c);
+    }
+    return [...all].sort((a, b) => a.localeCompare(b));
+  }, [allProjects]);
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -200,12 +210,19 @@ export function ProjectDetailView({
             onSave={(v) => patch('area', v)}
             placeholder="(área temática)"
           />
-          <Field
-            label="🏷️ Categoria"
-            value={project.category}
-            onSave={(v) => patch('category', v)}
-            placeholder="(categoria para agrupar)"
-          />
+          <div className="task-detail-field">
+            <dt>🏷️ Categorias</dt>
+            <dd>
+              <TagsEditor
+                tags={project.categories}
+                onChange={(next) =>
+                  patchProject(uid, project.id, { categories: next })
+                }
+                suggestions={categorySuggestions}
+                placeholder="(categoria para agrupar)"
+              />
+            </dd>
+          </div>
           <Field
             label="🎯 Objetivo"
             value={project.objective}

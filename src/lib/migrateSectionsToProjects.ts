@@ -51,7 +51,7 @@ export async function migrateSectionsToProjects(uid: string): Promise<number> {
         id,
         name: section.name ?? id,
         area: '',
-        category: '',
+        categories: [],
         status: 'A iniciar',
         priority: '',
         objective: '',
