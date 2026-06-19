@@ -48,6 +48,7 @@ export const STATUS_VALUES: StatusKey[] = ['todo', 'doing', 'done'];
 export interface TaskFiltersState {
   hideZero: boolean;
   hideCompleted: boolean;
+  hideSnoozed: boolean;
   onlyWithoutDeadline: boolean;
   projectFilter: string;
   modoFilter: Set<Modo>;
@@ -60,6 +61,7 @@ export function defaultFiltersState(): TaskFiltersState {
   return {
     hideZero: true,
     hideCompleted: true,
+    hideSnoozed: true,
     onlyWithoutDeadline: false,
     projectFilter: '',
     modoFilter: new Set<Modo>(MODO_VALUES),
@@ -72,6 +74,7 @@ export function defaultFiltersState(): TaskFiltersState {
 interface SerializedTaskFilters {
   hideZero: boolean;
   hideCompleted: boolean;
+  hideSnoozed: boolean;
   onlyWithoutDeadline: boolean;
   projectFilter: string;
   modoFilter: Modo[];
@@ -86,6 +89,7 @@ export function serializeFiltersState(
   return {
     hideZero: state.hideZero,
     hideCompleted: state.hideCompleted,
+    hideSnoozed: state.hideSnoozed,
     onlyWithoutDeadline: state.onlyWithoutDeadline,
     projectFilter: state.projectFilter,
     modoFilter: [...state.modoFilter],
@@ -110,6 +114,8 @@ export function deserializeFiltersState(raw: unknown): TaskFiltersState {
     hideZero: typeof v.hideZero === 'boolean' ? v.hideZero : base.hideZero,
     hideCompleted:
       typeof v.hideCompleted === 'boolean' ? v.hideCompleted : base.hideCompleted,
+    hideSnoozed:
+      typeof v.hideSnoozed === 'boolean' ? v.hideSnoozed : base.hideSnoozed,
     onlyWithoutDeadline:
       typeof v.onlyWithoutDeadline === 'boolean'
         ? v.onlyWithoutDeadline
@@ -130,6 +136,7 @@ export function activeFilterCount(
   return (
     (showHideZero && !state.hideZero ? 1 : 0) +
     (state.hideCompleted ? 0 : 1) +
+    (state.hideSnoozed ? 0 : 1) +
     (state.onlyWithoutDeadline ? 1 : 0) +
     (state.projectFilter ? 1 : 0) +
     (state.modoFilter.size === MODO_VALUES.length ? 0 : 1) +
@@ -316,6 +323,16 @@ export function TaskFiltersBar({
                 }
               />
               &nbsp;concluídas
+            </label>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={state.hideSnoozed}
+                onChange={(e) =>
+                  setState({ ...state, hideSnoozed: e.target.checked })
+                }
+              />
+              &nbsp;adiadas
             </label>
             <label className="checkbox">
               <input

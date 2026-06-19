@@ -35,6 +35,13 @@ export interface Task {
   // Snapshot do nome do projeto no momento da conclusão. Permite mostrar
   // o nome mesmo depois que o projeto for deletado.
   completedFromSectionName?: string | null;
+  // Data (YYYY-MM-DD) até a qual a tarefa fica adiada ("silenciada"): some
+  // das listas principais e reaparece automaticamente nesse dia. Útil para
+  // tarefas que estão temporariamente impedidas de serem feitas — adiá-las
+  // reduz a ansiedade de vê-las pendentes sem poder agir. null/ausente =
+  // tarefa ativa (não adiada). Não é serializado no título — campo puro do
+  // Firestore, como `inProgress`/`completedAt`/`parentId`.
+  snoozedUntil?: string | null;
 }
 
 export interface Section {
