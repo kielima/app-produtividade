@@ -43,10 +43,54 @@ export function ProjectsView({
     return counts;
   }, [tasks]);
 
-  const filtered = useMemo(
-    () => projects.filter((p) => filters.statusFilter.has(p.status)),
-    [projects, filters],
-  );
+  // Progresso (0..1) por projeto: fração de tarefas concluídas. Projetos sem
+  // tarefas ficam como null (sem progresso definido).
+  const progressByProject = useMemo(() => {
+    const out: Record<string, number | null> = {};
+    for (const p of projects) {
+      const c = taskCountByProject[p.id];
+      out[p.id] = c && c.total > 0 ? c.done / c.total : null;
+    }
+    return out;
+  }, [projects, taskCountByProject]);
+
+  const filtered = useMemo(() => {
+    const list = projects.filter((p) => filters.statusFilter.has(p.status));
+    if (filters.sortMode === 'progress') {
+      // Maior conclusão primeiro. Projetos sem tarefas (null) vão para o fim,
+      // preservando entre empates a ordem manual (por nota) original.
+      return list
+        .map((p, idx) => ({ p, idx }))
+        .sort((a, b) => {
+          const pa = progressByProject[a.p.id];
+          const pb = progressByProject[b.p.id];
+          const va = pa ?? -1;
+          const vb = pb ?? -1;
+          if (vb !== va) return vb - va;
+          return a.idx - b.idx;
+        })
+        .map((x) => x.p);
+    }
+    // 'score': mantém a ordem manual (maior nota primeiro), já vinda do repo.
+    return list;
+  }, [projects, filters, progressByProject]);
+
+  // Agrupamento por categoria para a visualização "Por categoria".
+  const groupedByCategory = useMemo(() => {
+    const groups = new Map<string, Project[]>();
+    for (const p of filtered) {
+      const key = p.category?.trim() || '';
+      const arr = groups.get(key);
+      if (arr) arr.push(p);
+      else groups.set(key, [p]);
+    }
+    // Ordena categorias alfabeticamente; "(sem categoria)" sempre por último.
+    return [...groups.entries()].sort((a, b) => {
+      if (a[0] === '') return 1;
+      if (b[0] === '') return -1;
+      return a[0].localeCompare(b[0]);
+    });
+  }, [filtered]);
 
   async function handleAdd() {
     const name = newName.trim();
@@ -72,17 +116,39 @@ export function ProjectsView({
         </p>
       )}
 
-      <div className="project-list">
-        {filtered.map((p) => (
-          <ProjectCard
-            key={p.id}
-            project={p}
-            taskCount={taskCountByProject[p.id]?.total ?? 0}
-            doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
-            glickoRating={glickoMap[p.id]}
-          />
-        ))}
-      </div>
+      {filters.viewMode === 'category' ? (
+        groupedByCategory.map(([category, group]) => (
+          <div key={category || '__none__'} className="project-category-group">
+            <h3 className="project-category-heading">
+              {category || '(sem categoria)'}
+              <span className="muted project-category-count">{group.length}</span>
+            </h3>
+            <div className="project-list">
+              {group.map((p) => (
+                <ProjectCard
+                  key={p.id}
+                  project={p}
+                  taskCount={taskCountByProject[p.id]?.total ?? 0}
+                  doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
+                  glickoRating={glickoMap[p.id]}
+                />
+              ))}
+            </div>
+          </div>
+        ))
+      ) : (
+        <div className="project-list">
+          {filtered.map((p) => (
+            <ProjectCard
+              key={p.id}
+              project={p}
+              taskCount={taskCountByProject[p.id]?.total ?? 0}
+              doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
+              glickoRating={glickoMap[p.id]}
+            />
+          ))}
+        </div>
+      )}
 
       {adding ? (
         <div className="add-section-row">

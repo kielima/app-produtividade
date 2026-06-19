@@ -58,6 +58,9 @@ export interface Project {
   id: string;
   name: string;
   area: string;
+  // Categoria livre do projeto. Usada para agrupar/visualizar projetos por
+  // categoria na aba Projetos. Vazio = "(sem categoria)".
+  category: string;
   status: ProjectStatus;
   priority: ProjectPriority;
   objective: string;
