@@ -1,4 +1,9 @@
-import { DEFAULT_RATING, type GlickoRating } from './glicko2';
+import {
+  DEFAULT_RATING,
+  updateRating,
+  type GlickoRating,
+  type MatchOutcome,
+} from './glicko2';
 
 /**
  * Escolhe o próximo par de projetos para duelo.
@@ -96,6 +101,43 @@ export function reorderByRating(
   const inactive = allProjectIds.filter((id) => !activeIds.has(id));
   active.sort((a, b) => ratingOf(ratings, b).r - ratingOf(ratings, a).r);
   return [...active, ...inactive];
+}
+
+export interface DuelResult {
+  winnerId: string;
+  loserId: string;
+}
+
+/**
+ * Aplica TODOS os duelos de uma sessão como UM ÚNICO rating period do
+ * Glicko-2: cada projeto é reavaliado uma vez contra a lista de jogos que
+ * disputou, usando sempre o rating do oponente NO INÍCIO da sessão
+ * (`startRatings`) — que é exatamente como o Glicko-2 trata uma period.
+ *
+ * É isso que dá significado à volatilidade: um projeto com resultados
+ * inconsistentes dentro da mesma sessão vê o σ subir; um consistente, descer.
+ *
+ * Retorna apenas os projetos que participaram (os que mudaram). Quem chama
+ * mescla com `startRatings` para obter o mapa completo.
+ */
+export function applySessionDuels(
+  startRatings: Readonly<Record<string, GlickoRating>>,
+  duels: ReadonlyArray<DuelResult>,
+): Record<string, GlickoRating> {
+  const start = (id: string): GlickoRating => startRatings[id] ?? DEFAULT_RATING;
+  const matches = new Map<string, MatchOutcome[]>();
+  const add = (id: string, outcome: MatchOutcome) => {
+    const arr = matches.get(id);
+    if (arr) arr.push(outcome);
+    else matches.set(id, [outcome]);
+  };
+  for (const { winnerId, loserId } of duels) {
+    add(winnerId, { score: 1, opponent: start(loserId) });
+    add(loserId, { score: 0, opponent: start(winnerId) });
+  }
+  const out: Record<string, GlickoRating> = {};
+  for (const [id, ms] of matches) out[id] = updateRating(start(id), ms);
+  return out;
 }
 
 /** Faixa de duelos por sessão, modulada pela confiança média. */
