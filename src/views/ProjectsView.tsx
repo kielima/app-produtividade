@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
 import type { ProjectFiltersState } from '../components/ProjectFiltersBar';
+import { computeVolatilityBands } from '../lib/glicko2';
 import { subscribeToGlickoRatings, type GlickoMap } from '../repositories/glickoRepo';
 import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
@@ -132,6 +133,13 @@ export function ProjectsView({
     });
   }, [filtered]);
 
+  // Bandas de volatilidade adaptativas: derivadas da população atual de σ,
+  // se reajustam conforme os ratings mudam (ver `computeVolatilityBands`).
+  const volatilityBands = useMemo(
+    () => computeVolatilityBands(Object.values(glickoMap).map((g) => g.sigma)),
+    [glickoMap],
+  );
+
   async function handleAdd() {
     const name = newName.trim();
     if (!name) {
@@ -199,6 +207,7 @@ export function ProjectsView({
                       taskCount={taskCountByProject[p.id]?.total ?? 0}
                       doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
                       glickoRating={glickoMap[p.id]}
+                      volatilityBands={volatilityBands}
                     />
                   ))}
                 </div>
@@ -215,6 +224,7 @@ export function ProjectsView({
               taskCount={taskCountByProject[p.id]?.total ?? 0}
               doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
               glickoRating={glickoMap[p.id]}
+              volatilityBands={volatilityBands}
             />
           ))}
         </div>

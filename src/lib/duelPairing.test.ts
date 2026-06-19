@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_RATING, type GlickoRating } from './glicko2';
 import {
+  applySessionDuels,
   pickNextPair,
   recommendedDuelLimit,
   reorderByRating,
@@ -96,6 +97,66 @@ describe('reorderByRating', () => {
     const active = new Set(all);
     // Sem ratings persistidos: a e b ficam com rating default; ordem estável.
     expect(reorderByRating(all, active, {})).toHaveLength(2);
+  });
+});
+
+describe('applySessionDuels', () => {
+  it('returns only the projects that participated', () => {
+    const start = { a: fresh(1500), b: fresh(1500), c: fresh(1500) };
+    const changed = applySessionDuels(start, [{ winnerId: 'a', loserId: 'b' }]);
+    expect(Object.keys(changed).sort()).toEqual(['a', 'b']);
+    expect(changed.c).toBeUndefined();
+  });
+
+  it('moves the consistent winner above the loser', () => {
+    const start = { a: fresh(1500), b: fresh(1500) };
+    const duels = Array.from({ length: 4 }, () => ({
+      winnerId: 'a',
+      loserId: 'b',
+    }));
+    const changed = applySessionDuels(start, duels);
+    expect(changed.a!.r).toBeGreaterThan(changed.b!.r);
+  });
+
+  it('evaluates opponents at their start-of-session ratings (one period)', () => {
+    // 'b' aparece em dois duelos; ambos devem usar o rating inicial de 'a',
+    // não um valor já atualizado no meio da sessão.
+    const start = { a: fresh(1500), b: fresh(1500), c: fresh(1500) };
+    const changed = applySessionDuels(start, [
+      { winnerId: 'a', loserId: 'b' },
+      { winnerId: 'c', loserId: 'b' },
+    ]);
+    // 'b' perdeu duas vezes contra oponentes idênticos → cai e fica abaixo.
+    expect(changed.b!.r).toBeLessThan(1500);
+    expect(changed.a!.r).toBeGreaterThan(1500);
+    expect(changed.c!.r).toBeGreaterThan(1500);
+  });
+
+  it('raises volatility more for surprising results than for expected ones', () => {
+    // Ambos partem de 1500 (expectativa de 50%). 'dominant' vence tudo — um
+    // desvio grande do esperado → σ sobe. 'balanced' alterna em torno dos 50%
+    // — resultado "como previsto" → σ se mantém/baixa. É exatamente assim que
+    // o Glicko-2 dá sentido à volatilidade.
+    const start = {
+      dominant: fresh(1500, 200),
+      balanced: fresh(1500, 200),
+      x: fresh(1500, 200),
+    };
+    const duels = [
+      { winnerId: 'dominant', loserId: 'x' },
+      { winnerId: 'dominant', loserId: 'x' },
+      { winnerId: 'dominant', loserId: 'x' },
+      { winnerId: 'balanced', loserId: 'x' },
+      { winnerId: 'x', loserId: 'balanced' },
+      { winnerId: 'balanced', loserId: 'x' },
+      { winnerId: 'x', loserId: 'balanced' },
+    ];
+    const changed = applySessionDuels(start, duels);
+    expect(changed.dominant!.sigma).toBeGreaterThan(changed.balanced!.sigma);
+  });
+
+  it('returns an empty map for no duels', () => {
+    expect(applySessionDuels({ a: fresh(1500) }, [])).toEqual({});
   });
 });
 

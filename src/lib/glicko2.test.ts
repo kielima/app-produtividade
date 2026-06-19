@@ -4,6 +4,8 @@ import {
   classifyConfidence,
   classifyVolatility,
   clampRD,
+  computeVolatilityBands,
+  DEFAULT_VOLATILITY_BANDS,
   recordDuel,
   updateRating,
   type GlickoRating,
@@ -15,11 +17,16 @@ describe('Glicko-2', () => {
     // Player: r=1500, RD=200, sigma=0.06
     // Opponents: (1400,30) win, (1550,100) loss, (1700,300) loss
     const player: GlickoRating = { r: 1500, rd: 200, sigma: 0.06 };
-    const next = updateRating(player, [
-      { score: 1, opponent: { r: 1400, rd: 30, sigma: 0.06 } },
-      { score: 0, opponent: { r: 1550, rd: 100, sigma: 0.06 } },
-      { score: 0, opponent: { r: 1700, rd: 300, sigma: 0.06 } },
-    ]);
+    // O exemplo do paper assume τ=0.5; o app usa o default (TAU=0.9).
+    const next = updateRating(
+      player,
+      [
+        { score: 1, opponent: { r: 1400, rd: 30, sigma: 0.06 } },
+        { score: 0, opponent: { r: 1550, rd: 100, sigma: 0.06 } },
+        { score: 0, opponent: { r: 1700, rd: 300, sigma: 0.06 } },
+      ],
+      0.5,
+    );
     // Esperados do paper: r' ≈ 1464.06, RD' ≈ 151.52, σ' ≈ 0.05999
     expect(next.r).toBeCloseTo(1464.06, 1);
     expect(next.rd).toBeCloseTo(151.52, 1);
@@ -79,7 +86,7 @@ describe('Glicko-2', () => {
   });
 });
 
-describe('classifyVolatility', () => {
+describe('classifyVolatility (bandas fixas de fallback)', () => {
   it('default σ (0.06) is "média"', () => {
     expect(classifyVolatility(0.06)).toBe('média');
   });
@@ -98,6 +105,50 @@ describe('classifyVolatility', () => {
   it('classifies high volatility', () => {
     expect(classifyVolatility(0.075)).toBe('alta');
     expect(classifyVolatility(0.12)).toBe('alta');
+  });
+
+  it('honors explicit bands', () => {
+    const bands = { lowMax: 0.1, highMin: 0.2 };
+    expect(classifyVolatility(0.05, bands)).toBe('baixa');
+    expect(classifyVolatility(0.15, bands)).toBe('média');
+    expect(classifyVolatility(0.25, bands)).toBe('alta');
+  });
+});
+
+describe('computeVolatilityBands (adaptativas)', () => {
+  it('falls back to fixed bands with fewer than 3 values', () => {
+    expect(computeVolatilityBands([])).toEqual(DEFAULT_VOLATILITY_BANDS);
+    expect(computeVolatilityBands([0.06, 0.07])).toEqual(
+      DEFAULT_VOLATILITY_BANDS,
+    );
+  });
+
+  it('splits a real spread into terços (baixo/médio/alto)', () => {
+    const sigmas = [0.02, 0.03, 0.04, 0.06, 0.08, 0.1, 0.12, 0.14, 0.16];
+    const bands = computeVolatilityBands(sigmas);
+    expect(bands.lowMax).toBeLessThan(bands.highMin);
+    // o menor σ deve ler "baixa", o maior "alta", o do meio "média"
+    expect(classifyVolatility(sigmas[0]!, bands)).toBe('baixa');
+    expect(classifyVolatility(sigmas[sigmas.length - 1]!, bands)).toBe('alta');
+    expect(classifyVolatility(0.08, bands)).toBe('média');
+  });
+
+  it('adapts: same σ classified differently as the population shifts', () => {
+    const target = 0.06;
+    // população baixa → 0.06 é dos altos
+    const lowPop = computeVolatilityBands([0.01, 0.02, 0.03, 0.04, 0.06]);
+    expect(classifyVolatility(target, lowPop)).toBe('alta');
+    // população alta → 0.06 é dos baixos
+    const highPop = computeVolatilityBands([0.06, 0.1, 0.12, 0.15, 0.2]);
+    expect(classifyVolatility(target, highPop)).toBe('baixa');
+  });
+
+  it('treats a near-uniform population as all "média"', () => {
+    const sigmas = [0.06, 0.06, 0.060001, 0.059999, 0.06];
+    const bands = computeVolatilityBands(sigmas);
+    for (const s of sigmas) {
+      expect(classifyVolatility(s, bands)).toBe('média');
+    }
   });
 });
 

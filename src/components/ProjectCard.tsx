@@ -4,6 +4,7 @@ import {
   classifyConfidence,
   classifyVolatility,
   type GlickoRating,
+  type VolatilityBands,
 } from '../lib/glicko2';
 import type { Project, ProjectStatus } from '../types';
 
@@ -21,11 +22,13 @@ export function ProjectCard({
   taskCount,
   doneTaskCount,
   glickoRating,
+  volatilityBands,
 }: {
   project: Project;
   taskCount: number;
   doneTaskCount: number;
   glickoRating?: GlickoRating;
+  volatilityBands?: VolatilityBands;
 }) {
   const { openProject, openProjectTasks } = useProjectNavigation();
   const isDone = project.status === 'Concluído' || project.status === 'Cancelado';
@@ -38,7 +41,9 @@ export function ProjectCard({
       : `${pendingCount} tarefa${pendingCount === 1 ? '' : 's'} (${progressPct}%)`;
   const statusClass = STATUS_SLUG[project.status];
 
-  const volatility = glickoRating ? classifyVolatility(glickoRating.sigma) : null;
+  const volatility = glickoRating
+    ? classifyVolatility(glickoRating.sigma, volatilityBands)
+    : null;
   const confidence = glickoRating ? classifyConfidence(glickoRating.rd) : null;
 
   return (

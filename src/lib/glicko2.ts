@@ -25,8 +25,16 @@ export const DEFAULT_RATING: GlickoRating = Object.freeze({
   sigma: 0.06,
 });
 
-/** Constante τ do sistema. 0.3..1.2 é típico; 0.5 dá bom equilíbrio. */
-export const TAU = 0.5;
+/**
+ * Constante τ do sistema: governa quão rápido a volatilidade σ reage. Faixa
+ * típica 0.3..1.2 — valores baixos deixam σ "pegajoso" (quase nunca muda),
+ * altos fazem σ reagir depressa a viradas de prioridade. Usamos 0.9 para que
+ * o badge de volatilidade seja informativo no uso real do app.
+ *
+ * `updateRating`/`recordDuel` aceitam um τ explícito; o default é esta
+ * constante. (O teste do exemplo canônico do paper fixa τ=0.5.)
+ */
+export const TAU = 0.9;
 
 const EPSILON = 1e-6;
 const SCALE = 173.7178;
@@ -48,6 +56,7 @@ function solveVolatility(
   phi: number,
   v: number,
   delta: number,
+  tau: number,
 ): number {
   const a = Math.log(sigma * sigma);
 
@@ -55,7 +64,7 @@ function solveVolatility(
     const ex = Math.exp(x);
     const num = ex * (delta * delta - phi * phi - v - ex);
     const den = 2 * Math.pow(phi * phi + v + ex, 2);
-    return num / den - (x - a) / (TAU * TAU);
+    return num / den - (x - a) / (tau * tau);
   };
 
   let A = a;
@@ -64,8 +73,8 @@ function solveVolatility(
     B = Math.log(delta * delta - phi * phi - v);
   } else {
     let k = 1;
-    while (f(a - k * TAU) < 0) k++;
-    B = a - k * TAU;
+    while (f(a - k * tau) < 0) k++;
+    B = a - k * tau;
   }
 
   let fA = f(A);
@@ -86,7 +95,7 @@ function solveVolatility(
   return Math.exp(A / 2);
 }
 
-interface MatchOutcome {
+export interface MatchOutcome {
   /** 1 = vitória, 0 = derrota, 0.5 = empate */
   score: number;
   opponent: GlickoRating;
@@ -94,11 +103,16 @@ interface MatchOutcome {
 
 /**
  * Atualiza um rating após uma "rating period" composta por uma ou mais
- * partidas. Para o caso típico do app, cada duelo é uma period com 1 jogo.
+ * partidas. Uma sessão inteira de duelos é tratada como UMA period (ver
+ * `applySessionDuels`), o que é a forma correta de o Glicko-2 medir
+ * volatilidade — daí `matches` aceitar vários jogos de uma vez.
+ *
+ * `tau` controla a reatividade da volatilidade; default = constante `TAU`.
  */
 export function updateRating(
   rating: GlickoRating,
   matches: ReadonlyArray<MatchOutcome>,
+  tau: number = TAU,
 ): GlickoRating {
   const mu = (rating.r - 1500) / SCALE;
   const phi = rating.rd / SCALE;
@@ -122,7 +136,7 @@ export function updateRating(
   const v = 1 / vInv;
   const delta = v * deltaSum;
 
-  const sigmaPrime = solveVolatility(rating.sigma, phi, v, delta);
+  const sigmaPrime = solveVolatility(rating.sigma, phi, v, delta, tau);
   const phiStar = Math.sqrt(phi * phi + sigmaPrime * sigmaPrime);
   const phiPrime = 1 / Math.sqrt(1 / (phiStar * phiStar) + 1 / v);
   const muPrime = mu + phiPrime * phiPrime * deltaSum;
@@ -142,9 +156,10 @@ export function updateRating(
 export function recordDuel(
   winner: GlickoRating,
   loser: GlickoRating,
+  tau: number = TAU,
 ): { winner: GlickoRating; loser: GlickoRating } {
-  const winnerNext = updateRating(winner, [{ score: 1, opponent: loser }]);
-  const loserNext = updateRating(loser, [{ score: 0, opponent: winner }]);
+  const winnerNext = updateRating(winner, [{ score: 1, opponent: loser }], tau);
+  const loserNext = updateRating(loser, [{ score: 0, opponent: winner }], tau);
   return { winner: winnerNext, loser: loserNext };
 }
 
@@ -162,15 +177,78 @@ export function clampRD(rd: number, max = 350, min = 30): number {
 export type VolatilityLevel = 'baixa' | 'média' | 'alta';
 
 /**
- * Classifica a volatilidade σ em três faixas, calibradas em torno do
- * default 0.06:
- *   - baixa  : σ < 0.055  → desempenho consistente
- *   - média  : 0.055..0.075 → variação normal
- *   - alta   : σ ≥ 0.075  → resultados erráticos / em transição
+ * Limiares para classificar a volatilidade. `sigma < lowMax` → baixa;
+ * `sigma >= highMin` → alta; entre os dois → média. (lowMax ≤ highMin)
  */
-export function classifyVolatility(sigma: number): VolatilityLevel {
-  if (sigma < 0.055) return 'baixa';
-  if (sigma < 0.075) return 'média';
+export interface VolatilityBands {
+  lowMax: number;
+  highMin: number;
+}
+
+/**
+ * Bandas fixas de fallback (calibradas em torno do default σ=0.06), usadas
+ * quando ainda não há população suficiente para derivar bandas adaptativas.
+ */
+export const DEFAULT_VOLATILITY_BANDS: VolatilityBands = Object.freeze({
+  lowMax: 0.055,
+  highMin: 0.075,
+});
+
+/**
+ * Abaixo deste espalhamento (max−min) consideramos a população praticamente
+ * uniforme: ninguém se destaca, então todos caem em "média".
+ */
+const MIN_VOLATILITY_SPREAD = 1e-4;
+
+/** Quantil (interpolação linear) de um array JÁ ordenado de forma crescente. */
+function quantile(sorted: ReadonlyArray<number>, q: number): number {
+  const pos = (sorted.length - 1) * q;
+  const lo = Math.floor(pos);
+  const hi = Math.ceil(pos);
+  if (lo === hi) return sorted[lo]!;
+  return sorted[lo]! + (sorted[hi]! - sorted[lo]!) * (pos - lo);
+}
+
+/**
+ * Deriva bandas de volatilidade ADAPTATIVAS a partir da população atual de
+ * σ: divide em terços (tercis), de modo que o terço mais baixo leia "baixa"
+ * e o mais alto "alta". Conforme os σ mudam, as bandas se reajustam sozinhas.
+ *
+ * Casos de borda:
+ *   - menos de 3 valores → cai nas bandas fixas (`DEFAULT_VOLATILITY_BANDS`);
+ *   - população quase uniforme (espalhamento < `MIN_VOLATILITY_SPREAD`) →
+ *     bandas que fazem todos lerem "média".
+ */
+export function computeVolatilityBands(
+  sigmas: ReadonlyArray<number>,
+): VolatilityBands {
+  const vals = sigmas
+    .filter((s) => Number.isFinite(s) && s > 0)
+    .sort((a, b) => a - b);
+  if (vals.length < 3) return { ...DEFAULT_VOLATILITY_BANDS };
+
+  const min = vals[0]!;
+  const max = vals[vals.length - 1]!;
+  if (max - min < MIN_VOLATILITY_SPREAD) {
+    return {
+      lowMax: min - MIN_VOLATILITY_SPREAD,
+      highMin: max + MIN_VOLATILITY_SPREAD,
+    };
+  }
+  return { lowMax: quantile(vals, 1 / 3), highMin: quantile(vals, 2 / 3) };
+}
+
+/**
+ * Classifica a volatilidade σ em baixa/média/alta usando as `bands`
+ * fornecidas (tipicamente vindas de `computeVolatilityBands`). Sem bandas,
+ * usa as fixas de fallback.
+ */
+export function classifyVolatility(
+  sigma: number,
+  bands: VolatilityBands = DEFAULT_VOLATILITY_BANDS,
+): VolatilityLevel {
+  if (sigma < bands.lowMax) return 'baixa';
+  if (sigma < bands.highMin) return 'média';
   return 'alta';
 }
 

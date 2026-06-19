@@ -1,22 +1,25 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import {
+  applySessionDuels,
   pickNextPair,
   recommendedDuelLimit,
   reorderByRating,
   summarizeChanges,
+  type DuelResult,
   type DuelSummary,
   type Pair,
 } from '../lib/duelPairing';
 import {
   classifyConfidence,
   classifyVolatility,
+  computeVolatilityBands,
   DEFAULT_RATING,
   type GlickoRating,
+  type VolatilityBands,
 } from '../lib/glicko2';
 import { reorderProjects } from '../repositories/projectsRepo';
 import {
-  recordDuelAndPersist,
-  revertDuelAndPersist,
+  persistRatings,
   subscribeToGlickoRatings,
   type GlickoMap,
 } from '../repositories/glickoRepo';
@@ -26,12 +29,17 @@ const INACTIVE_STATUSES = new Set(['Concluído', 'Cancelado']);
 
 type Phase = 'dueling' | 'summary';
 
-type UndoSnapshot = {
+/**
+ * Registro de um duelo da sessão. NÃO persistimos cada duelo: a sessão
+ * inteira é tratada como UM rating period do Glicko-2, aplicado de uma vez
+ * ao fechar (ver `applySessionDuels`). Guardado em ref porque o resultado é
+ * derivado dele + dos ratings do início da sessão. Desfazer = remover o
+ * último registro; nada toca o Firestore até o fim.
+ */
+type LoggedDuel = {
   pair: Pair;
   winnerId: string;
   loserId: string;
-  winnerRatingBefore: GlickoRating;
-  loserRatingBefore: GlickoRating;
   prevLastPair: Pair | null;
 };
 
@@ -47,16 +55,16 @@ export function ProjectDuelView({
   const [ratings, setRatings] = useState<GlickoMap>({});
   const [duelCount, setDuelCount] = useState(0);
   const [pair, setPair] = useState<Pair | null>(null);
-  const [busy, setBusy] = useState(false);
   const [closing, setClosing] = useState(false);
   const [phase, setPhase] = useState<Phase>('dueling');
   const [summary, setSummary] = useState<DuelSummary | null>(null);
-  const [undoSnapshot, setUndoSnapshot] = useState<UndoSnapshot | null>(null);
   /** Limite recalculado enquanto nenhum duelo aconteceu; congela após o 1º. */
   const [limit, setLimit] = useState(0);
   const lastPairRef = useRef<Pair | null>(null);
   /** Snapshot dos ativos no momento em que a sessão começa — base do diff final. */
   const initialOrderRef = useRef<string[] | null>(null);
+  /** Log da sessão; aplicado como um único rating period ao fechar. */
+  const matchLogRef = useRef<LoggedDuel[]>([]);
 
   useEffect(() => {
     const unsub = subscribeToGlickoRatings(uid, setRatings);
@@ -73,6 +81,14 @@ export function ProjectDuelView({
     for (const p of projects) m[p.id] = p;
     return m;
   }, [projects]);
+
+  // Bandas adaptativas para o badge de volatilidade dos cards (ver
+  // `computeVolatilityBands`). Como nada é persistido no meio da sessão,
+  // `ratings` permanece no estado do início — o período-base do Glicko-2.
+  const volatilityBands = useMemo(
+    () => computeVolatilityBands(Object.values(ratings).map((r) => r.sigma)),
+    [ratings],
+  );
 
   // Captura o snapshot inicial + limite. O limite continua sendo recalculado
   // enquanto nenhum duelo aconteceu pra acomodar o snapshot de ratings que
@@ -110,87 +126,59 @@ export function ProjectDuelView({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function handlePick(winnerId: string) {
-    if (!pair || busy || phase !== 'dueling') return;
+  /**
+   * Ratings finais projetados a partir do log atual, tratando a sessão como
+   * UM rating period. Retorna o mapa completo (início + participantes
+   * recalculados) para alimentar a reordenação/summary.
+   */
+  function projectFinalRatings(): GlickoMap {
+    const results: DuelResult[] = matchLogRef.current.map((d) => ({
+      winnerId: d.winnerId,
+      loserId: d.loserId,
+    }));
+    return { ...ratings, ...applySessionDuels(ratings, results) };
+  }
+
+  function handlePick(winnerId: string) {
+    if (!pair || closing || phase !== 'dueling') return;
     const loserId = pair[0] === winnerId ? pair[1] : pair[0];
-    const winnerRating = ratings[winnerId] ?? { ...DEFAULT_RATING };
-    const loserRating = ratings[loserId] ?? { ...DEFAULT_RATING };
-    const pickedPair = pair;
-    const prevLastPair = lastPairRef.current;
-    setBusy(true);
-    try {
-      const result = await recordDuelAndPersist(
-        uid,
-        winnerId,
-        winnerRating,
-        loserId,
-        loserRating,
+    matchLogRef.current = [
+      ...matchLogRef.current,
+      { pair, winnerId, loserId, prevLastPair: lastPairRef.current },
+    ];
+    lastPairRef.current = pair;
+    const nextCount = duelCount + 1;
+    setDuelCount(nextCount);
+    setPair(null);
+    if (nextCount >= limit) {
+      const newOrder = reorderByRating(
+        projects.map((p) => p.id),
+        new Set(activeIds),
+        projectFinalRatings(),
       );
-      lastPairRef.current = pickedPair;
-      const nextCount = duelCount + 1;
-      setDuelCount(nextCount);
-      setPair(null);
-      setUndoSnapshot({
-        pair: pickedPair,
-        winnerId,
-        loserId,
-        winnerRatingBefore: winnerRating,
-        loserRatingBefore: loserRating,
-        prevLastPair,
-      });
-      if (nextCount >= limit) {
-        // Usa os ratings recém-aplicados (snapshot ainda não chegou via listener).
-        const mergedRatings: GlickoMap = {
-          ...ratings,
-          [winnerId]: result.winner,
-          [loserId]: result.loser,
-        };
-        const newOrder = reorderByRating(
-          projects.map((p) => p.id),
-          new Set(activeIds),
-          mergedRatings,
-        );
-        setSummary(
-          summarizeChanges(initialOrderRef.current ?? activeIds, newOrder),
-        );
-        setPhase('summary');
-      }
-    } catch (err) {
-      console.error('Falha ao registrar duelo', err);
-    } finally {
-      setBusy(false);
+      setSummary(
+        summarizeChanges(initialOrderRef.current ?? activeIds, newOrder),
+      );
+      setPhase('summary');
     }
   }
 
-  async function handleUndo() {
-    if (!undoSnapshot || busy) return;
-    setBusy(true);
-    try {
-      await revertDuelAndPersist(
-        uid,
-        undoSnapshot.winnerId,
-        undoSnapshot.winnerRatingBefore,
-        undoSnapshot.loserId,
-        undoSnapshot.loserRatingBefore,
-      );
-      lastPairRef.current = undoSnapshot.prevLastPair;
-      setDuelCount((c) => Math.max(0, c - 1));
-      setPair(undoSnapshot.pair);
-      setSummary(null);
-      setPhase('dueling');
-      setUndoSnapshot(null);
-    } catch (err) {
-      console.error('Falha ao desfazer duelo', err);
-    } finally {
-      setBusy(false);
-    }
+  function handleUndo() {
+    const log = matchLogRef.current;
+    if (log.length === 0 || closing) return;
+    const last = log[log.length - 1]!;
+    matchLogRef.current = log.slice(0, -1);
+    lastPairRef.current = last.prevLastPair;
+    setDuelCount((c) => Math.max(0, c - 1));
+    setPair(last.pair);
+    setSummary(null);
+    setPhase('dueling');
   }
 
   function handleSkip() {
     if (phase !== 'dueling') return;
     lastPairRef.current = pair;
     setPair(null);
-    setUndoSnapshot(null);
     generateNextPair();
   }
 
@@ -198,14 +186,22 @@ export function ProjectDuelView({
     if (closing) return;
     setClosing(true);
     try {
-      if (duelCount > 0) {
-        const allIds = projects.map((p) => p.id);
-        const activeSet = new Set(activeIds);
-        const newOrder = reorderByRating(allIds, activeSet, ratings);
+      if (matchLogRef.current.length > 0) {
+        const results: DuelResult[] = matchLogRef.current.map((d) => ({
+          winnerId: d.winnerId,
+          loserId: d.loserId,
+        }));
+        const changed = applySessionDuels(ratings, results);
+        const newOrder = reorderByRating(
+          projects.map((p) => p.id),
+          new Set(activeIds),
+          { ...ratings, ...changed },
+        );
+        await persistRatings(uid, changed);
         await reorderProjects(uid, newOrder);
       }
     } catch (err) {
-      console.error('Falha ao aplicar nova ordem', err);
+      console.error('Falha ao aplicar a sessão de duelos', err);
     } finally {
       onClose();
     }
@@ -243,8 +239,8 @@ export function ProjectDuelView({
           projectById={projectById}
           onClose={handleClose}
           closing={closing}
-          onUndo={undoSnapshot ? handleUndo : undefined}
-          undoing={busy}
+          onUndo={duelCount > 0 ? handleUndo : undefined}
+          undoing={closing}
         />
       </section>
     );
@@ -269,8 +265,9 @@ export function ProjectDuelView({
           <DuelCard
             project={a}
             rating={ratings[a.id]}
+            bands={volatilityBands}
             onPick={() => handlePick(a.id)}
-            disabled={busy}
+            disabled={closing}
           />
           <div className="duel-vs" aria-hidden="true">
             vs
@@ -278,8 +275,9 @@ export function ProjectDuelView({
           <DuelCard
             project={b}
             rating={ratings[b.id]}
+            bands={volatilityBands}
             onPick={() => handlePick(b.id)}
-            disabled={busy}
+            disabled={closing}
           />
         </div>
       ) : (
@@ -287,12 +285,12 @@ export function ProjectDuelView({
       )}
 
       <div className="duel-actions">
-        {undoSnapshot && (
+        {duelCount > 0 && (
           <button
             type="button"
             className="btn-secondary"
             onClick={handleUndo}
-            disabled={busy}
+            disabled={closing}
             aria-label="desfazer último duelo"
           >
             desfazer
@@ -302,7 +300,7 @@ export function ProjectDuelView({
           type="button"
           className="btn-secondary"
           onClick={handleSkip}
-          disabled={busy || !pair}
+          disabled={closing || !pair}
         >
           pular este par
         </button>
@@ -360,16 +358,18 @@ function DuelTopbar({
 function DuelCard({
   project,
   rating,
+  bands,
   onPick,
   disabled,
 }: {
   project: Project;
   rating: GlickoRating | undefined;
+  bands: VolatilityBands;
   onPick: () => void;
   disabled: boolean;
 }) {
   const effective = rating ?? DEFAULT_RATING;
-  const volLevel = classifyVolatility(effective.sigma);
+  const volLevel = classifyVolatility(effective.sigma, bands);
   const confLevel = classifyConfidence(effective.rd);
   return (
     <button

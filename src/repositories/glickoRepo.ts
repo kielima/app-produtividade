@@ -10,7 +10,6 @@ import { db } from '../lib/firebase';
 import {
   DEFAULT_RATING,
   clampRD,
-  recordDuel as glickoRecordDuel,
   type GlickoRating,
 } from '../lib/glicko2';
 
@@ -75,41 +74,20 @@ function sanitize(r: GlickoRating): GlickoRating {
 }
 
 /**
- * Aplica um duelo e persiste os dois ratings num único batch.
- * Usa os ratings *passados* como ponto de partida — quem chama deve
- * fornecer os mais recentes (do snapshot live ou de uma leitura).
+ * Persiste, num único batch, os ratings finais de uma sessão de duelos.
+ * Recebe o mapa de projetos que mudaram (tipicamente a saída de
+ * `applySessionDuels`). Não escreve nada se o mapa estiver vazio.
  */
-export async function recordDuelAndPersist(
+export async function persistRatings(
   uid: string,
-  winnerId: string,
-  winnerRating: GlickoRating,
-  loserId: string,
-  loserRating: GlickoRating,
-): Promise<{ winner: GlickoRating; loser: GlickoRating }> {
-  const { winner, loser } = glickoRecordDuel(winnerRating, loserRating);
-  const w = sanitize(winner);
-  const l = sanitize(loser);
-  const batch = writeBatch(db);
-  batch.set(glickoDoc(uid, winnerId), w, { merge: true });
-  batch.set(glickoDoc(uid, loserId), l, { merge: true });
-  await batch.commit();
-  return { winner: w, loser: l };
-}
-
-/**
- * Desfaz um duelo restaurando os ratings *anteriores* dos dois projetos.
- * Quem chama deve fornecer o snapshot capturado antes do duelo.
- */
-export async function revertDuelAndPersist(
-  uid: string,
-  aId: string,
-  aRatingBefore: GlickoRating,
-  bId: string,
-  bRatingBefore: GlickoRating,
+  ratings: GlickoMap,
 ): Promise<void> {
+  const entries = Object.entries(ratings);
+  if (entries.length === 0) return;
   const batch = writeBatch(db);
-  batch.set(glickoDoc(uid, aId), sanitize(aRatingBefore), { merge: true });
-  batch.set(glickoDoc(uid, bId), sanitize(bRatingBefore), { merge: true });
+  for (const [id, rating] of entries) {
+    batch.set(glickoDoc(uid, id), sanitize(rating), { merge: true });
+  }
   await batch.commit();
 }
 
