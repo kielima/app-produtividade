@@ -201,6 +201,12 @@ export function ProjectDetailView({
             placeholder="(área temática)"
           />
           <Field
+            label="🏷️ Categoria"
+            value={project.category}
+            onSave={(v) => patch('category', v)}
+            placeholder="(categoria para agrupar)"
+          />
+          <Field
             label="🎯 Objetivo"
             value={project.objective}
             onSave={(v) => patch('objective', v)}
