@@ -6,6 +6,20 @@ import { createProject, subscribeToProjects } from '../repositories/projectsRepo
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import type { Project, Task } from '../types';
 
+const COLLAPSED_CATEGORIES_KEY = 'projectsCollapsedCategories';
+
+function loadCollapsedCategories(): Set<string> {
+  try {
+    const raw = localStorage.getItem(COLLAPSED_CATEGORIES_KEY);
+    if (!raw) return new Set();
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return new Set();
+    return new Set(parsed.filter((x): x is string => typeof x === 'string'));
+  } catch {
+    return new Set();
+  }
+}
+
 export function ProjectsView({
   uid,
   filters,
@@ -20,10 +34,18 @@ export function ProjectsView({
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
   // Categorias recolhidas na visualização "Por categoria". A chave é a mesma
-  // usada no agrupamento ('' = "(sem categoria)").
+  // usada no agrupamento ('' = "(sem categoria)"). Persistido em localStorage
+  // para sobreviver à navegação (abrir um projeto e voltar) e a recargas.
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
-    new Set(),
+    loadCollapsedCategories,
   );
+
+  useEffect(() => {
+    localStorage.setItem(
+      COLLAPSED_CATEGORIES_KEY,
+      JSON.stringify([...collapsedCategories]),
+    );
+  }, [collapsedCategories]);
 
   function toggleCategory(key: string) {
     setCollapsedCategories((prev) => {
