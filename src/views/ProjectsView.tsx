@@ -19,6 +19,20 @@ export function ProjectsView({
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
   const [adding, setAdding] = useState(false);
+  // Categorias recolhidas na visualização "Por categoria". A chave é a mesma
+  // usada no agrupamento ('' = "(sem categoria)").
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(
+    new Set(),
+  );
+
+  function toggleCategory(key: string) {
+    setCollapsedCategories((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }
 
   useEffect(() => {
     const onErr = (e: Error) => setError(e.message);
@@ -117,25 +131,55 @@ export function ProjectsView({
       )}
 
       {filters.viewMode === 'category' ? (
-        groupedByCategory.map(([category, group]) => (
-          <div key={category || '__none__'} className="project-category-group">
-            <h3 className="project-category-heading">
-              {category || '(sem categoria)'}
-              <span className="muted project-category-count">{group.length}</span>
-            </h3>
-            <div className="project-list">
-              {group.map((p) => (
-                <ProjectCard
-                  key={p.id}
-                  project={p}
-                  taskCount={taskCountByProject[p.id]?.total ?? 0}
-                  doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
-                  glickoRating={glickoMap[p.id]}
-                />
-              ))}
+        groupedByCategory.map(([category, group]) => {
+          const collapsed = collapsedCategories.has(category);
+          const label = category || '(sem categoria)';
+          return (
+            <div key={category || '__none__'} className="project-category-group">
+              <h3 className="project-category-heading">
+                <button
+                  type="button"
+                  className="project-category-toggle"
+                  onClick={() => toggleCategory(category)}
+                  aria-expanded={!collapsed}
+                  aria-label={`${collapsed ? 'expandir' : 'recolher'} categoria ${label}`}
+                >
+                  <svg
+                    className={`project-category-chevron${collapsed ? ' collapsed' : ''}`}
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    focusable="false"
+                  >
+                    <polyline points="6 9 12 15 18 9" />
+                  </svg>
+                  <span className="project-category-name">{label}</span>
+                  <span className="muted project-category-count">{group.length}</span>
+                </button>
+              </h3>
+              {!collapsed && (
+                <div className="project-list">
+                  {group.map((p) => (
+                    <ProjectCard
+                      key={p.id}
+                      project={p}
+                      taskCount={taskCountByProject[p.id]?.total ?? 0}
+                      doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
+                      glickoRating={glickoMap[p.id]}
+                    />
+                  ))}
+                </div>
+              )}
             </div>
-          </div>
-        ))
+          );
+        })
       ) : (
         <div className="project-list">
           {filtered.map((p) => (
