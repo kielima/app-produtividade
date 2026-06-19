@@ -28,6 +28,11 @@ export interface Task {
   // subtarefa (filha): fica oculta das listas principais e aparece apenas
   // dentro da página do pai. null/ausente = tarefa de topo.
   parentId?: string | null;
+  // Ordem manual entre tarefas-filhas (irmãs com o mesmo parentId). Definido
+  // ao arrastar para reordenar as subtarefas no detalhe da tarefa. Quando
+  // ausente, ordena-se por `taskId` (ordem de criação). null/ausente = sem
+  // ordenação manual.
+  order?: number | null;
   section: string;
   // Preenchido quando `checked=true`. Usado pelas estatísticas e pelo
   // gráfico de atividade. Para tarefas ativas é null.
