@@ -15,8 +15,32 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
-    match /users/{uid}/{document=**} {
+    match /users/{uid} {
+      // Doc do próprio usuário (se houver campos no nível raiz).
       allow read, write: if isSelf(uid);
+
+      // Segredos do servidor (refresh token do Google Calendar etc.):
+      // SOMENTE o Admin SDK das Functions lê/escreve. O cliente nunca acessa.
+      match /private/{document=**} {
+        allow read, write: if false;
+      }
+
+      // Status de conexão do calendário: flag não sensível que o cliente
+      // LÊ para saber se já conectou (sincroniza a UX entre dispositivos).
+      // A escrita é exclusiva das Functions (Admin SDK).
+      match /calendar/{document=**} {
+        allow read: if isSelf(uid);
+        allow write: if false;
+      }
+
+      // Demais dados do usuário (tasks, projects, notes, memory, ...):
+      // acesso total ao próprio dono. As subárvores protegidas acima não
+      // são alcançadas por esta regra.
+      match /{collection}/{document=**} {
+        allow read, write: if isSelf(uid)
+          && collection != 'private'
+          && collection != 'calendar';
+      }
     }
 
     // Default deny — qualquer outro path é bloqueado.
