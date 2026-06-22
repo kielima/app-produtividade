@@ -13,6 +13,14 @@ import {
   persistentMultipleTabManager,
   type Firestore,
 } from 'firebase/firestore';
+import {
+  connectFunctionsEmulator,
+  getFunctions,
+  type Functions,
+} from 'firebase/functions';
+
+// Região das Cloud Functions — precisa bater com a definida em functions/src.
+const FUNCTIONS_REGION = 'us-central1';
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -35,6 +43,10 @@ export const db: Firestore = initializeFirestore(app, {
 
 export const auth: Auth = getAuth(app);
 
+// Cloud Functions: backend que detém o refresh token do Google Calendar e
+// emite access tokens novos sem popup.
+export const functions: Functions = getFunctions(app, FUNCTIONS_REGION);
+
 // Login com Google é via popup OAuth — manter sessão entre visitas evita
 // re-fazer o fluxo toda vez. Fire-and-forget: a primeira chamada de signIn
 // vai re-aplicar isso de qualquer jeito.
@@ -45,4 +57,5 @@ setPersistence(auth, browserLocalPersistence).catch((err) => {
 if (useEmulator) {
   connectAuthEmulator(auth, 'http://localhost:9099', { disableWarnings: true });
   connectFirestoreEmulator(db, 'localhost', 8081);
+  connectFunctionsEmulator(functions, 'localhost', 5001);
 }

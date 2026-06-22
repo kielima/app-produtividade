@@ -1,4 +1,15 @@
-import { auth } from './firebase';
+import { httpsCallable } from 'firebase/functions';
+import { auth, functions } from './firebase';
+
+// =========================================================================
+// Aquisição de token — fluxo authorization-code com refresh token NO SERVIDOR.
+//
+// O usuário consente UMA vez (GIS code client, popup). O code vai para a
+// Cloud Function `connectCalendar`, que guarda o refresh token no servidor.
+// A partir daí, todo access token novo vem da Function `getCalendarAccessToken`
+// (sem iframe, sem cookies de terceiros) — então a renovação é confiável e não
+// força popups recorrentes. O refresh token nunca chega ao navegador.
+// =========================================================================
 
 // Escopo de leitura/escrita de eventos. Cobre os dois usos da aba Contagem
 // Regressiva: listar próximos eventos e criar novos via FAB.
@@ -8,6 +19,28 @@ const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const TOKEN_KEY = 'app-produtividade:gcal-token';
 const HAS_EVER_CONNECTED_KEY = 'app-produtividade:gcal-connected';
 const EVENTS_CACHE_KEY = 'app-produtividade:gcal-events';
+
+// -------------------------------------------------------------------------
+// Callables do backend
+// -------------------------------------------------------------------------
+type GetTokenResult =
+  | { status: 'ok'; accessToken: string; expiresAt: number }
+  | { status: 'needs-connect' }
+  | { status: 'needs-reconnect' };
+type ConnectResult = { accessToken: string; expiresAt: number };
+
+const callGetToken = httpsCallable<void, GetTokenResult>(
+  functions,
+  'getCalendarAccessToken',
+);
+const callConnect = httpsCallable<{ code: string; redirectUri?: string }, ConnectResult>(
+  functions,
+  'connectCalendar',
+);
+const callDisconnect = httpsCallable<void, { status: string }>(
+  functions,
+  'disconnectCalendar',
+);
 
 // Disparar o silent refresh aos ~30min de um token de 1h (metade do TTL real),
 // bem antes da expiração efetiva, dá margem larga para retries em caso de
@@ -27,28 +60,28 @@ type StoredToken = {
   uid: string;
 };
 
-type GisTokenResponse = {
-  access_token?: string;
-  expires_in?: number;
+type GisCodeResponse = {
+  code?: string;
   scope?: string;
-  token_type?: string;
   error?: string;
   error_description?: string;
 };
 
-type GisTokenClient = {
-  callback: (resp: GisTokenResponse) => void;
+type GisCodeClient = {
+  callback: (resp: GisCodeResponse) => void;
   error_callback?: (err: { type: string; message?: string }) => void;
-  requestAccessToken: (overrides?: { prompt?: string; hint?: string }) => void;
+  requestCode: () => void;
 };
 
 type GisOAuth2 = {
-  initTokenClient: (config: {
+  initCodeClient: (config: {
     client_id: string;
     scope: string;
-    callback: (resp: GisTokenResponse) => void;
+    ux_mode?: 'popup' | 'redirect';
+    hint?: string;
+    callback: (resp: GisCodeResponse) => void;
     error_callback?: (err: { type: string; message?: string }) => void;
-  }) => GisTokenClient;
+  }) => GisCodeClient;
 };
 
 declare global {
@@ -116,6 +149,12 @@ export function disconnectCalendar(): void {
   } catch {
     // ignore
   }
+  // Revoga no Google e apaga o refresh token do servidor. Fire-and-forget:
+  // a UX local já foi limpa; se a chamada falhar, o estado local some do mesmo
+  // jeito e a próxima conexão refaz o consentimento.
+  void callDisconnect().catch((err) => {
+    console.debug('[gcal] disconnect no servidor falhou:', err);
+  });
 }
 
 export function getCachedCalendarToken(uid: string): string | null {
@@ -189,10 +228,12 @@ function loadGisScript(): Promise<void> {
   return gisScriptPromise;
 }
 
-let tokenClient: GisTokenClient | null = null;
-
-async function getTokenClient(): Promise<GisTokenClient> {
-  if (tokenClient) return tokenClient;
+// Abre o popup de consentimento (GIS code client) e devolve o authorization
+// code. Em ux_mode 'popup' o code é trocado no servidor com
+// redirect_uri='postmessage'. Como o fluxo é authorization-code, o Google
+// emite um refresh token no primeiro consentimento (e a cada novo consentimento
+// após uma revogação) — que a Function guarda no servidor.
+async function requestAuthCode(): Promise<string> {
   const clientId = import.meta.env.VITE_GOOGLE_OAUTH_CLIENT_ID;
   if (!clientId) {
     throw new Error(
@@ -204,83 +245,60 @@ async function getTokenClient(): Promise<GisTokenClient> {
   if (!oauth2) {
     throw new Error('Google Identity Services indisponível.');
   }
-  tokenClient = oauth2.initTokenClient({
-    client_id: clientId,
-    scope: CALENDAR_SCOPE,
-    callback: () => {
-      // Sobrescrito a cada chamada de requestToken.
-    },
-  });
-  return tokenClient;
-}
-
-async function requestToken(
-  uid: string,
-  prompt: '' | 'none' | 'consent',
-): Promise<string> {
-  const client = await getTokenClient();
+  const email = auth.currentUser?.email;
   return new Promise<string>((resolve, reject) => {
-    client.callback = (resp) => {
-      if (resp.error) {
-        reject(new Error(resp.error_description || resp.error));
-        return;
-      }
-      if (!resp.access_token) {
-        reject(new Error('Google não devolveu access_token.'));
-        return;
-      }
-      // expires_in vem em segundos; cacheamos com margem de 60s.
-      const ttlMs = (resp.expires_in ?? 3600) * 1000;
-      const expiresAt = Date.now() + ttlMs - 60_000;
-      writeStored({ accessToken: resp.access_token, expiresAt, uid });
-      resolve(resp.access_token);
-    };
-    client.error_callback = (err) => {
-      reject(new Error(err.message || err.type || 'Falha ao obter token.'));
-    };
-    const overrides: { prompt?: string; hint?: string } = { prompt };
-    const email = auth.currentUser?.email;
-    if (email) overrides.hint = email;
-    client.requestAccessToken(overrides);
+    const client = oauth2.initCodeClient({
+      client_id: clientId,
+      scope: CALENDAR_SCOPE,
+      ux_mode: 'popup',
+      ...(email ? { hint: email } : {}),
+      callback: (resp) => {
+        if (resp.error) {
+          reject(new Error(resp.error_description || resp.error));
+          return;
+        }
+        if (!resp.code) {
+          reject(new Error('Google não devolveu authorization code.'));
+          return;
+        }
+        resolve(resp.code);
+      },
+      error_callback: (err) => {
+        reject(new Error(err.message || err.type || 'Falha ao obter consentimento.'));
+      },
+    });
+    client.requestCode();
   });
 }
 
-// Erros do GIS que NÃO valem retry: o usuário não está logado no Google ou
-// não consentiu — tentar de novo só vai falhar do mesmo jeito.
-function isNonRetryableRefreshError(err: unknown): boolean {
-  const msg = err instanceof Error ? err.message.toLowerCase() : String(err).toLowerCase();
-  return (
-    msg.includes('access_denied') ||
-    msg.includes('user_logged_out') ||
-    msg.includes('interaction_required') ||
-    msg.includes('login_required') ||
-    msg.includes('consent_required') ||
-    msg.includes('immediate_failed')
-  );
-}
-
-// Renovação silenciosa: usa a sessão Google ativa no navegador via iframe
-// invisível. Se o usuário não estiver logado no Google ou nunca consentiu,
-// retorna null sem mostrar UI (não força popup).
+// Renovação silenciosa: pede um access token novo ao backend, que o emite a
+// partir do refresh token guardado no servidor. Sem iframe e sem cookies de
+// terceiros, então não depende da sessão Google do navegador.
 //
-// Faz até 3 tentativas com backoff 1s/3s/9s para tolerar blips de rede ou
-// race do iframe do GIS antes de desistir.
+// Faz até 3 tentativas com backoff para tolerar blips de rede antes de desistir.
+// `needs-connect`/`needs-reconnect` são respostas definitivas (não adianta
+// repetir) e retornam null.
 export async function tryRefreshCalendarToken(
   uid: string,
 ): Promise<string | null> {
-  const backoffs = [0, 1_000, 3_000, 9_000];
+  const backoffs = [0, 1_000, 3_000];
   let lastErr: unknown = null;
   for (let i = 0; i < backoffs.length; i++) {
     if (backoffs[i] > 0) await sleep(backoffs[i]);
     try {
-      const token = await requestToken(uid, 'none');
-      // Refresh bem-sucedido reaquece a flag (cobre o caso de localStorage
-      // ter sido limpo manualmente mas a sessão Google ainda existir).
-      markEverConnected();
-      return token;
+      const { data } = await callGetToken();
+      if (data.status === 'ok') {
+        writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
+        // Sucesso reaquece a flag — cobre o caso de outro dispositivo já ter
+        // conectado (refresh token vive no servidor, por usuário).
+        markEverConnected();
+        return data.accessToken;
+      }
+      // Definitivo: backend não tem (ou perdeu) o refresh token. Não há o que
+      // renovar silenciosamente — o usuário precisa conectar/reconectar.
+      return null;
     } catch (err) {
       lastErr = err;
-      if (isNonRetryableRefreshError(err)) break;
     }
   }
   console.debug('[gcal] silent refresh falhou:', lastErr);
@@ -291,13 +309,15 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Interativo: pode mostrar consent se for a primeira vez ou se o usuário
-// revogou o acesso. Se já consentiu antes, GIS resolve via iframe sem popup.
+// Interativo: abre o popup de consentimento uma vez, manda o code para o
+// backend (que guarda o refresh token) e cacheia o access token devolvido.
 export async function grantCalendarAccess(uid: string): Promise<string> {
-  const token = await requestToken(uid, '');
+  const code = await requestAuthCode();
+  const { data } = await callConnect({ code });
+  writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
   markEverConnected();
   startCalendarTokenScheduler(uid);
-  return token;
+  return data.accessToken;
 }
 
 export async function ensureCalendarToken(uid: string): Promise<string> {

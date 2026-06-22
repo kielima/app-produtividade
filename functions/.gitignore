@@ -1,0 +1,10 @@
+# Dependências e saída de build das Cloud Functions
+node_modules/
+lib/
+*.tsbuildinfo
+
+# Segredos locais do emulador (client id/secret do OAuth) — NUNCA commitar
+.secret.local
+.env
+.env.local
+.runtimeconfig.json
