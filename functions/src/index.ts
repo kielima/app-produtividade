@@ -20,7 +20,12 @@ import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 initializeApp();
 setGlobalOptions({ region: 'us-central1' });
 
-const GOOGLE_OAUTH_CLIENT_ID = defineSecret('GOOGLE_OAUTH_CLIENT_ID');
+// O Client ID do OAuth é PÚBLICO (já vai embutido no frontend e no deploy.yml),
+// então não precisa ser secret — fica como constante. O mesmo valor está em
+// VITE_GOOGLE_OAUTH_CLIENT_ID. Só o client secret é sigiloso e vive no Secret
+// Manager.
+const GOOGLE_OAUTH_CLIENT_ID =
+  '739803156090-n0f203p9io7276nm1uujsauntue6l644.apps.googleusercontent.com';
 const GOOGLE_OAUTH_CLIENT_SECRET = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
 
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
@@ -78,7 +83,7 @@ async function postForm(
 // refresh token. Chamada uma única vez, logo após o consentimento.
 // -------------------------------------------------------------
 export const connectCalendar = onCall(
-  { secrets: [GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET] },
+  { secrets: [GOOGLE_OAUTH_CLIENT_SECRET] },
   async (request) => {
     const uid = requireAuth(request);
     const code = (request.data?.code ?? '') as string;
@@ -91,7 +96,7 @@ export const connectCalendar = onCall(
 
     const { status, json } = await postForm(TOKEN_ENDPOINT, {
       code,
-      client_id: GOOGLE_OAUTH_CLIENT_ID.value(),
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
       client_secret: GOOGLE_OAUTH_CLIENT_SECRET.value(),
       redirect_uri: redirectUri,
       grant_type: 'authorization_code',
@@ -136,7 +141,7 @@ export const connectCalendar = onCall(
 // token guardado. É o que substitui o iframe silencioso do GIS.
 // -------------------------------------------------------------
 export const getCalendarAccessToken = onCall(
-  { secrets: [GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET] },
+  { secrets: [GOOGLE_OAUTH_CLIENT_SECRET] },
   async (request) => {
     const uid = requireAuth(request);
     const snap = await secretDocRef(uid).get();
@@ -147,7 +152,7 @@ export const getCalendarAccessToken = onCall(
 
     const { status, json } = await postForm(TOKEN_ENDPOINT, {
       refresh_token: refreshToken,
-      client_id: GOOGLE_OAUTH_CLIENT_ID.value(),
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
       client_secret: GOOGLE_OAUTH_CLIENT_SECRET.value(),
       grant_type: 'refresh_token',
     });
@@ -178,7 +183,7 @@ export const getCalendarAccessToken = onCall(
 // disconnectCalendar — revoga no Google e apaga o estado guardado.
 // -------------------------------------------------------------
 export const disconnectCalendar = onCall(
-  { secrets: [GOOGLE_OAUTH_CLIENT_ID, GOOGLE_OAUTH_CLIENT_SECRET] },
+  { secrets: [GOOGLE_OAUTH_CLIENT_SECRET] },
   async (request) => {
     const uid = requireAuth(request);
     const snap = await secretDocRef(uid).get();
