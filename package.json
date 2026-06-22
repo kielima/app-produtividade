@@ -14,7 +14,7 @@
     "migrate": "tsx scripts/migrate/index.ts",
     "pwa:assets": "pwa-assets-generator --preset minimal-2023 public/logo.png",
     "emulators": "firebase emulators:start",
-    "deploy": "npm run build && firebase deploy --only hosting,firestore:rules",
+    "deploy": "npm run build && firebase deploy --only hosting,firestore:rules,functions",
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:headed": "playwright test --headed"
