@@ -39,6 +39,7 @@ function useDragScroll() {
 }
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { TaskCard } from '../components/TaskCard';
+import { TodayFab } from '../components/TodayFab';
 import {
   WeatherIcon,
   weatherKindFromCode,
@@ -714,6 +715,7 @@ interface TodayViewProps {
   projects: Project[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
+  onCreateEventNeedsAuth: () => void;
 }
 
 export function TodayView({
@@ -722,6 +724,7 @@ export function TodayView({
   projects,
   projectMap,
   ctx,
+  onCreateEventNeedsAuth,
 }: TodayViewProps) {
   const { openProject, openProjectTasks } = useProjectNavigation();
   const [user] = useAuthState(auth);
@@ -976,6 +979,13 @@ export function TodayView({
         <h2 className="today-section-title">Próximos 7 dias</h2>
         <EventsList state={events} onConnect={handleConnectCalendar} />
       </div>
+
+      <TodayFab
+        uid={uid}
+        projects={projects}
+        onNeedEventAuth={onCreateEventNeedsAuth}
+        onEventCreated={() => setCalendarTrigger((n) => n + 1)}
+      />
     </section>
   );
 }

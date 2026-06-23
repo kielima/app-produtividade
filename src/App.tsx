@@ -1010,6 +1010,7 @@ function AppShell({
             projects={data.projects}
             projectMap={data.projectMap}
             ctx={data.ctx}
+            onCreateEventNeedsAuth={() => setTab('countdown')}
           />
         )}
         {tab === 'notes' && (
