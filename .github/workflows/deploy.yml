@@ -43,10 +43,13 @@ jobs:
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' | base64 -d > /tmp/sa.json
 
       - name: Deploy to Firebase (hosting + firestore + functions)
-        # As Functions detêm o refresh token do Google Calendar. Os secrets
-        # GOOGLE_OAUTH_CLIENT_ID/SECRET vivem no Secret Manager (definidos via
-        # `firebase functions:secrets:set`), não aqui — o predeploy em
-        # firebase.json instala/builda functions/ antes do deploy.
-        run: npx firebase-tools@latest deploy --only hosting,firestore,functions --project app-produtividade-3ec9d --non-interactive
+        # As Functions detêm o refresh token do Google Calendar. Só o secret
+        # GOOGLE_OAUTH_CLIENT_SECRET vive no Secret Manager (o client ID é
+        # público, constante no código); o predeploy em firebase.json
+        # instala/builda functions/ antes do deploy.
+        # --force: aceita automaticamente a cleanup policy do Artifact Registry,
+        # senão o deploy falha pedindo confirmação interativa (mesmo já tendo
+        # publicado as functions com sucesso).
+        run: npx firebase-tools@latest deploy --only hosting,firestore,functions --project app-produtividade-3ec9d --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
