@@ -123,15 +123,19 @@ export function NoteDetailView({
     }
     setConverting(true);
     try {
-      const taskId = await nextTaskId(uid);
+      // Reserva ids sequenciais: o pai e uma tarefa-filha por item da lista.
+      // Os itens viram subtarefas reais (tarefas-filhas com `parentId`), que
+      // é o que a tela da tarefa exibe — guardá-los no campo `subtasks`
+      // (inline) faria com que sumissem, pois esse campo não é renderizado.
+      const baseId = await nextTaskId(uid);
       const today = new Date().toISOString().slice(0, 10);
       const addedDate = note.addedDate || today;
       const sectionId = targetProject.id;
       const newTask: Task = {
-        id: String(taskId),
-        taskId,
+        id: String(baseId),
+        taskId: baseId,
         title: serializeTitle(note.title, {
-          taskId,
+          taskId: baseId,
           modo: 'manual',
           moscow: '',
           esforco: '',
@@ -148,12 +152,50 @@ export function NoteDetailView({
         deadline: '',
         addedDate,
         dependsOn: [],
-        subtasks: note.items.map((s) => ({ text: s.text, checked: s.checked })),
+        subtasks: [],
         section: sectionId,
         completedAt: null,
       };
+
+      const children: Task[] = note.items.map((item, i) => {
+        const childId = baseId + 1 + i;
+        // Preserva o vínculo "bloqueada pela anterior" como dependência da
+        // subtarefa anterior (#taskId), igual ao botão de ligar subtarefas.
+        const dependsOn =
+          item.blockedByPrev && i > 0 ? [`#${baseId + i}`] : [];
+        return {
+          id: String(childId),
+          taskId: childId,
+          title: serializeTitle(item.text, {
+            taskId: childId,
+            modo: 'manual',
+            moscow: '',
+            esforco: '',
+            deadline: '',
+            addedDate,
+            dependsOn,
+          }),
+          note: '',
+          checked: item.checked,
+          inProgress: false,
+          moscow: '',
+          modo: 'manual',
+          esforco: '',
+          deadline: '',
+          addedDate,
+          dependsOn,
+          subtasks: [],
+          parentId: String(baseId),
+          order: i,
+          section: sectionId,
+          completedAt: item.checked ? new Date() : null,
+        };
+      });
+
       await upsertTask(uid, newTask);
+      await Promise.all(children.map((child) => upsertTask(uid, child)));
       await deleteNote(uid, note.id);
+      const taskId = baseId;
       if (onConvertedToTask) onConvertedToTask(String(taskId));
       else onClose();
     } finally {
