@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import type { Project } from '../types';
 import { ProjectCombobox } from './TaskFiltersBar';
 
+export const NO_TAG_FILTER = '__sem_tag__';
+
 export function NotesFiltersBar({
   allTags,
   selectedTags,
@@ -146,6 +148,19 @@ export function NotesFiltersBar({
               <p className="muted">Nenhuma tag ainda.</p>
             ) : (
               <div className="chip-group">
+                {(() => {
+                  const noTagActive = selectedTags.includes(NO_TAG_FILTER);
+                  return (
+                    <button
+                      type="button"
+                      className={`tag-chip tag-chip-toggle${noTagActive ? ' active' : ''}`}
+                      onClick={() => toggleTag(NO_TAG_FILTER)}
+                      aria-pressed={noTagActive}
+                    >
+                      sem tag
+                    </button>
+                  );
+                })()}
                 {allTags.map((tag) => {
                   const active = selectedTags.includes(tag);
                   return (

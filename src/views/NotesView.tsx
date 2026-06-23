@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { NewNoteFab } from '../components/NewNoteFab';
+import { NO_TAG_FILTER } from '../components/NotesFiltersBar';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import { normalizeForSearch } from '../lib/searchNormalize';
 import type { Note, Project } from '../types';
@@ -112,10 +113,13 @@ export function NotesView({
 
   const filteredNotes = useMemo(() => {
     const q = normalizeForSearch(searchQuery.trim());
-    const required = selectedTags.length > 0 ? new Set(selectedTags) : null;
+    const wantNoTag = selectedTags.includes(NO_TAG_FILTER);
+    const requiredTags = selectedTags.filter((t) => t !== NO_TAG_FILTER);
+    const required = requiredTags.length > 0 ? new Set(requiredTags) : null;
     const hideHidden = !required || !required.has(HIDDEN_BY_DEFAULT_TAG);
     return notes.filter((n) => {
       if (hideHidden && n.tags.includes(HIDDEN_BY_DEFAULT_TAG)) return false;
+      if (wantNoTag && n.tags.length > 0) return false;
       if (required) {
         const noteTags = new Set(n.tags);
         for (const t of required) if (!noteTags.has(t)) return false;
