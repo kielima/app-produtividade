@@ -30,10 +30,13 @@ import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSub
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import {
-  formatSnoozeDate,
+  formatSnoozeUntil,
   isSnoozed,
-  snoozeDaysRemaining,
+  snoozeRemainingLabel,
   snoozeUntilForDays,
+  snoozeUntilForHours,
+  todayISO,
+  SNOOZE_HOUR_PRESETS,
   SNOOZE_PRESETS,
 } from '../lib/snooze';
 import { ScoreDetailView } from './ScoreDetailView';
@@ -128,7 +131,7 @@ export function TaskDetailView({
   const [scoreDetailOpen, setScoreDetailOpen] = useState(false);
   const [addingChild, setAddingChild] = useState(false);
   const [childDraft, setChildDraft] = useState('');
-  const [customSnoozeDays, setCustomSnoozeDays] = useState('');
+  const [customSnoozeHours, setCustomSnoozeHours] = useState('');
   const deadlineInputRef = useRef<HTMLInputElement>(null);
   const snoozed = isSnoozed(task);
   const parent = task.parentId
@@ -317,15 +320,26 @@ export function TaskDetailView({
     await patchTask(uid, task, { snoozedUntil: snoozeUntilForDays(days) });
   }
 
+  async function snoozeForHours(hours: number) {
+    await patchTask(uid, task, { snoozedUntil: snoozeUntilForHours(hours) });
+  }
+
+  async function snoozeUntilDate(dateISO: string) {
+    // Só adia para datas futuras — o seletor já restringe via `min`, mas
+    // protege contra escolhas inválidas (hoje/passado não silenciam nada).
+    if (!dateISO || dateISO <= todayISO()) return;
+    await patchTask(uid, task, { snoozedUntil: dateISO });
+  }
+
   async function clearSnooze() {
     await patchTask(uid, task, { snoozedUntil: null });
   }
 
-  function handleCustomSnooze() {
-    const days = parseInt(customSnoozeDays, 10);
-    if (!Number.isFinite(days) || days < 1) return;
-    void snoozeForDays(days);
-    setCustomSnoozeDays('');
+  function handleCustomHours() {
+    const hours = parseInt(customSnoozeHours, 10);
+    if (!Number.isFinite(hours) || hours < 1) return;
+    void snoozeForHours(hours);
+    setCustomSnoozeHours('');
   }
 
   async function moveToSection(newSectionId: string) {
@@ -433,8 +447,8 @@ export function TaskDetailView({
 
         {snoozed && (
           <p className="badge snoozed-banner task-detail-blocked">
-            💤 adiada até {formatSnoozeDate(task.snoozedUntil!)} ·{' '}
-            {snoozeDaysRemaining(task)} dia{snoozeDaysRemaining(task) === 1 ? '' : 's'}
+            💤 adiada até {formatSnoozeUntil(task.snoozedUntil!)} ·{' '}
+            {snoozeRemainingLabel(task)}
           </p>
         )}
 
@@ -659,11 +673,11 @@ export function TaskDetailView({
                 onClick={open}
                 title={
                   snoozed
-                    ? `Adiada até ${formatSnoozeDate(task.snoozedUntil!)}`
+                    ? `Adiada até ${formatSnoozeUntil(task.snoozedUntil!)}`
                     : 'Adiar (silenciar temporariamente)'
                 }
               >
-                💤 {snoozed ? `até ${formatSnoozeDate(task.snoozedUntil!)}` : 'Adiar'}
+                💤 {snoozed ? `até ${formatSnoozeUntil(task.snoozedUntil!)}` : 'Adiar'}
               </button>
             )}
           >
@@ -685,32 +699,60 @@ export function TaskDetailView({
                     </li>
                   ))}
                 </ul>
+                <p className="snooze-menu-title">Adiar até a data…</p>
+                <input
+                  type="date"
+                  className="snooze-date-input"
+                  min={snoozeUntilForDays(1)}
+                  value=""
+                  onChange={(e) => {
+                    void snoozeUntilDate(e.target.value);
+                    close();
+                  }}
+                  aria-label="adiar até a data"
+                />
+                <p className="snooze-menu-title">Adiar por horas…</p>
+                <ul className="picker-list">
+                  {SNOOZE_HOUR_PRESETS.map((p) => (
+                    <li key={p.hours}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void snoozeForHours(p.hours);
+                          close();
+                        }}
+                      >
+                        {p.label}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
                 <div className="snooze-custom">
                   <input
                     type="number"
                     min={1}
                     inputMode="numeric"
                     className="snooze-custom-input"
-                    placeholder="nº de dias"
-                    value={customSnoozeDays}
-                    onChange={(e) => setCustomSnoozeDays(e.target.value)}
+                    placeholder="nº de horas"
+                    value={customSnoozeHours}
+                    onChange={(e) => setCustomSnoozeHours(e.target.value)}
                     onKeyDown={(e) => {
                       if (e.key === 'Enter') {
                         e.preventDefault();
-                        handleCustomSnooze();
+                        handleCustomHours();
                         close();
                       }
                     }}
-                    aria-label="número de dias para adiar"
+                    aria-label="número de horas para adiar"
                   />
                   <button
                     type="button"
                     className="btn-secondary snooze-custom-btn"
                     onClick={() => {
-                      handleCustomSnooze();
+                      handleCustomHours();
                       close();
                     }}
-                    disabled={!customSnoozeDays.trim()}
+                    disabled={!customSnoozeHours.trim()}
                   >
                     Adiar
                   </button>

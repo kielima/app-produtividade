@@ -1231,6 +1231,16 @@ a:focus-visible {
   color: var(--muted);
   font-weight: 600;
 }
+.snooze-date-input {
+  width: 100%;
+  font: inherit;
+  font-size: 0.85rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+}
 .snooze-custom { display: flex; gap: 0.35rem; align-items: center; }
 .snooze-custom-input {
   flex: 1;
