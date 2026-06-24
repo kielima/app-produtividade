@@ -1,6 +1,6 @@
 import type { CSSProperties } from 'react';
 import { getDisplayTitle } from '../lib/parser';
-import { formatSnoozeDate, isSnoozed } from '../lib/snooze';
+import { formatSnoozeUntil, isSnoozed } from '../lib/snooze';
 import { patchTask } from '../lib/taskMutations';
 import { useTaskNavigation } from '../lib/taskNavigation';
 import type { Task } from '../types';
@@ -78,9 +78,9 @@ export function TaskCard({
         {snoozed && (
           <span
             className="task-snooze-tag"
-            title={`Adiada até ${formatSnoozeDate(task.snoozedUntil!)}`}
+            title={`Adiada até ${formatSnoozeUntil(task.snoozedUntil!)}`}
           >
-            💤 {formatSnoozeDate(task.snoozedUntil!)}
+            💤 {formatSnoozeUntil(task.snoozedUntil!)}
           </span>
         )}
         {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}
