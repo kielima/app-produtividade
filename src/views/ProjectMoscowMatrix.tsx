@@ -20,28 +20,20 @@ import type { MoSCoW, Project } from '../types';
 const DROP_PREFIX = 'pmoscow:';
 
 interface QuadrantSpec {
-  key: MoSCoW | 'none';
+  key: Exclude<MoSCoW, ''>;
   label: string;
   desc: string;
   badgeClass: string;
 }
 
-// Os quatro quadrantes da matriz (2×2), em ordem decrescente de prioridade,
-// mais a faixa "Sem classificação" abaixo, de onde se arrastam os projetos
-// ainda não classificados.
+// Os quatro quadrantes da matriz (2×2), em ordem decrescente de prioridade.
+// Won't é a base: projetos sem classificação caem aqui (ver projectsRepo).
 const QUADRANTS: QuadrantSpec[] = [
   { key: 'must', label: 'Must', desc: 'Crítico — prioridade máxima', badgeClass: 'col-must' },
   { key: 'should', label: 'Should', desc: 'Importante — fazer em seguida', badgeClass: 'col-should' },
   { key: 'could', label: 'Could', desc: 'Desejável — se houver tempo', badgeClass: 'col-could' },
-  { key: 'wont', label: "Won't", desc: 'Fora do escopo atual', badgeClass: 'col-wont' },
+  { key: 'wont', label: "Won't", desc: 'Base — fora do escopo atual', badgeClass: 'col-wont' },
 ];
-
-const UNCLASSIFIED: QuadrantSpec = {
-  key: 'none',
-  label: 'Sem classificação',
-  desc: 'Arraste para um quadrante',
-  badgeClass: 'col-none',
-};
 
 export function ProjectMoscowMatrix({
   uid,
@@ -70,9 +62,10 @@ export function ProjectMoscowMatrix({
   }, [projects]);
 
   const grouped = useMemo(() => {
-    const g: Record<string, Project[]> = { must: [], should: [], could: [], wont: [], none: [] };
+    const g: Record<string, Project[]> = { must: [], should: [], could: [], wont: [] };
     for (const p of projects) {
-      const k = p.moscow || 'none';
+      // Won't é a base: sem MoSCoW cai em Won't.
+      const k = p.moscow || 'wont';
       (g[k] ??= []).push(p);
     }
     return g;
@@ -91,12 +84,10 @@ export function ProjectMoscowMatrix({
     const projectId = String(e.active.id);
     const project = projectMap[projectId];
     if (!project) return;
-    const current = project.moscow || 'none';
+    const current = project.moscow || 'wont';
     if (current === newKey) return;
 
-    await patchProject(uid, projectId, {
-      moscow: newKey === 'none' ? '' : (newKey as MoSCoW),
-    });
+    await patchProject(uid, projectId, { moscow: newKey as MoSCoW });
   }
 
   const activeProject = activeDragId ? projectMap[activeDragId] : null;
@@ -137,9 +128,6 @@ export function ProjectMoscowMatrix({
   return (
     <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
       <div className="moscow-matrix">{QUADRANTS.map(renderQuadrant)}</div>
-      {grouped.none.length > 0 && (
-        <div className="moscow-unclassified">{renderQuadrant(UNCLASSIFIED)}</div>
-      )}
 
       <DragOverlay dropAnimation={null}>
         {activeProject && (

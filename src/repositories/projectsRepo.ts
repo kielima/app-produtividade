@@ -36,7 +36,7 @@ export function subscribeToProjects(
           categories: [],
           status: 'A iniciar',
           priority: '',
-          moscow: '',
+          moscow: 'wont',
           objective: '',
           currentStatus: '',
           nextSteps: '',
@@ -48,6 +48,9 @@ export function subscribeToProjects(
           id: d.id,
         } as Project;
         if (!merged.status) merged.status = 'A iniciar';
+        // Won't é a classificação base: projetos sem MoSCoW (campo ausente ou
+        // vazio) são tratados como Won't, eliminando o estado "sem classificação".
+        if (!merged.moscow) merged.moscow = 'wont';
         // Deriva as categorias: usa o array quando existe, senão recai sobre o
         // campo legado `category` (string única), normalizando em ambos os casos.
         merged.categories = Array.isArray(data.categories)
@@ -158,7 +161,7 @@ export async function createProject(
     categories: [],
     status: 'A iniciar',
     priority: '',
-    moscow: '',
+    moscow: 'wont',
     objective: '',
     currentStatus: '',
     nextSteps: '',
