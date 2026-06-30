@@ -1786,6 +1786,20 @@ a:focus-visible {
   .project-glicko-badges { order: 3; width: 100%; margin-top: 0.25rem; }
 }
 
+/* Cards enxutos da Matriz MoSCoW: título em uma única linha, truncado com
+   reticências se não couber, e nada além do título + botão de info. */
+.project-card--compact .project-line {
+  flex-wrap: nowrap;
+}
+.project-card--compact .project-title-btn {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  word-break: normal;
+  overflow-wrap: normal;
+}
+
 .badge.status-a-iniciar { background: #e2e8f0; color: #1f2937; }
 .badge.status-em-planejamento { background: #ddd6fe; color: #1f2937; }
 .badge.status-em-andamento { background: #bfdbfe; color: #1f2937; }
