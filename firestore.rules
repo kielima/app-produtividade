@@ -33,13 +33,21 @@ service cloud.firestore {
         allow write: if false;
       }
 
-      // Demais dados do usuário (tasks, projects, notes, memory, ...):
+      // Status de conexão do Google Drive (aba Leitura): mesma ideia do
+      // calendar — cliente lê a flag, escrita só pelas Functions.
+      match /drive/{document=**} {
+        allow read: if isSelf(uid);
+        allow write: if false;
+      }
+
+      // Demais dados do usuário (tasks, projects, notes, readingItems, ...):
       // acesso total ao próprio dono. As subárvores protegidas acima não
       // são alcançadas por esta regra.
       match /{collection}/{document=**} {
         allow read, write: if isSelf(uid)
           && collection != 'private'
-          && collection != 'calendar';
+          && collection != 'calendar'
+          && collection != 'drive';
       }
     }
 
