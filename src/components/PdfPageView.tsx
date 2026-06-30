@@ -145,6 +145,23 @@ export function PdfPageView({
   const drawing = useRef<{ active: boolean; points: Array<[number, number, number]> }>(
     { active: false, points: [] },
   );
+  // Alguns aparelhos (vários Samsung) entregam a S-Pen como pointerType
+  // 'touch', não 'pen'. Por isso não dá para simplesmente ignorar 'touch':
+  // isso desligaria a caneta. Estratégia adaptativa: desenha com toque
+  // normalmente; assim que o aparelho mostrar QUE sabe distinguir a caneta
+  // (algum evento com pointerType 'pen'), passamos a tratar 'touch' como palma
+  // e a ignorá-lo (palm rejection só onde é possível).
+  const penSeen = useRef(false);
+
+  function shouldDraw(e: React.PointerEvent): boolean {
+    if (e.pointerType === 'pen') {
+      penSeen.current = true;
+      return true;
+    }
+    if (e.pointerType === 'mouse') return true;
+    // touch: só ignora se este aparelho já provou saber reportar a caneta.
+    return !penSeen.current;
+  }
 
   function localPoint(e: React.PointerEvent): { x: number; y: number } {
     const container = containerRef.current!;
@@ -181,8 +198,9 @@ export function PdfPageView({
       return;
     }
     if (tool !== 'pen') return;
-    // Palm rejection: com a caneta ativa, ignora toques (dedo/palma).
-    if (e.pointerType === 'touch') return;
+    if (!shouldDraw(e)) return; // palm rejection adaptativa
+    // Evita que o gesto vire rolagem/zoom da página enquanto se desenha.
+    e.preventDefault();
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const p = localPoint(e);
     drawing.current = {
@@ -198,6 +216,7 @@ export function PdfPageView({
       return;
     }
     if (tool !== 'pen' || !drawing.current.active) return;
+    e.preventDefault();
     const events = typeof e.nativeEvent.getCoalescedEvents === 'function'
       ? e.nativeEvent.getCoalescedEvents()
       : [e.nativeEvent];
@@ -321,8 +340,10 @@ export function PdfPageView({
         className="pdf-ink-canvas"
         style={{
           pointerEvents: captureActive ? 'auto' : 'none',
-          touchAction: tool === 'pen' ? 'none' : 'auto',
-          cursor: tool === 'eraser' ? 'cell' : tool === 'comment' ? 'crosshair' : 'crosshair',
+          // Desliga rolagem/zoom do navegador enquanto desenha ou apaga, para o
+          // gesto da caneta não virar scroll.
+          touchAction: tool === 'pen' || tool === 'eraser' ? 'none' : 'auto',
+          cursor: tool === 'eraser' ? 'cell' : 'crosshair',
         }}
         onPointerDown={captureActive ? onCapturePointerDown : undefined}
         onPointerMove={captureActive ? onCapturePointerMove : undefined}
