@@ -22,7 +22,7 @@ export const PROJECT_STATUS_VALUES: ProjectStatusKey[] = [
 ];
 
 export type ProjectSortMode = 'score' | 'progress';
-export type ProjectViewMode = 'list' | 'category';
+export type ProjectViewMode = 'list' | 'category' | 'matrix';
 
 export const PROJECT_SORT_LABEL: Record<ProjectSortMode, string> = {
   score: 'Maior nota',
@@ -32,6 +32,7 @@ export const PROJECT_SORT_LABEL: Record<ProjectSortMode, string> = {
 export const PROJECT_VIEW_LABEL: Record<ProjectViewMode, string> = {
   list: 'Lista',
   category: 'Por categoria',
+  matrix: 'Matriz MoSCoW',
 };
 
 export interface ProjectFiltersState {
@@ -73,7 +74,9 @@ export function deserializeProjectFiltersState(
   const sortMode: ProjectSortMode =
     v.sortMode === 'progress' || v.sortMode === 'score' ? v.sortMode : base.sortMode;
   const viewMode: ProjectViewMode =
-    v.viewMode === 'category' || v.viewMode === 'list' ? v.viewMode : base.viewMode;
+    v.viewMode === 'category' || v.viewMode === 'list' || v.viewMode === 'matrix'
+      ? v.viewMode
+      : base.viewMode;
   if (!Array.isArray(v.statusFilter)) {
     return { ...base, sortMode, viewMode };
   }
