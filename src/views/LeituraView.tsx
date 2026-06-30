@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Project, ReadingItem } from '../types';
 import {
   ensureReadingItemFromDrive,
-  patchReadingItem,
+  saveReadingMetadata,
   subscribeToReadingItems,
 } from '../repositories/readingItemsRepo';
 import {
@@ -193,10 +193,7 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
       {metaItem && (
         <MetadataEditor
           item={metaItem}
-          onSave={(patch) => {
-            void patchReadingItem(uid, metaItem.id, patch);
-            setMetaItemId(null);
-          }}
+          onSave={(patch) => saveReadingMetadata(uid, metaItem, patch)}
           onClose={() => setMetaItemId(null)}
         />
       )}

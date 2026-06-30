@@ -8,6 +8,7 @@ import {
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { renameDriveFile } from '../lib/googleDrive';
 import type { ReadingItem } from '../types';
 
 // Itens da estante de leitura: users/{uid}/readingItems/{id}
@@ -26,6 +27,7 @@ function normalize(id: string, data: Partial<ReadingItem>): ReadingItem {
     tags: Array.isArray(data.tags) ? data.tags : [],
     addedDate: data.addedDate ?? '',
     readingStatus: data.readingStatus ?? 'to-read',
+    ...(data.fileName != null ? { fileName: data.fileName } : {}),
     ...(data.doi != null ? { doi: data.doi } : {}),
     ...(data.isbn != null ? { isbn: data.isbn } : {}),
     ...(data.issn != null ? { issn: data.issn } : {}),
@@ -86,6 +88,26 @@ export async function deleteReadingItem(
   await deleteDoc(doc(db, 'users', uid, 'readingItems', itemId));
 }
 
+// Salva o patch de metadados de um item. Quando o patch traz um fileName novo,
+// renomeia PRIMEIRO no Google Drive; só persiste o nome no app se o Drive
+// aceitar, mantendo app e Drive sempre coerentes (se o Drive falhar, nada muda
+// e o erro sobe para a UI). O fileName vazio é ignorado — não renomeamos para "".
+export async function saveReadingMetadata(
+  uid: string,
+  item: ReadingItem,
+  patch: Partial<ReadingItem>,
+): Promise<void> {
+  const next: Partial<ReadingItem> = { ...patch };
+  const newName = next.fileName?.trim();
+  if (newName) {
+    const saved = await renameDriveFile(uid, item.driveFileId, newName);
+    next.fileName = saved;
+  } else {
+    delete next.fileName;
+  }
+  await patchReadingItem(uid, item.id, next);
+}
+
 // Cria um item da estante a partir de um arquivo do Drive, SE ainda não
 // existir. O id do doc é o próprio driveFileId, então re-sincronizar o Drive
 // é idempotente: não duplica itens nem sobrescreve metadados/anotações que o
@@ -96,12 +118,22 @@ export async function ensureReadingItemFromDrive(
 ): Promise<boolean> {
   const ref = doc(db, 'users', uid, 'readingItems', file.id);
   const existing = await getDoc(ref);
-  if (existing.exists()) return false;
+  if (existing.exists()) {
+    // Item já existe: o Drive é a fonte de verdade do nome do arquivo, então
+    // espelha o nome atual no app (cobre itens antigos sem fileName e arquivos
+    // renomeados direto no Drive). Não toca em mais nenhum metadado editado.
+    const data = existing.data() as Partial<ReadingItem>;
+    if (data.fileName !== file.name) {
+      await setDoc(ref, { fileName: file.name }, { merge: true });
+    }
+    return false;
+  }
 
   const today = new Date().toISOString().slice(0, 10);
   const item: ReadingItem = {
     id: file.id,
     driveFileId: file.id,
+    fileName: file.name,
     format: 'pdf',
     title: file.name.replace(/\.pdf$/i, ''),
     authors: [],

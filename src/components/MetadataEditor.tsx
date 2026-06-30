@@ -16,9 +16,15 @@ export function MetadataEditor({
   onClose,
 }: {
   item: ReadingItem;
-  onSave: (patch: Partial<ReadingItem>) => void;
+  // Persiste o patch. Pode renomear o arquivo no Drive (assíncrono e falível),
+  // então devolve uma Promise: o editor mostra "Salvando…", fecha no sucesso e
+  // mantém-se aberto com a mensagem de erro se algo falhar.
+  onSave: (patch: Partial<ReadingItem>) => Promise<void>;
   onClose: () => void;
 }) {
+  const initialFileName = item.fileName ?? '';
+  const [fileName, setFileName] = useState(initialFileName);
+  const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [authors, setAuthors] = useState(item.authors.join(', '));
   const [itemType, setItemType] = useState<ReadingItemType>(item.itemType);
@@ -59,8 +65,10 @@ export function MetadataEditor({
     }
   }
 
-  function save() {
-    onSave({
+  async function save() {
+    setError(null);
+    setSaving(true);
+    const patch: Partial<ReadingItem> = {
       title: title.trim(),
       authors: authors.split(',').map((a) => a.trim()).filter(Boolean),
       itemType,
@@ -71,7 +79,20 @@ export function MetadataEditor({
       year: year.trim() || undefined,
       publication: publication.trim() || undefined,
       tags: normalizeTags(tags.split(',').map((t) => t.trim()).filter(Boolean)),
-    });
+    };
+    // Só pede renomeação ao Drive quando o usuário realmente mudou o nome —
+    // evita renomear sem querer só por abrir e salvar os metadados.
+    if (fileName.trim() !== initialFileName.trim()) {
+      patch.fileName = fileName.trim();
+    }
+    try {
+      await onSave(patch);
+      onClose();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e));
+    } finally {
+      setSaving(false);
+    }
   }
 
   return (
@@ -88,6 +109,15 @@ export function MetadataEditor({
         <label className="metadata-field">
           <span>Título</span>
           <input value={title} onChange={(e) => setTitle(e.target.value)} />
+        </label>
+
+        <label className="metadata-field">
+          <span>Nome do arquivo (renomeia no Google Drive)</span>
+          <input
+            value={fileName}
+            onChange={(e) => setFileName(e.target.value)}
+            placeholder="ex.: artigo.pdf"
+          />
         </label>
 
         <label className="metadata-field">
@@ -168,10 +198,15 @@ export function MetadataEditor({
         {error && <p className="error">{error}</p>}
 
         <div className="share-dialog-actions">
-          <button type="button" onClick={save}>
-            Salvar
+          <button type="button" onClick={() => void save()} disabled={saving}>
+            {saving ? 'Salvando…' : 'Salvar'}
           </button>
-          <button type="button" className="share-dialog-secondary" onClick={onClose}>
+          <button
+            type="button"
+            className="share-dialog-secondary"
+            onClick={onClose}
+            disabled={saving}
+          >
             Cancelar
           </button>
         </div>

@@ -12,7 +12,10 @@ import { auth, functions } from './firebase';
 // raramente passa de 1h, e qualquer 401 dispara um silent refresh sob demanda.
 // =========================================================================
 
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+// Leitura E escrita: além de listar/baixar PDFs, a aba Leitura renomeia o
+// arquivo no Drive pela tela de metadados. drive.file não serve (os arquivos
+// não foram criados pelo app), então é preciso o escopo completo `drive`.
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 const GIS_SCRIPT_URL = 'https://accounts.google.com/gsi/client';
 const TOKEN_KEY = 'app-produtividade:gdrive-token';
 const HAS_EVER_CONNECTED_KEY = 'app-produtividade:gdrive-connected';
@@ -330,4 +333,46 @@ export async function downloadDriveFile(
     `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
   );
   return res.arrayBuffer();
+}
+
+// PATCH no nome do arquivo. Devolve o nome efetivo gravado no Drive.
+async function patchDriveName(
+  token: string,
+  fileId: string,
+  newName: string,
+): Promise<string> {
+  const params = new URLSearchParams({
+    fields: 'id, name',
+    supportsAllDrives: 'true',
+  });
+  const res = await driveFetch(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params.toString()}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: newName }),
+    },
+  );
+  const json = (await res.json()) as { name?: string };
+  return json.name ?? newName;
+}
+
+// Renomeia um arquivo no Drive. Se o token em cache só tiver o escopo antigo de
+// leitura (usuário conectou antes desta funcionalidade), o PATCH devolve 401/403
+// e driveFetch lança DriveAuthError; aí forçamos um novo consentimento
+// interativo (já com o escopo de escrita) e tentamos uma vez mais.
+export async function renameDriveFile(
+  uid: string,
+  fileId: string,
+  newName: string,
+): Promise<string> {
+  const token = await ensureDriveToken(uid);
+  try {
+    return await patchDriveName(token, fileId, newName);
+  } catch (e) {
+    if (!(e instanceof DriveAuthError)) throw e;
+  }
+  const fresh = await grantDriveAccess(uid);
+  return patchDriveName(fresh, fileId, newName);
 }

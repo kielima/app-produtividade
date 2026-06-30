@@ -9,7 +9,7 @@ import {
   upsertAnnotation,
   deleteAnnotation,
 } from '../repositories/annotationsRepo';
-import { patchReadingItem } from '../repositories/readingItemsRepo';
+import { patchReadingItem, saveReadingMetadata } from '../repositories/readingItemsRepo';
 import { PdfPageView, type ReaderTool } from '../components/PdfPageView';
 import { MetadataEditor } from '../components/MetadataEditor';
 import {
@@ -411,10 +411,7 @@ export function ReaderView({
       {metaOpen && (
         <MetadataEditor
           item={item}
-          onSave={(patch) => {
-            void patchReadingItem(uid, item.id, patch);
-            setMetaOpen(false);
-          }}
+          onSave={(patch) => saveReadingMetadata(uid, item, patch)}
           onClose={() => setMetaOpen(false)}
         />
       )}

@@ -31,7 +31,11 @@ const GOOGLE_OAUTH_CLIENT_SECRET = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
-const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
+// Escopo de leitura E escrita: a aba Leitura lista/baixa PDFs e também renomeia
+// o arquivo no Drive a partir da tela de metadados. drive.file não serve porque
+// listamos arquivos existentes via API (não criados pelo app), então é preciso
+// o escopo completo `drive`.
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive';
 
 // Caminhos no Firestore:
 // - users/{uid}/private/calendar  → refresh token (SOMENTE Admin SDK; regras negam o cliente)
