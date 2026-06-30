@@ -122,6 +122,7 @@ export function ProjectMoscowMatrix({
                 doneTaskCount={taskCountByProject[p.id]?.done ?? 0}
                 glickoRating={glickoMap[p.id]}
                 volatilityBands={volatilityBands}
+                compact
               />
             ))}
             {list.length === 0 && (
@@ -149,6 +150,7 @@ export function ProjectMoscowMatrix({
               doneTaskCount={taskCountByProject[activeProject.id]?.done ?? 0}
               glickoRating={glickoMap[activeProject.id]}
               volatilityBands={volatilityBands}
+              compact
             />
           </div>
         )}

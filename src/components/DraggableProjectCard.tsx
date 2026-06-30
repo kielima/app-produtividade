@@ -15,12 +15,14 @@ export function DraggableProjectCard({
   doneTaskCount,
   glickoRating,
   volatilityBands,
+  compact = false,
 }: {
   project: Project;
   taskCount: number;
   doneTaskCount: number;
   glickoRating?: GlickoRating;
   volatilityBands?: VolatilityBands;
+  compact?: boolean;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: project.id,
@@ -51,6 +53,7 @@ export function DraggableProjectCard({
           doneTaskCount={doneTaskCount}
           glickoRating={glickoRating}
           volatilityBands={volatilityBands}
+          compact={compact}
         />
       </div>
     </div>
