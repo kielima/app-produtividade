@@ -1,18 +1,58 @@
 import { useEffect, useRef } from 'react';
 import { pdfjsLib, type PDFPageProxy } from '../lib/pdf';
-import type { Annotation, InkPoint, InkStroke, NormRect } from '../types';
+import type { Annotation, NormRect } from '../types';
 import {
   distanceToStroke,
   inkStrokeBounds,
   inkStrokeToSvgPath,
   pointInRect,
-  strokeToSvgPath,
 } from '../lib/ink';
 
-export type ReaderTool = 'pan' | 'highlight' | 'comment' | 'pen' | 'eraser';
+export type ReaderTool = 'highlight' | 'comment' | 'eraser';
 
-// Distância (normalizada) dentro da qual a borracha considera ter tocado um traço.
+// Distância (normalizada) dentro da qual a borracha considera ter tocado algo.
 const ERASER_HIT = 0.012;
+// Acima deste tamanho de contato (px) tratamos o ponteiro como DEDO (rolagem),
+// não caneta. A S-Pen reporta um ponto minúsculo; o dedo, uma área grande.
+const PEN_MAX_CONTACT = 18;
+// Movimento mínimo (px) para um gesto deixar de ser "toque" e virar arrasto.
+const DRAG_THRESHOLD = 6;
+// Raio (normalizado) para um toque "acertar" o pin de um comentário.
+const COMMENT_HIT = 0.03;
+
+type SpanBox = {
+  el: Element;
+  left: number;
+  top: number;
+  right: number;
+  bottom: number;
+};
+
+type Gesture = {
+  mode: 'idle' | 'pending' | 'active';
+  action: 'highlight' | 'erase' | 'comment';
+  pointerId: number;
+  startX: number;
+  startY: number;
+  penLike: boolean;
+  minX: number;
+  maxX: number;
+  spans: Set<number>;
+};
+
+function freshGesture(): Gesture {
+  return {
+    mode: 'idle',
+    action: 'highlight',
+    pointerId: -1,
+    startX: 0,
+    startY: 0,
+    penLike: false,
+    minX: 0,
+    maxX: 0,
+    spans: new Set(),
+  };
+}
 
 export function PdfPageView({
   page,
@@ -21,9 +61,7 @@ export function PdfPageView({
   annotations,
   tool,
   color,
-  penWidthFraction,
   onCreateHighlight,
-  onCreateInk,
   onCreateComment,
   onSelectAnnotation,
   onEraseAnnotation,
@@ -34,9 +72,7 @@ export function PdfPageView({
   annotations: Annotation[];
   tool: ReaderTool;
   color: string;
-  penWidthFraction: number;
   onCreateHighlight: (rects: NormRect[], text: string) => void;
-  onCreateInk: (stroke: InkStroke) => void;
   onCreateComment: (anchor: { x: number; y: number }) => void;
   onSelectAnnotation: (a: Annotation) => void;
   onEraseAnnotation: (a: Annotation) => void;
@@ -44,7 +80,7 @@ export function PdfPageView({
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const textLayerRef = useRef<HTMLDivElement>(null);
-  const inkCanvasRef = useRef<HTMLCanvasElement>(null);
+  const overlayRef = useRef<HTMLCanvasElement>(null);
 
   // Dimensões em CSS px da página na escala atual (para denormalizar overlays).
   const sizeRef = useRef({ w: 0, h: 0 });
@@ -53,15 +89,15 @@ export function PdfPageView({
   useEffect(() => {
     const canvas = canvasRef.current;
     const textLayerDiv = textLayerRef.current;
-    const inkCanvas = inkCanvasRef.current;
-    if (!canvas || !textLayerDiv || !inkCanvas) return;
+    const overlay = overlayRef.current;
+    if (!canvas || !textLayerDiv || !overlay) return;
 
     let cancelled = false;
     const viewport = page.getViewport({ scale });
     const dpr = window.devicePixelRatio || 1;
     sizeRef.current = { w: viewport.width, h: viewport.height };
 
-    for (const el of [canvas, inkCanvas]) {
+    for (const el of [canvas, overlay]) {
       el.width = Math.floor(viewport.width * dpr);
       el.height = Math.floor(viewport.height * dpr);
       el.style.width = `${viewport.width}px`;
@@ -84,7 +120,6 @@ export function PdfPageView({
 
     const renderTask = page.render({ canvasContext: ctx, viewport });
 
-    // Camada de texto (seleção para marca-texto).
     textLayerDiv.replaceChildren();
     const textLayer = new pdfjsLib.TextLayer({
       textContentSource: page.streamTextContent(),
@@ -116,29 +151,32 @@ export function PdfPageView({
     };
   }, [page, scale]);
 
-  // -------- Desenho de tinta (S-Pen) e borracha/comentário --------
-  const drawing = useRef<{ active: boolean; points: Array<[number, number, number]> }>(
-    { active: false, points: [] },
-  );
-  // Alguns aparelhos (vários Samsung) entregam a S-Pen como pointerType
-  // 'touch', não 'pen'. Por isso não dá para simplesmente ignorar 'touch':
-  // isso desligaria a caneta. Estratégia adaptativa: desenha com toque
-  // normalmente; assim que o aparelho mostrar QUE sabe distinguir a caneta
-  // (algum evento com pointerType 'pen'), passamos a tratar 'touch' como palma
-  // e a ignorá-lo (palm rejection só onde é possível).
-  const penSeen = useRef(false);
-
-  function shouldDraw(e: React.PointerEvent): boolean {
-    if (e.pointerType === 'pen') {
-      penSeen.current = true;
-      return true;
+  // ----------------------------------------------------------------
+  // Detecção dedo × caneta e botão da S-Pen
+  // ----------------------------------------------------------------
+  // Muitos aparelhos (vários Samsung) entregam a S-Pen como pointerType 'touch'.
+  // Distinguimos a caneta do dedo pelo TAMANHO do contato: a caneta é um ponto
+  // (width/height minúsculos ou 0); o dedo é uma área grande.
+  function isPenLike(e: React.PointerEvent): boolean {
+    if (e.pointerType === 'pen' || e.pointerType === 'mouse') return true;
+    if (e.pointerType === 'touch') {
+      const size = Math.max(e.width || 0, e.height || 0);
+      return size === 0 || size <= PEN_MAX_CONTACT;
     }
-    if (e.pointerType === 'mouse') return true;
-    // touch: só ignora se este aparelho já provou saber reportar a caneta.
-    return !penSeen.current;
+    return false;
   }
 
-  function localPoint(e: React.PointerEvent): { x: number; y: number } {
+  // Botão lateral da S-Pen (bit 2) ou ponta-borracha (bit 32): vira borracha,
+  // como no Samsung Notes. Só funciona quando o aparelho reporta a caneta como
+  // 'pen' (alguns reportam como 'touch' e aí o botão não chega ao navegador).
+  function isPenEraser(e: React.PointerEvent): boolean {
+    return (
+      e.pointerType === 'pen' &&
+      ((e.buttons & 2) !== 0 || (e.buttons & 32) !== 0 || e.button === 5)
+    );
+  }
+
+  function localPoint(e: { clientX: number; clientY: number }): { x: number; y: number } {
     const container = containerRef.current!;
     const rect = container.getBoundingClientRect();
     return {
@@ -147,77 +185,86 @@ export function PdfPageView({
     };
   }
 
-  function redrawCurrentInk() {
-    const inkCanvas = inkCanvasRef.current;
-    if (!inkCanvas) return;
-    const ctx = inkCanvas.getContext('2d');
-    if (!ctx) return;
-    const dpr = window.devicePixelRatio || 1;
-    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.clearRect(0, 0, sizeRef.current.w, sizeRef.current.h);
-    const pts = drawing.current.points;
-    if (pts.length === 0) return;
-    const sizePx = Math.max(1, penWidthFraction * sizeRef.current.w);
-    const path = strokeToSvgPath(pts, sizePx);
-    ctx.fillStyle = color;
-    ctx.fill(new Path2D(path));
-  }
+  // ----------------------------------------------------------------
+  // Marca-texto preciso "passando a caneta"
+  // ----------------------------------------------------------------
+  // Snapshot da posição de cada span do texto no início do gesto.
+  const spanBoxes = useRef<SpanBox[]>([]);
+  const gesture = useRef<Gesture>(freshGesture());
 
-  // -------- Marca-texto "passando a caneta" por cima do texto --------
-  // Em vez da seleção nativa (que no celular exige segurar para aparecerem as
-  // alças), o marca-texto é um gesto: ao arrastar sobre o texto, realçamos cada
-  // palavra (span da camada de texto) que o traço cruza. Funciona com caneta ou
-  // dedo, em qualquer aparelho.
-  const highlighting = useRef<{ active: boolean; moved: boolean; startX: number; startY: number }>(
-    { active: false, moved: false, startX: 0, startY: 0 },
-  );
-  const hlSpans = useRef<Set<number>>(new Set());
-  const hlSnapshot = useRef<
-    Array<{ left: number; top: number; right: number; bottom: number; rect: NormRect; text: string }>
-  >([]);
-
-  // Fotografa a posição de cada span do texto no início do gesto (não mudam
-  // durante o arrasto), para hit-testing barato a cada ponto.
   function snapshotSpans() {
-    const container = containerRef.current;
     const textLayer = textLayerRef.current;
-    hlSnapshot.current = [];
-    if (!container || !textLayer) return;
-    const c = container.getBoundingClientRect();
+    spanBoxes.current = [];
+    if (!textLayer) return;
     for (const el of Array.from(textLayer.children)) {
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
-      hlSnapshot.current.push({
+      spanBoxes.current.push({
+        el,
         left: r.left,
         top: r.top,
         right: r.right,
         bottom: r.bottom,
-        rect: {
-          x: (r.left - c.left) / c.width,
-          y: (r.top - c.top) / c.height,
-          w: r.width / c.width,
-          h: r.height / c.height,
-        },
-        text: el.textContent ?? '',
       });
     }
   }
 
   function collectSpansAt(clientX: number, clientY: number) {
-    const snap = hlSnapshot.current;
-    for (let i = 0; i < snap.length; i++) {
-      if (hlSpans.current.has(i)) continue;
-      const s = snap[i];
+    const boxes = spanBoxes.current;
+    const g = gesture.current;
+    for (let i = 0; i < boxes.length; i++) {
+      if (g.spans.has(i)) continue;
+      const s = boxes[i];
       if (clientX >= s.left && clientX <= s.right && clientY >= s.top && clientY <= s.bottom) {
-        hlSpans.current.add(i);
+        g.spans.add(i);
       }
     }
   }
 
-  function redrawHighlightPreview() {
-    const inkCanvas = inkCanvasRef.current;
-    if (!inkCanvas) return;
-    const ctx = inkCanvas.getContext('2d');
+  // Caixas (client coords) de cada caractere de um span, para realce com
+  // precisão de letra/símbolo.
+  function charBoxes(el: Element): Array<{ l: number; r: number; ch: string }> {
+    const node = el.firstChild;
+    if (!node || node.nodeType !== Node.TEXT_NODE) return [];
+    const text = node.textContent ?? '';
+    const out: Array<{ l: number; r: number; ch: string }> = [];
+    const range = document.createRange();
+    for (let k = 0; k < text.length; k++) {
+      range.setStart(node, k);
+      range.setEnd(node, k + 1);
+      const r = range.getBoundingClientRect();
+      out.push({ l: r.left, r: r.right, ch: text[k] });
+    }
+    return out;
+  }
+
+  // Retângulos do realce, recortados horizontalmente ao trecho varrido
+  // [minX, maxX]. Em coordenadas normalizadas (0–1).
+  function clampedHighlightRects(): NormRect[] {
+    const g = gesture.current;
+    const container = containerRef.current;
+    if (!container) return [];
+    const c = container.getBoundingClientRect();
+    const rects: NormRect[] = [];
+    for (const i of g.spans) {
+      const s = spanBoxes.current[i];
+      const left = Math.max(s.left, g.minX);
+      const right = Math.min(s.right, g.maxX);
+      if (right - left < 1) continue;
+      rects.push({
+        x: (left - c.left) / c.width,
+        y: (s.top - c.top) / c.height,
+        w: (right - left) / c.width,
+        h: (s.bottom - s.top) / c.height,
+      });
+    }
+    return rects;
+  }
+
+  function previewHighlight() {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    const ctx = overlay.getContext('2d');
     if (!ctx) return;
     const dpr = window.devicePixelRatio || 1;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -225,141 +272,55 @@ export function PdfPageView({
     ctx.fillStyle = color;
     ctx.globalAlpha = 0.35;
     const { w, h } = sizeRef.current;
-    for (const i of hlSpans.current) {
-      const r = hlSnapshot.current[i].rect;
+    for (const r of clampedHighlightRects()) {
       ctx.fillRect(r.x * w, r.y * h, r.w * w, r.h * h);
     }
     ctx.globalAlpha = 1;
   }
 
-  function startHighlight(e: React.PointerEvent) {
-    snapshotSpans();
-    hlSpans.current = new Set();
-    highlighting.current = { active: true, moved: false, startX: e.clientX, startY: e.clientY };
-    (e.target as Element).setPointerCapture?.(e.pointerId);
-    collectSpansAt(e.clientX, e.clientY);
-    redrawHighlightPreview();
-  }
-
-  function extendHighlight(e: React.PointerEvent) {
-    if (!highlighting.current.active) return;
-    e.preventDefault();
-    if (
-      Math.hypot(e.clientX - highlighting.current.startX, e.clientY - highlighting.current.startY) > 6
-    ) {
-      highlighting.current.moved = true;
-    }
-    const events = typeof e.nativeEvent.getCoalescedEvents === 'function'
-      ? e.nativeEvent.getCoalescedEvents()
-      : [e.nativeEvent];
-    for (const ev of events) collectSpansAt(ev.clientX, ev.clientY);
-    redrawHighlightPreview();
+  function clearOverlay() {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    overlay.getContext('2d')?.clearRect(0, 0, overlay.width, overlay.height);
   }
 
   function finishHighlight() {
-    if (!highlighting.current.active) return;
-    const { moved } = highlighting.current;
-    highlighting.current = { active: false, moved: false, startX: 0, startY: 0 };
-    const inkCanvas = inkCanvasRef.current;
-    inkCanvas?.getContext('2d')?.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-    const indices = [...hlSpans.current].sort((a, b) => a - b);
-    const snap = hlSnapshot.current;
-    hlSpans.current = new Set();
-    // Exige movimento real: um toque parado não vira marca-texto acidental.
-    if (!moved || indices.length === 0) return;
-    const rects = indices.map((i) => snap[i].rect);
-    const text = indices
-      .map((i) => snap[i].text)
-      .join(' ')
-      .replace(/\s+/g, ' ')
-      .trim();
+    const g = gesture.current;
+    const container = containerRef.current;
+    if (!container) return;
+    const c = container.getBoundingClientRect();
+    const indices = [...g.spans].sort((a, b) => a - b);
+    const rects: NormRect[] = [];
+    const parts: string[] = [];
+    for (const i of indices) {
+      const s = spanBoxes.current[i];
+      const left = Math.max(s.left, g.minX);
+      const right = Math.min(s.right, g.maxX);
+      if (right - left < 1) continue;
+      rects.push({
+        x: (left - c.left) / c.width,
+        y: (s.top - c.top) / c.height,
+        w: (right - left) / c.width,
+        h: (s.bottom - s.top) / c.height,
+      });
+      const chars = charBoxes(s.el);
+      if (chars.length) {
+        parts.push(
+          chars
+            .filter((ch) => ch.r > left && ch.l < right)
+            .map((ch) => ch.ch)
+            .join(''),
+        );
+      }
+    }
+    if (rects.length === 0) return;
+    const text = parts.join(' ').replace(/\s+/g, ' ').trim();
     onCreateHighlight(rects, text);
   }
 
-  function cancelHighlight() {
-    highlighting.current = { active: false, moved: false, startX: 0, startY: 0 };
-    hlSpans.current = new Set();
-    const inkCanvas = inkCanvasRef.current;
-    inkCanvas?.getContext('2d')?.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-  }
-
-  function onCapturePointerDown(e: React.PointerEvent) {
-    if (tool === 'highlight') {
-      startHighlight(e);
-      return;
-    }
-    if (tool === 'comment') {
-      onCreateComment(localPoint(e));
-      return;
-    }
-    if (tool === 'eraser') {
-      eraseAt(localPoint(e));
-      return;
-    }
-    if (tool !== 'pen') return;
-    if (!shouldDraw(e)) return; // palm rejection adaptativa
-    // Evita que o gesto vire rolagem/zoom da página enquanto se desenha.
-    e.preventDefault();
-    (e.target as Element).setPointerCapture?.(e.pointerId);
-    const p = localPoint(e);
-    drawing.current = {
-      active: true,
-      points: [[p.x * sizeRef.current.w, p.y * sizeRef.current.h, e.pressure || 0.5]],
-    };
-    redrawCurrentInk();
-  }
-
-  function onCapturePointerMove(e: React.PointerEvent) {
-    if (tool === 'highlight') {
-      extendHighlight(e);
-      return;
-    }
-    if (tool === 'eraser' && e.buttons === 1) {
-      eraseAt(localPoint(e));
-      return;
-    }
-    if (tool !== 'pen' || !drawing.current.active) return;
-    e.preventDefault();
-    const events = typeof e.nativeEvent.getCoalescedEvents === 'function'
-      ? e.nativeEvent.getCoalescedEvents()
-      : [e.nativeEvent];
-    const container = containerRef.current!;
-    const rect = container.getBoundingClientRect();
-    for (const ev of events) {
-      const x = ((ev.clientX - rect.left) / rect.width) * sizeRef.current.w;
-      const y = ((ev.clientY - rect.top) / rect.height) * sizeRef.current.h;
-      drawing.current.points.push([x, y, ev.pressure || 0.5]);
-    }
-    redrawCurrentInk();
-  }
-
-  function onCapturePointerUp() {
-    if (tool === 'highlight') {
-      finishHighlight();
-      return;
-    }
-    if (tool !== 'pen' || !drawing.current.active) return;
-    const pts = drawing.current.points;
-    drawing.current = { active: false, points: [] };
-    const inkCanvas = inkCanvasRef.current;
-    inkCanvas?.getContext('2d')?.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-    if (pts.length < 2) return;
-    const { w, h } = sizeRef.current;
-    const points: InkPoint[] = pts.map(([x, y, p]) => ({ x: x / w, y: y / h, p }));
-    onCreateInk({ points, width: penWidthFraction });
-  }
-
-  // O navegador dispara pointercancel quando decide que o gesto virou rolagem
-  // (touch-action: pan-y nos arrastos verticais). Aborta o que estava em curso.
-  function onCapturePointerCancel() {
-    if (tool === 'highlight') cancelHighlight();
-    if (drawing.current.active) {
-      drawing.current = { active: false, points: [] };
-      const inkCanvas = inkCanvasRef.current;
-      inkCanvas?.getContext('2d')?.clearRect(0, 0, inkCanvas.width, inkCanvas.height);
-    }
-  }
-
+  // ----------------------------------------------------------------
+  // Borracha
+  // ----------------------------------------------------------------
   function eraseAt(pt: { x: number; y: number }) {
     for (const a of annotations) {
       if (a.type === 'ink' && a.strokes) {
@@ -371,6 +332,11 @@ export function PdfPageView({
             return;
           }
         }
+      } else if (a.type === 'comment' && a.anchor) {
+        if (Math.hypot(a.anchor.x - pt.x, a.anchor.y - pt.y) < COMMENT_HIT) {
+          onEraseAnnotation(a);
+          return;
+        }
       } else if (a.rects) {
         if (a.rects.some((r) => pointInRect(r, pt.x, pt.y))) {
           onEraseAnnotation(a);
@@ -380,20 +346,150 @@ export function PdfPageView({
     }
   }
 
+  // Anotação sob um toque (para abrir comentário ao tocar um realce/pin).
+  function annotationAt(pt: { x: number; y: number }): Annotation | null {
+    for (const a of annotations) {
+      if (a.type === 'highlight' && a.rects?.some((r) => pointInRect(r, pt.x, pt.y))) {
+        return a;
+      }
+    }
+    for (const a of annotations) {
+      if (
+        a.type === 'comment' &&
+        a.anchor &&
+        Math.hypot(a.anchor.x - pt.x, a.anchor.y - pt.y) < COMMENT_HIT
+      ) {
+        return a;
+      }
+    }
+    return null;
+  }
+
+  // ----------------------------------------------------------------
+  // Pipeline de ponteiro (decisão diferida: rolar × marcar × apagar)
+  // ----------------------------------------------------------------
+  function coalesced(e: React.PointerEvent): PointerEvent[] {
+    return typeof e.nativeEvent.getCoalescedEvents === 'function'
+      ? e.nativeEvent.getCoalescedEvents()
+      : [e.nativeEvent];
+  }
+
+  function onPointerDown(e: React.PointerEvent) {
+    const action: Gesture['action'] =
+      isPenEraser(e) || tool === 'eraser'
+        ? 'erase'
+        : tool === 'comment'
+          ? 'comment'
+          : 'highlight';
+    gesture.current = {
+      mode: 'pending',
+      action,
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      penLike: isPenLike(e),
+      minX: e.clientX,
+      maxX: e.clientX,
+      spans: new Set(),
+    };
+    if (action === 'highlight') snapshotSpans();
+  }
+
+  function onPointerMove(e: React.PointerEvent) {
+    const g = gesture.current;
+    if (g.mode === 'idle' || e.pointerId !== g.pointerId) return;
+
+    if (g.mode === 'active') {
+      e.preventDefault();
+      if (g.action === 'highlight') {
+        for (const ev of coalesced(e)) {
+          g.minX = Math.min(g.minX, ev.clientX);
+          g.maxX = Math.max(g.maxX, ev.clientX);
+          collectSpansAt(ev.clientX, ev.clientY);
+        }
+        previewHighlight();
+      } else if (g.action === 'erase') {
+        for (const ev of coalesced(e)) eraseAt(localPoint(ev));
+      }
+      return;
+    }
+
+    // pending → decide a intenção quando houver movimento suficiente
+    const dx = Math.abs(e.clientX - g.startX);
+    const dy = Math.abs(e.clientY - g.startY);
+    if (Math.max(dx, dy) < DRAG_THRESHOLD) return;
+
+    // Arrasto vertical = rolagem (touch-action: pan-y cuida disso). Abandona.
+    if (dy > dx) {
+      g.mode = 'idle';
+      return;
+    }
+    // Comentário não arrasta; arrasto horizontal aqui também vira rolagem.
+    if (g.action === 'comment') {
+      g.mode = 'idle';
+      return;
+    }
+    // Marca-texto só com caneta (dedo horizontal é ignorado para não marcar sem
+    // querer). Borracha aceita qualquer ponteiro.
+    if (g.action === 'highlight' && !g.penLike) {
+      g.mode = 'idle';
+      return;
+    }
+
+    // Confirma o arrasto: a partir daqui capturamos e impedimos a rolagem.
+    g.mode = 'active';
+    (e.target as Element).setPointerCapture?.(g.pointerId);
+    e.preventDefault();
+    if (g.action === 'highlight') {
+      g.minX = Math.min(g.startX, e.clientX);
+      g.maxX = Math.max(g.startX, e.clientX);
+      collectSpansAt(g.startX, g.startY);
+      for (const ev of coalesced(e)) collectSpansAt(ev.clientX, ev.clientY);
+      previewHighlight();
+    } else if (g.action === 'erase') {
+      eraseAt(localPoint({ clientX: g.startX, clientY: g.startY }));
+      eraseAt(localPoint(e));
+    }
+  }
+
+  function onPointerUp(e: React.PointerEvent) {
+    const g = gesture.current;
+    if (e.pointerId !== g.pointerId) return;
+
+    if (g.mode === 'active') {
+      if (g.action === 'highlight') finishHighlight();
+      // borracha já apagou ao longo do arrasto
+    } else if (g.mode === 'pending') {
+      // Toque (sem arrasto)
+      const np = localPoint(e);
+      if (g.action === 'erase') {
+        eraseAt(np);
+      } else {
+        const hit = annotationAt(np);
+        if (hit) {
+          onSelectAnnotation(hit); // tocar um realce/pin abre o comentário
+        } else if (g.action === 'comment') {
+          onCreateComment(np);
+        }
+      }
+    }
+    gesture.current = freshGesture();
+    clearOverlay();
+  }
+
+  function onPointerCancel() {
+    gesture.current = freshGesture();
+    clearOverlay();
+  }
+
   const { w, h } = sizeRef.current;
-  const captureActive =
-    tool === 'pen' || tool === 'eraser' || tool === 'comment' || tool === 'highlight';
 
   return (
     <div ref={containerRef} className="pdf-page" data-page={pageNumber}>
       <canvas ref={canvasRef} className="pdf-page-canvas" />
-      <div
-        ref={textLayerRef}
-        className="pdf-text-layer"
-        style={{ pointerEvents: 'none' }}
-      />
+      <div ref={textLayerRef} className="pdf-text-layer" style={{ pointerEvents: 'none' }} />
 
-      {/* Overlay de anotações salvas (marca-texto + tinta + pins de comentário) */}
+      {/* Overlay de anotações salvas (marca-texto + tinta) */}
       <svg
         className="pdf-annotation-layer"
         viewBox={`0 0 ${w || 1} ${h || 1}`}
@@ -404,12 +500,7 @@ export function PdfPageView({
         {annotations.flatMap((a) => {
           if (a.type === 'ink' && a.strokes) {
             return a.strokes.map((s, i) => (
-              <path
-                key={`${a.id}-${i}`}
-                d={inkStrokeToSvgPath(s, w, h)}
-                fill={a.color}
-                opacity={0.95}
-              />
+              <path key={`${a.id}-${i}`} d={inkStrokeToSvgPath(s, w, h)} fill={a.color} opacity={0.95} />
             ));
           }
           if (a.rects) {
@@ -421,9 +512,7 @@ export function PdfPageView({
                 width={r.w * w}
                 height={r.h * h}
                 fill={a.color}
-                opacity={a.comment ? 0.45 : 0.32}
-                style={{ pointerEvents: tool === 'pan' ? 'auto' : 'none', cursor: 'pointer' }}
-                onClick={() => tool === 'pan' && onSelectAnnotation(a)}
+                opacity={a.comment ? 0.5 : 0.32}
               />
             ));
           }
@@ -431,40 +520,36 @@ export function PdfPageView({
         })}
       </svg>
 
-      {/* Pins de comentário (sempre clicáveis) */}
+      {/* Pins de comentário (apenas visuais; o toque é tratado pela camada de captura) */}
       {annotations
         .filter((a) => a.type === 'comment' && a.anchor)
         .map((a) => (
-          <button
+          <span
             key={a.id}
-            type="button"
             className="pdf-comment-pin"
-            style={{ left: `${a.anchor!.x * 100}%`, top: `${a.anchor!.y * 100}%` }}
+            style={{ left: `${a.anchor!.x * 100}%`, top: `${a.anchor!.y * 100}%`, pointerEvents: 'none' }}
             title={a.comment || 'Comentário'}
-            onClick={() => onSelectAnnotation(a)}
-            aria-label="Abrir comentário"
+            aria-hidden="true"
           >
             💬
-          </button>
+          </span>
         ))}
 
-      {/* Canvas de tinta ao vivo + camada de captura de ponteiro */}
+      {/* Camada de captura de ponteiro + pré-visualização do realce */}
       <canvas
-        ref={inkCanvasRef}
+        ref={overlayRef}
         className="pdf-ink-canvas"
         style={{
-          pointerEvents: captureActive ? 'auto' : 'none',
-          // pen/eraser/comment travam todo o gesto (touch-action: none). No
-          // marca-texto deixamos 'pan-y': arrasto vertical rola a página
-          // normalmente, arrasto horizontal (sobre a linha) realça o texto.
-          touchAction: tool === 'highlight' ? 'pan-y' : captureActive ? 'none' : 'auto',
+          pointerEvents: 'auto',
+          // pan-y: arrasto vertical rola a página; o resto (marcar/apagar
+          // horizontal, tocar) é tratado por nós.
+          touchAction: 'pan-y',
           cursor: tool === 'eraser' ? 'cell' : 'crosshair',
         }}
-        onPointerDown={captureActive ? onCapturePointerDown : undefined}
-        onPointerMove={captureActive ? onCapturePointerMove : undefined}
-        onPointerUp={captureActive ? onCapturePointerUp : undefined}
-        onPointerLeave={captureActive ? onCapturePointerUp : undefined}
-        onPointerCancel={captureActive ? onCapturePointerCancel : undefined}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
       />
     </div>
   );
