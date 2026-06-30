@@ -122,6 +122,9 @@ export interface ReadingItem {
   id: string;
   // Id do arquivo no Google Drive. É a chave para baixar os bytes do PDF.
   driveFileId: string;
+  // Nome do arquivo no Google Drive (com extensão). Espelha o nome real no
+  // Drive: a sincronização traz daqui e renomear pelo app reescreve aqui e lá.
+  fileName?: string;
   format: ReadingFormat;
   title: string;
   authors: string[];
