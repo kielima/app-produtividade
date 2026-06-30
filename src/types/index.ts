@@ -76,6 +76,10 @@ export interface Project {
   categories: string[];
   status: ProjectStatus;
   priority: ProjectPriority;
+  // Classificação MoSCoW do projeto (Must/Should/Could/Won't). Usada pela
+  // visualização "Matriz" da aba Projetos, onde cada projeto é arrastado para
+  // o quadrante correspondente. Vazio = sem classificação.
+  moscow: MoSCoW;
   objective: string;
   currentStatus: string;
   nextSteps: string;

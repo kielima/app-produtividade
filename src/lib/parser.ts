@@ -308,6 +308,7 @@ export function parseProjectMarkdown(content: string): Project[] {
       let name = header[1]!.trim();
       const statusMatch = name.match(/\[(A iniciar|Em planejamento|Em andamento|Pausado|Conclu[íi]do|Cancelado)\]/i);
       const priorityMatch = name.match(/\[(P[123])\]/i);
+      const moscowMatch = name.match(/\[(Must|Should|Could|Won'?t)\]/i);
       const status: ProjectStatus = statusMatch
         ? (statusMatch[1]!
             .replace('Concluido', 'Concluído') as ProjectStatus)
@@ -315,9 +316,11 @@ export function parseProjectMarkdown(content: string): Project[] {
       const priority: ProjectPriority = priorityMatch
         ? (priorityMatch[1]!.toUpperCase() as ProjectPriority)
         : '';
+      const moscow: MoSCoW = moscowMatch ? normalizeMoscow(moscowMatch[1]!) : '';
       name = name
         .replace(/\[(A iniciar|Em planejamento|Em andamento|Pausado|Conclu[íi]do|Cancelado)\]/i, '')
         .replace(/\[(P[123])\]/i, '')
+        .replace(/\[(Must|Should|Could|Won'?t)\]/i, '')
         .trim();
 
       current = {
@@ -327,6 +330,7 @@ export function parseProjectMarkdown(content: string): Project[] {
         categories: [],
         status,
         priority,
+        moscow,
         objective: '',
         currentStatus: '',
         nextSteps: '',

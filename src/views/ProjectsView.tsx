@@ -6,6 +6,7 @@ import { subscribeToGlickoRatings, type GlickoMap } from '../repositories/glicko
 import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import type { Project, Task } from '../types';
+import { ProjectMoscowMatrix } from './ProjectMoscowMatrix';
 
 const COLLAPSED_CATEGORIES_KEY = 'projectsCollapsedCategories';
 
@@ -164,7 +165,15 @@ export function ProjectsView({
         </p>
       )}
 
-      {filters.viewMode === 'category' ? (
+      {filters.viewMode === 'matrix' ? (
+        <ProjectMoscowMatrix
+          uid={uid}
+          projects={filtered}
+          taskCountByProject={taskCountByProject}
+          glickoMap={glickoMap}
+          volatilityBands={volatilityBands}
+        />
+      ) : filters.viewMode === 'category' ? (
         groupedByCategory.map(([category, group]) => {
           const collapsed = collapsedCategories.has(category);
           const label = category || '(sem categoria)';
