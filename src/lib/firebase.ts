@@ -36,6 +36,10 @@ const useEmulator = import.meta.env.VITE_USE_FIREBASE_EMULATOR === 'true';
 export const app: FirebaseApp = initializeApp(config);
 
 export const db: Firestore = initializeFirestore(app, {
+  // Campos opcionais vazios chegam como `undefined` (ex.: isbn/doi/issn no
+  // editor de metadados). Sem isto o Firestore rejeita a gravação inteira
+  // ("Unsupported field value: undefined"); com isto ele apenas ignora o campo.
+  ignoreUndefinedProperties: true,
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager(),
   }),
