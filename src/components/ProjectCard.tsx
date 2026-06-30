@@ -23,12 +23,17 @@ export function ProjectCard({
   doneTaskCount,
   glickoRating,
   volatilityBands,
+  compact = false,
 }: {
   project: Project;
   taskCount: number;
   doneTaskCount: number;
   glickoRating?: GlickoRating;
   volatilityBands?: VolatilityBands;
+  // Variante enxuta usada na Matriz MoSCoW: mostra apenas o título (em uma só
+  // linha, truncado com reticências se não couber) e o botão de info (ⓘ),
+  // escondendo os badges de duelo e o contador de tarefas.
+  compact?: boolean;
 }) {
   const { openProject, openProjectTasks } = useProjectNavigation();
   const isDone = project.status === 'Concluído' || project.status === 'Cancelado';
@@ -48,7 +53,7 @@ export function ProjectCard({
 
   return (
     <article
-      className={`project-card status-${statusClass}${isDone ? ' done' : ''}`}
+      className={`project-card status-${statusClass}${isDone ? ' done' : ''}${compact ? ' project-card--compact' : ''}`}
       style={
         progressPct !== null
           ? ({ '--progress-pct': `${progressPct}%` } as CSSProperties)
@@ -67,7 +72,7 @@ export function ProjectCard({
         >
           {project.name}
         </button>
-        {volatility && confidence && (
+        {!compact && volatility && confidence && (
           <span className="project-glicko-badges">
             <span
               className={`duel-card-badge duel-card-badge--${volatility}`}
@@ -83,14 +88,16 @@ export function ProjectCard({
             </span>
           </span>
         )}
-        <button
-          type="button"
-          className="muted project-task-count project-task-count-btn"
-          onClick={() => openProjectTasks(project.id)}
-          aria-label={`ver ${countLabel} do projeto ${project.name}`}
-        >
-          {countLabel}
-        </button>
+        {!compact && (
+          <button
+            type="button"
+            className="muted project-task-count project-task-count-btn"
+            onClick={() => openProjectTasks(project.id)}
+            aria-label={`ver ${countLabel} do projeto ${project.name}`}
+          >
+            {countLabel}
+          </button>
+        )}
         <button
           type="button"
           className="icon-btn project-info-btn"
