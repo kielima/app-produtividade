@@ -50,7 +50,9 @@ export function ReaderView({
   const [baseAspect, setBaseAspect] = useState(1.414); // h/w; A4 retrato como palpite
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
 
-  const [tool, setTool] = useState<ReaderTool>('pan');
+  // Padrão: marca-texto já ativo ao abrir o PDF — é só passar a caneta/dedo
+  // sobre o texto para realçar (rolagem vertical continua funcionando).
+  const [tool, setTool] = useState<ReaderTool>('highlight');
   const [highlightColor, setHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
   const [inkColor, setInkColor] = useState(INK_COLORS[0]);
   const [zoom, setZoom] = useState(1);
@@ -388,9 +390,15 @@ export function ReaderView({
                   <span className="reader-annotation-text">
                     {a.text || a.comment || (a.type === 'ink' ? '(manuscrito)' : '')}
                   </span>
-                  <button type="button" onClick={() => startConvert(a)} title="Converter em nota/tarefa">
-                    ↪
-                  </button>
+                  {a.type === 'highlight' && (
+                    <button
+                      type="button"
+                      onClick={() => startConvert(a)}
+                      title="Converter em nota/tarefa"
+                    >
+                      ↪
+                    </button>
+                  )}
                   <button type="button" onClick={() => handleErase(a)} title="Excluir">
                     🗑️
                   </button>
@@ -417,11 +425,6 @@ export function ReaderView({
               <button type="button" onClick={saveComment}>
                 Salvar
               </button>
-              {commentTarget.mode === 'edit' && (
-                <button type="button" onClick={() => startConvert(commentTarget.annotation)}>
-                  → nota/tarefa
-                </button>
-              )}
               {commentTarget.mode === 'edit' && (
                 <button type="button" className="share-dialog-secondary" onClick={deleteCommentTarget}>
                   Excluir
