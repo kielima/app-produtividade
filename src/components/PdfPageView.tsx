@@ -12,13 +12,12 @@ export type ReaderTool = 'highlight' | 'comment' | 'eraser';
 
 // Distância (normalizada) dentro da qual a borracha considera ter tocado algo.
 const ERASER_HIT = 0.012;
-// Acima deste tamanho de contato (px) tratamos o ponteiro como DEDO (rolagem),
-// não caneta. A S-Pen reporta um ponto minúsculo; o dedo, uma área grande.
-const PEN_MAX_CONTACT = 18;
-// Movimento mínimo (px) para um gesto deixar de ser "toque" e virar arrasto.
+// Movimento mínimo (px) para um gesto da caneta deixar de ser "toque" e virar arrasto.
 const DRAG_THRESHOLD = 6;
 // Raio (normalizado) para um toque "acertar" o pin de um comentário.
 const COMMENT_HIT = 0.03;
+// Tempo sem eventos de caneta após o qual devolvemos a rolagem normal ao dedo.
+const PEN_IDLE_MS = 700;
 
 type SpanBox = {
   el: Element;
@@ -31,10 +30,10 @@ type SpanBox = {
 type Gesture = {
   mode: 'idle' | 'pending' | 'active';
   action: 'highlight' | 'erase' | 'comment';
+  pen: boolean;
   pointerId: number;
   startX: number;
   startY: number;
-  penLike: boolean;
   minX: number;
   maxX: number;
   spans: Set<number>;
@@ -44,10 +43,10 @@ function freshGesture(): Gesture {
   return {
     mode: 'idle',
     action: 'highlight',
+    pen: false,
     pointerId: -1,
     startX: 0,
     startY: 0,
-    penLike: false,
     minX: 0,
     maxX: 0,
     spans: new Set(),
@@ -152,28 +151,36 @@ export function PdfPageView({
   }, [page, scale]);
 
   // ----------------------------------------------------------------
-  // Detecção dedo × caneta e botão da S-Pen
+  // Detecção da caneta (técnica do app de apresentações / laser)
   // ----------------------------------------------------------------
-  // Muitos aparelhos (vários Samsung) entregam a S-Pen como pointerType 'touch'.
-  // Distinguimos a caneta do dedo pelo TAMANHO do contato: a caneta é um ponto
-  // (width/height minúsculos ou 0); o dedo é uma área grande.
-  function isPenLike(e: React.PointerEvent): boolean {
-    if (e.pointerType === 'pen' || e.pointerType === 'mouse') return true;
-    if (e.pointerType === 'touch') {
-      const size = Math.max(e.width || 0, e.height || 0);
-      return size === 0 || size <= PEN_MAX_CONTACT;
-    }
-    return false;
+  // A S-Pen (e o Apple Pencil) são reconhecidos diretamente por
+  // pointerType === 'pen'. O dedo nunca é interceptado: rola a página
+  // normalmente. O segredo para o arrasto da caneta não virar rolagem no
+  // Android/Samsung é DESARMAR os gestos do navegador ANTES do contato — a
+  // S-Pen reporta "hover" antes de encostar, então armamos touch-action: none
+  // no hover e capturamos o ponteiro no toque.
+  const gesture = useRef<Gesture>(freshGesture());
+  const penIdleTimer = useRef<number | null>(null);
+
+  function isPen(e: React.PointerEvent): boolean {
+    return e.pointerType === 'pen' || e.pointerType === 'mouse';
   }
 
   // Botão lateral da S-Pen (bit 2) ou ponta-borracha (bit 32): vira borracha,
-  // como no Samsung Notes. Só funciona quando o aparelho reporta a caneta como
-  // 'pen' (alguns reportam como 'touch' e aí o botão não chega ao navegador).
+  // como no Samsung Notes.
   function isPenEraser(e: React.PointerEvent): boolean {
-    return (
-      e.pointerType === 'pen' &&
-      ((e.buttons & 2) !== 0 || (e.buttons & 32) !== 0 || e.button === 5)
-    );
+    return (e.buttons & 2) !== 0 || (e.buttons & 32) !== 0 || e.button === 5;
+  }
+
+  function armPen() {
+    overlayRef.current?.style.setProperty('touch-action', 'none');
+    if (penIdleTimer.current) clearTimeout(penIdleTimer.current);
+    penIdleTimer.current = window.setTimeout(disarmPen, PEN_IDLE_MS);
+  }
+  function disarmPen() {
+    if (gesture.current.mode === 'active') return; // nunca no meio de um traço
+    overlayRef.current?.style.setProperty('touch-action', 'pan-y');
+    penIdleTimer.current = null;
   }
 
   function localPoint(e: { clientX: number; clientY: number }): { x: number; y: number } {
@@ -185,12 +192,16 @@ export function PdfPageView({
     };
   }
 
+  function coalesced(e: React.PointerEvent): PointerEvent[] {
+    return typeof e.nativeEvent.getCoalescedEvents === 'function'
+      ? e.nativeEvent.getCoalescedEvents()
+      : [e.nativeEvent];
+  }
+
   // ----------------------------------------------------------------
   // Marca-texto preciso "passando a caneta"
   // ----------------------------------------------------------------
-  // Snapshot da posição de cada span do texto no início do gesto.
   const spanBoxes = useRef<SpanBox[]>([]);
-  const gesture = useRef<Gesture>(freshGesture());
 
   function snapshotSpans() {
     const textLayer = textLayerRef.current;
@@ -199,13 +210,7 @@ export function PdfPageView({
     for (const el of Array.from(textLayer.children)) {
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
-      spanBoxes.current.push({
-        el,
-        left: r.left,
-        top: r.top,
-        right: r.right,
-        bottom: r.bottom,
-      });
+      spanBoxes.current.push({ el, left: r.left, top: r.top, right: r.right, bottom: r.bottom });
     }
   }
 
@@ -238,8 +243,7 @@ export function PdfPageView({
     return out;
   }
 
-  // Retângulos do realce, recortados horizontalmente ao trecho varrido
-  // [minX, maxX]. Em coordenadas normalizadas (0–1).
+  // Retângulos do realce, recortados horizontalmente ao trecho varrido (0–1).
   function clampedHighlightRects(): NormRect[] {
     const g = gesture.current;
     const container = containerRef.current;
@@ -319,7 +323,7 @@ export function PdfPageView({
   }
 
   // ----------------------------------------------------------------
-  // Borracha
+  // Borracha e seleção por toque
   // ----------------------------------------------------------------
   function eraseAt(pt: { x: number; y: number }) {
     for (const a of annotations) {
@@ -346,7 +350,6 @@ export function PdfPageView({
     }
   }
 
-  // Anotação sob um toque (para abrir comentário ao tocar um realce/pin).
   function annotationAt(pt: { x: number; y: number }): Annotation | null {
     for (const a of annotations) {
       if (a.type === 'highlight' && a.rects?.some((r) => pointInRect(r, pt.x, pt.y))) {
@@ -366,38 +369,57 @@ export function PdfPageView({
   }
 
   // ----------------------------------------------------------------
-  // Pipeline de ponteiro (decisão diferida: rolar × marcar × apagar)
+  // Ponteiro
   // ----------------------------------------------------------------
-  function coalesced(e: React.PointerEvent): PointerEvent[] {
-    return typeof e.nativeEvent.getCoalescedEvents === 'function'
-      ? e.nativeEvent.getCoalescedEvents()
-      : [e.nativeEvent];
-  }
-
   function onPointerDown(e: React.PointerEvent) {
     const action: Gesture['action'] =
-      isPenEraser(e) || tool === 'eraser'
-        ? 'erase'
-        : tool === 'comment'
-          ? 'comment'
-          : 'highlight';
+      isPenEraser(e) || tool === 'eraser' ? 'erase' : tool === 'comment' ? 'comment' : 'highlight';
+
+    if (isPen(e)) {
+      armPen();
+      e.preventDefault();
+      overlayRef.current?.setPointerCapture?.(e.pointerId);
+      gesture.current = {
+        mode: 'pending',
+        action,
+        pen: true,
+        pointerId: e.pointerId,
+        startX: e.clientX,
+        startY: e.clientY,
+        minX: e.clientX,
+        maxX: e.clientX,
+        spans: new Set(),
+      };
+      if (action === 'highlight') snapshotSpans();
+      if (action === 'erase') eraseAt(localPoint(e));
+      return;
+    }
+
+    // Dedo: só registramos para detectar um TOQUE. Sem capturar nem
+    // preventDefault → a rolagem continua normal (touch-action: pan-y).
     gesture.current = {
       mode: 'pending',
       action,
+      pen: false,
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      penLike: isPenLike(e),
       minX: e.clientX,
       maxX: e.clientX,
       spans: new Set(),
     };
-    if (action === 'highlight') snapshotSpans();
   }
 
   function onPointerMove(e: React.PointerEvent) {
     const g = gesture.current;
-    if (g.mode === 'idle' || e.pointerId !== g.pointerId) return;
+
+    // Caneta pairando (sem gesto em curso): mantém os gestos do navegador
+    // desarmados para o próximo toque já nascer sem rolagem.
+    if (isPen(e) && (g.mode === 'idle' || e.pointerId !== g.pointerId)) {
+      armPen();
+      return;
+    }
+    if (e.pointerId !== g.pointerId) return;
 
     if (g.mode === 'active') {
       e.preventDefault();
@@ -414,31 +436,22 @@ export function PdfPageView({
       return;
     }
 
-    // pending → decide a intenção quando houver movimento suficiente
+    // pending
     const dx = Math.abs(e.clientX - g.startX);
     const dy = Math.abs(e.clientY - g.startY);
     if (Math.max(dx, dy) < DRAG_THRESHOLD) return;
 
-    // Arrasto vertical = rolagem (touch-action: pan-y cuida disso). Abandona.
-    if (dy > dx) {
+    if (!g.pen) {
+      // Dedo arrastou → é rolagem: abandona (o toque-para-comentar não vale mais).
       g.mode = 'idle';
       return;
     }
-    // Comentário não arrasta; arrasto horizontal aqui também vira rolagem.
-    if (g.action === 'comment') {
-      g.mode = 'idle';
-      return;
-    }
-    // Marca-texto só com caneta (dedo horizontal é ignorado para não marcar sem
-    // querer). Borracha aceita qualquer ponteiro.
-    if (g.action === 'highlight' && !g.penLike) {
-      g.mode = 'idle';
-      return;
-    }
+    // Comentário não arrasta — fica pendente para virar toque ao soltar.
+    if (g.action === 'comment') return;
 
-    // Confirma o arrasto: a partir daqui capturamos e impedimos a rolagem.
+    // Caneta arrastou → confirma marca-texto/borracha (em qualquer direção).
     g.mode = 'active';
-    (e.target as Element).setPointerCapture?.(g.pointerId);
+    armPen();
     e.preventDefault();
     if (g.action === 'highlight') {
       g.minX = Math.min(g.startX, e.clientX);
@@ -460,7 +473,6 @@ export function PdfPageView({
       if (g.action === 'highlight') finishHighlight();
       // borracha já apagou ao longo do arrasto
     } else if (g.mode === 'pending') {
-      // Toque (sem arrasto)
       const np = localPoint(e);
       if (g.action === 'erase') {
         eraseAt(np);
@@ -473,11 +485,17 @@ export function PdfPageView({
         }
       }
     }
+    if (g.pen) {
+      overlayRef.current?.releasePointerCapture?.(g.pointerId);
+      armPen(); // reagenda o disarm
+    }
     gesture.current = freshGesture();
     clearOverlay();
   }
 
   function onPointerCancel() {
+    const g = gesture.current;
+    if (g.pen) overlayRef.current?.releasePointerCapture?.(g.pointerId);
     gesture.current = freshGesture();
     clearOverlay();
   }
@@ -535,14 +553,14 @@ export function PdfPageView({
           </span>
         ))}
 
-      {/* Camada de captura de ponteiro + pré-visualização do realce */}
+      {/* Camada de captura de ponteiro + pré-visualização do realce.
+          Dedo: rola (pan-y). Caneta: ao pairar/encostar, armamos touch-action:
+          none e capturamos, então o traço não vira rolagem em nenhuma direção. */}
       <canvas
         ref={overlayRef}
         className="pdf-ink-canvas"
         style={{
           pointerEvents: 'auto',
-          // pan-y: arrasto vertical rola a página; o resto (marcar/apagar
-          // horizontal, tocar) é tratado por nós.
           touchAction: 'pan-y',
           cursor: tool === 'eraser' ? 'cell' : 'crosshair',
         }}
@@ -550,6 +568,7 @@ export function PdfPageView({
         onPointerMove={onPointerMove}
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
+        onPointerLeave={() => disarmPen()}
       />
     </div>
   );
