@@ -16,6 +16,12 @@ const ERASER_HIT = 0.012;
 const DRAG_THRESHOLD = 6;
 // Raio (normalizado) para um toque "acertar" o pin de um comentário.
 const COMMENT_HIT = 0.03;
+// Folga (normalizada) para "acertar" um realce ao tocar — o realce é fino, então
+// damos uma margem generosa para o toque abrir o comentário com facilidade.
+const HL_TAP_PAD = 0.012;
+// Distância máxima (px) entre apertar e soltar para o gesto contar como TOQUE
+// (e não arrasto/rolagem). Tolerante a pequenas tremidas do dedo.
+const TAP_MAX = 12;
 // Tempo sem eventos de caneta após o qual devolvemos a rolagem normal ao dedo.
 const PEN_IDLE_MS = 700;
 
@@ -352,7 +358,7 @@ export function PdfPageView({
 
   function annotationAt(pt: { x: number; y: number }): Annotation | null {
     for (const a of annotations) {
-      if (a.type === 'highlight' && a.rects?.some((r) => pointInRect(r, pt.x, pt.y))) {
+      if (a.type === 'highlight' && a.rects?.some((r) => pointInRect(r, pt.x, pt.y, HL_TAP_PAD))) {
         return a;
       }
     }
@@ -437,19 +443,19 @@ export function PdfPageView({
     }
 
     // pending
+    // Dedo: não interceptamos — o navegador rola (pan-y) e dispara pointercancel
+    // se virar rolagem; se for só um toque, o pointerup decide pela distância.
+    if (!g.pen) return;
     const dx = Math.abs(e.clientX - g.startX);
     const dy = Math.abs(e.clientY - g.startY);
     if (Math.max(dx, dy) < DRAG_THRESHOLD) return;
-
-    if (!g.pen) {
-      // Dedo arrastou → é rolagem: abandona (o toque-para-comentar não vale mais).
-      g.mode = 'idle';
-      return;
-    }
     // Comentário não arrasta — fica pendente para virar toque ao soltar.
     if (g.action === 'comment') return;
 
     // Caneta arrastou → confirma marca-texto/borracha (em qualquer direção).
+    // Reavalia o botão da S-Pen aqui também: alguns aparelhos só reportam o bit
+    // do botão no primeiro movimento, não no toque inicial.
+    if (isPenEraser(e)) g.action = 'erase';
     g.mode = 'active';
     armPen();
     e.preventDefault();
@@ -473,15 +479,19 @@ export function PdfPageView({
       if (g.action === 'highlight') finishHighlight();
       // borracha já apagou ao longo do arrasto
     } else if (g.mode === 'pending') {
-      const np = localPoint(e);
-      if (g.action === 'erase') {
-        eraseAt(np);
-      } else {
-        const hit = annotationAt(np);
-        if (hit) {
-          onSelectAnnotation(hit); // tocar um realce/pin abre o comentário
-        } else if (g.action === 'comment') {
-          onCreateComment(np);
+      // Só conta como TOQUE se mal se moveu (senão foi rolagem/arrasto à toa).
+      const dist = Math.hypot(e.clientX - g.startX, e.clientY - g.startY);
+      if (dist <= TAP_MAX) {
+        const np = localPoint(e);
+        if (g.action === 'erase') {
+          eraseAt(np);
+        } else {
+          const hit = annotationAt(np);
+          if (hit) {
+            onSelectAnnotation(hit); // tocar um realce/pin abre o comentário
+          } else if (g.action === 'comment') {
+            onCreateComment(np);
+          }
         }
       }
     }
@@ -569,6 +579,8 @@ export function PdfPageView({
         onPointerUp={onPointerUp}
         onPointerCancel={onPointerCancel}
         onPointerLeave={() => disarmPen()}
+        // Evita o menu de contexto que o botão da S-Pen / pressão longa dispara.
+        onContextMenu={(e) => e.preventDefault()}
       />
     </div>
   );
