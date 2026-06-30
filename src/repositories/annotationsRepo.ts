@@ -24,6 +24,7 @@ function normalize(id: string, itemId: string, data: Partial<Annotation>): Annot
     createdAt: data.createdAt ?? '',
     ...(Array.isArray(data.rects) ? { rects: data.rects } : {}),
     ...(data.text != null ? { text: data.text } : {}),
+    ...(data.title != null ? { title: data.title } : {}),
     ...(data.comment != null ? { comment: data.comment } : {}),
     ...(Array.isArray(data.strokes) ? { strokes: data.strokes } : {}),
     ...(data.anchor != null ? { anchor: data.anchor } : {}),

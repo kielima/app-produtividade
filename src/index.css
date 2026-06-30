@@ -5243,3 +5243,45 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   resize: vertical;
 }
 
+/* Editor de anotação (título + citação markdown + comentário) */
+.reader-annot-editor .metadata-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+}
+.reader-annot-editor .metadata-field span {
+  color: var(--muted);
+}
+.reader-annot-editor input {
+  padding: 0.45rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+/* Texto extraído renderizado como citação markdown */
+.reader-citation {
+  border-left: 3px solid var(--accent);
+  background: var(--surface-2);
+  border-radius: 0 6px 6px 0;
+  padding: 0.25rem 0.75rem;
+  margin: 0 0 0.6rem;
+  color: var(--fg);
+  font-size: 0.9rem;
+  max-height: 30vh;
+  overflow: auto;
+}
+.reader-citation blockquote {
+  margin: 0;
+  border: none;
+  padding: 0;
+  color: var(--muted);
+  font-style: italic;
+}
+.reader-citation p {
+  margin: 0.2rem 0;
+}
+

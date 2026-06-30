@@ -180,6 +180,8 @@ export interface Annotation {
   rects?: NormRect[];
   // Texto selecionado (highlight) — usado também ao converter em nota/tarefa.
   text?: string;
+  // Título opcional dado pelo usuário; vira o título da nota/tarefa na conversão.
+  title?: string;
   // Corpo do comentário (type 'comment', ou comentário anexado a um highlight).
   comment?: string;
   // Traços de tinta da S-Pen (type 'ink').

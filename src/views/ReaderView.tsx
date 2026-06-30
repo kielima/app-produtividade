@@ -12,10 +12,8 @@ import {
 import { patchReadingItem, saveReadingMetadata } from '../repositories/readingItemsRepo';
 import { PdfPageView, type ReaderTool } from '../components/PdfPageView';
 import { MetadataEditor } from '../components/MetadataEditor';
-import {
-  ShareTargetDialog,
-  type ShareTargetDialogState,
-} from '../components/ShareTargetDialog';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import { createNoteFromText, createTaskFromText, pickDefaultProjectId } from '../lib/createFromText';
 import type { Annotation, NormRect, Project, ReadingItem } from '../types';
 
@@ -64,12 +62,7 @@ export function ReaderView({
     | null
   >(null);
   const [commentText, setCommentText] = useState('');
-
-  // Conversão de anotação → nota/tarefa (reusa o ShareTargetDialog).
-  const [convert, setConvert] = useState<
-    | { state: ShareTargetDialogState; title: string; text: string }
-    | null
-  >(null);
+  const [commentTitle, setCommentTitle] = useState('');
 
   // -------- Carregamento do PDF --------
   useEffect(() => {
@@ -163,6 +156,7 @@ export function ReaderView({
   const handleCreateComment = useCallback(
     (page: number, anchor: { x: number; y: number }) => {
       setCommentText('');
+      setCommentTitle('');
       setCommentTarget({ mode: 'new', anchor, page });
     },
     [],
@@ -170,6 +164,7 @@ export function ReaderView({
 
   const handleSelectAnnotation = useCallback((a: Annotation) => {
     setCommentText(a.comment ?? '');
+    setCommentTitle(a.title ?? '');
     setCommentTarget({ mode: 'edit', annotation: a });
   }, []);
 
@@ -182,17 +177,20 @@ export function ReaderView({
 
   function saveComment() {
     if (!commentTarget) return;
+    const title = commentTitle.trim();
+    const comment = commentText;
     if (commentTarget.mode === 'new') {
       const a = makeAnnotation({
         page: commentTarget.page,
         type: 'comment',
         color: highlightColor,
-        comment: commentText,
+        comment,
         anchor: commentTarget.anchor,
+        ...(title ? { title } : {}),
       });
       void upsertAnnotation(uid, a);
     } else {
-      void upsertAnnotation(uid, { ...commentTarget.annotation, comment: commentText });
+      void upsertAnnotation(uid, { ...commentTarget.annotation, title, comment });
     }
     setCommentTarget(null);
   }
@@ -205,36 +203,43 @@ export function ReaderView({
   }
 
   // -------- Converter marca-texto → nota/tarefa --------
-  // Só marca-texto vira nota/tarefa: o texto realçado (e um comentário anexado,
-  // se houver) já é texto, então não precisa de OCR.
-  function startConvert(a: Annotation) {
+  // Formata o corpo em markdown: o texto realçado vira uma citação (cada linha
+  // prefixada com "> ") e o comentário do usuário fica abaixo.
+  function quoteMarkdown(text: string): string {
+    return text
+      .trim()
+      .split('\n')
+      .map((l) => `> ${l}`)
+      .join('\n');
+  }
+
+  function composeConvert(a: Annotation): { title: string; body: string } {
     const headline = item.title ? `${item.title} (p.${a.page})` : `p.${a.page}`;
-    const body = [a.text, a.comment].filter(Boolean).join('\n\n');
-    setConvert({
-      state: { status: 'choose', title: headline, text: body },
-      title: headline,
-      text: body,
+    const title = commentTitle.trim() || a.title?.trim() || headline;
+    const cite = a.text ? quoteMarkdown(a.text) : '';
+    const body = [cite, commentText.trim()].filter(Boolean).join('\n\n');
+    return { title, body };
+  }
+
+  // Converte a anotação aberta no editor em nota (Keep) ou tarefa (Tasks),
+  // persistindo antes o título/comentário para não se perderem.
+  async function convertFromEditor(dest: 'note' | 'task') {
+    if (commentTarget?.mode !== 'edit') return;
+    const a = commentTarget.annotation;
+    await upsertAnnotation(uid, {
+      ...a,
+      title: commentTitle.trim(),
+      comment: commentText,
     });
-  }
-
-  async function convertToNote() {
-    if (!convert || convert.state.status !== 'choose') return;
-    const refLine = `↪ ${item.title || 'Leitura'}`;
-    const noteId = await createNoteFromText(
-      uid,
-      convert.state.title,
-      `${convert.state.text}\n\n${refLine}`,
-    );
-    setConvert(null);
-    onConverted('note', noteId);
-  }
-
-  async function convertToTask() {
-    if (!convert || convert.state.status !== 'choose') return;
-    const taskId = await createTaskFromText(uid, projects, convert.state.title, convert.state.text);
-    if (!taskId) return;
-    setConvert(null);
-    onConverted('task', taskId);
+    const { title, body } = composeConvert(a);
+    setCommentTarget(null);
+    if (dest === 'note') {
+      const noteId = await createNoteFromText(uid, title, body);
+      onConverted('note', noteId);
+    } else {
+      const taskId = await createTaskFromText(uid, projects, title, body);
+      if (taskId) onConverted('task', taskId);
+    }
   }
 
   async function reconnectDrive() {
@@ -348,15 +353,15 @@ export function ReaderView({
                     {a.type === 'highlight' ? '🖍️' : a.type === 'comment' ? '💬' : '🖊️'}
                   </span>
                   <span className="reader-annotation-text">
-                    {a.text || a.comment || (a.type === 'ink' ? '(manuscrito)' : '')}
+                    {a.title || a.text || a.comment || (a.type === 'ink' ? '(manuscrito)' : '')}
                   </span>
                   {a.type === 'highlight' && (
                     <button
                       type="button"
-                      onClick={() => startConvert(a)}
-                      title="Converter em nota/tarefa"
+                      onClick={() => handleSelectAnnotation(a)}
+                      title="Abrir / comentar / converter"
                     >
-                      ↪
+                      ✏️
                     </button>
                   )}
                   <button type="button" onClick={() => handleErase(a)} title="Excluir">
@@ -372,19 +377,55 @@ export function ReaderView({
       {commentTarget && (
         <>
           <div className="share-dialog-backdrop" onClick={() => setCommentTarget(null)} aria-hidden="true" />
-          <div className="share-dialog" role="dialog" aria-modal="true">
-            <h2>Comentário</h2>
-            <textarea
-              className="reader-comment-input"
-              value={commentText}
-              onChange={(e) => setCommentText(e.target.value)}
-              rows={4}
-              autoFocus
-            />
+          <div className="share-dialog reader-annot-editor" role="dialog" aria-modal="true">
+            <h2>Anotação</h2>
+
+            <label className="metadata-field">
+              <span>Título (vira o título da nota/tarefa)</span>
+              <input
+                value={commentTitle}
+                onChange={(e) => setCommentTitle(e.target.value)}
+                placeholder="ex.: Emissões incorporadas — ponto-chave"
+              />
+            </label>
+
+            {commentTarget.mode === 'edit' && commentTarget.annotation.text?.trim() && (
+              <div className="reader-citation">
+                <ReactMarkdown remarkPlugins={[remarkGfm]}>
+                  {quoteMarkdown(commentTarget.annotation.text)}
+                </ReactMarkdown>
+              </div>
+            )}
+
+            <label className="metadata-field">
+              <span>Comentário</span>
+              <textarea
+                className="reader-comment-input"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                rows={4}
+                placeholder="Seu comentário…"
+              />
+            </label>
+
             <div className="share-dialog-actions">
               <button type="button" onClick={saveComment}>
                 Salvar
               </button>
+              {commentTarget.mode === 'edit' && commentTarget.annotation.text?.trim() && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => void convertFromEditor('task')}
+                    disabled={pickDefaultProjectId(projects) === null}
+                  >
+                    → Tarefa
+                  </button>
+                  <button type="button" onClick={() => void convertFromEditor('note')}>
+                    → Anotação
+                  </button>
+                </>
+              )}
               {commentTarget.mode === 'edit' && (
                 <button type="button" className="share-dialog-secondary" onClick={deleteCommentTarget}>
                   Excluir
@@ -396,16 +437,6 @@ export function ReaderView({
             </div>
           </div>
         </>
-      )}
-
-      {convert && (
-        <ShareTargetDialog
-          state={convert.state}
-          canCreateTask={pickDefaultProjectId(projects) !== null}
-          onCreateTask={() => void convertToTask()}
-          onCreateNote={() => void convertToNote()}
-          onCancel={() => setConvert(null)}
-        />
       )}
 
       {metaOpen && (
