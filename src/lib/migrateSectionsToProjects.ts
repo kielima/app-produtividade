@@ -5,7 +5,7 @@ import {
   writeBatch,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import type { Project } from '../types';
+import type { MoSCoW, Project } from '../types';
 
 /**
  * Mescla cada doc em users/{uid}/sections em users/{uid}/projects e apaga a
@@ -33,6 +33,7 @@ export async function migrateSectionsToProjects(uid: string): Promise<number> {
     const section = d.data() as {
       name?: string;
       order?: number;
+      moscow?: MoSCoW;
     };
     const id = d.id;
     const sectionRef = doc(db, 'users', uid, 'sections', id);
@@ -54,6 +55,7 @@ export async function migrateSectionsToProjects(uid: string): Promise<number> {
         categories: [],
         status: 'A iniciar',
         priority: '',
+        moscow: section.moscow ?? '',
         objective: '',
         currentStatus: '',
         nextSteps: '',

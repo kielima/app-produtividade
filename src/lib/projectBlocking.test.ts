@@ -9,6 +9,7 @@ function makeProject(p: Partial<Project> & { id: string }): Project {
     categories: [],
     status: 'Em andamento',
     priority: '',
+    moscow: '',
     objective: '',
     currentStatus: '',
     nextSteps: '',
