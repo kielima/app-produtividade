@@ -17,13 +17,9 @@ import {
   type ShareTargetDialogState,
 } from '../components/ShareTargetDialog';
 import { createNoteFromText, createTaskFromText, pickDefaultProjectId } from '../lib/createFromText';
-import { transcribeImage } from '../lib/aiTranscribe';
-import { rasterizeInkRegion } from '../lib/inkRaster';
-import type { Annotation, InkStroke, NormRect, Project, ReadingItem } from '../types';
+import type { Annotation, NormRect, Project, ReadingItem } from '../types';
 
 const HIGHLIGHT_COLORS = ['#ffd54a', '#a5d6a7', '#90caf9', '#f48fb1', '#ce93d8'];
-const INK_COLORS = ['#1a1a1a', '#e53935', '#1e88e5', '#43a047'];
-const PEN_WIDTH_FRACTION = 0.004; // ~0.4% da largura da página
 
 type LoadState =
   | { status: 'loading' }
@@ -54,7 +50,6 @@ export function ReaderView({
   // sobre o texto para realçar (rolagem vertical continua funcionando).
   const [tool, setTool] = useState<ReaderTool>('highlight');
   const [highlightColor, setHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
-  const [inkColor, setInkColor] = useState(INK_COLORS[0]);
   const [zoom, setZoom] = useState(1);
   const [panelOpen, setPanelOpen] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
@@ -165,14 +160,6 @@ export function ReaderView({
     [makeAnnotation, highlightColor, uid],
   );
 
-  const handleCreateInk = useCallback(
-    (page: number, stroke: InkStroke) => {
-      const a = makeAnnotation({ page, type: 'ink', color: inkColor, strokes: [stroke] });
-      void upsertAnnotation(uid, a);
-    },
-    [makeAnnotation, inkColor, uid],
-  );
-
   const handleCreateComment = useCallback(
     (page: number, anchor: { x: number; y: number }) => {
       setCommentText('');
@@ -217,31 +204,11 @@ export function ReaderView({
     setCommentTarget(null);
   }
 
-  // -------- Converter anotação → nota/tarefa --------
-  async function startConvert(a: Annotation) {
+  // -------- Converter marca-texto → nota/tarefa --------
+  // Só marca-texto vira nota/tarefa: o texto realçado (e um comentário anexado,
+  // se houver) já é texto, então não precisa de OCR.
+  function startConvert(a: Annotation) {
     const headline = item.title ? `${item.title} (p.${a.page})` : `p.${a.page}`;
-    if (a.type === 'ink') {
-      setConvert({ state: { status: 'loading' }, title: headline, text: '' });
-      try {
-        const doc = docRef.current;
-        if (!doc) throw new Error('Documento não carregado.');
-        const img = await rasterizeInkRegion(doc, a);
-        const result = await transcribeImage(img);
-        setConvert({
-          state: { status: 'choose', title: result.title || headline, text: result.text },
-          title: result.title || headline,
-          text: result.text,
-        });
-      } catch (e) {
-        setConvert({
-          state: { status: 'error', message: e instanceof Error ? e.message : String(e) },
-          title: headline,
-          text: '',
-        });
-      }
-      return;
-    }
-    // highlight / comment: o texto já existe.
     const body = [a.text, a.comment].filter(Boolean).join('\n\n');
     setConvert({
       state: { status: 'choose', title: headline, text: body },
@@ -288,9 +255,6 @@ export function ReaderView({
     }
   }
 
-  const activeColor = tool === 'pen' ? inkColor : highlightColor;
-  const colorChoices = tool === 'pen' ? INK_COLORS : HIGHLIGHT_COLORS;
-
   return (
     <div className="reader-view">
       <header className="reader-toolbar">
@@ -302,22 +266,20 @@ export function ReaderView({
         </span>
 
         <div className="reader-tools" role="toolbar" aria-label="Ferramentas de anotação">
-          <ToolButton tool="pan" current={tool} setTool={setTool} label="Navegar" icon="✋" />
           <ToolButton tool="highlight" current={tool} setTool={setTool} label="Marca-texto" icon="🖍️" />
           <ToolButton tool="comment" current={tool} setTool={setTool} label="Comentário" icon="💬" />
-          <ToolButton tool="pen" current={tool} setTool={setTool} label="Caneta (S-Pen)" icon="🖊️" />
           <ToolButton tool="eraser" current={tool} setTool={setTool} label="Borracha" icon="🧽" />
         </div>
 
-        {(tool === 'highlight' || tool === 'pen' || tool === 'comment') && (
-          <div className="reader-colors" aria-label="Cor">
-            {colorChoices.map((c) => (
+        {tool === 'highlight' && (
+          <div className="reader-colors" aria-label="Cor do marca-texto">
+            {HIGHLIGHT_COLORS.map((c) => (
               <button
                 key={c}
                 type="button"
-                className={`reader-color${activeColor === c ? ' active' : ''}`}
+                className={`reader-color${highlightColor === c ? ' active' : ''}`}
                 style={{ background: c }}
-                onClick={() => (tool === 'pen' ? setInkColor(c) : setHighlightColor(c))}
+                onClick={() => setHighlightColor(c)}
                 aria-label={`Cor ${c}`}
               />
             ))}
@@ -365,10 +327,8 @@ export function ReaderView({
                 baseAspect={baseAspect}
                 annotations={annotationsByPage.get(pageNumber) ?? []}
                 tool={tool}
-                color={activeColor}
-                penWidthFraction={PEN_WIDTH_FRACTION}
+                color={highlightColor}
                 onCreateHighlight={(rects, text) => handleCreateHighlight(pageNumber, rects, text)}
-                onCreateInk={(stroke) => handleCreateInk(pageNumber, stroke)}
                 onCreateComment={(anchor) => handleCreateComment(pageNumber, anchor)}
                 onSelectAnnotation={handleSelectAnnotation}
                 onEraseAnnotation={handleErase}
@@ -499,9 +459,7 @@ function LazyPdfPage({
   annotations,
   tool,
   color,
-  penWidthFraction,
   onCreateHighlight,
-  onCreateInk,
   onCreateComment,
   onSelectAnnotation,
   onEraseAnnotation,
@@ -513,9 +471,7 @@ function LazyPdfPage({
   annotations: Annotation[];
   tool: ReaderTool;
   color: string;
-  penWidthFraction: number;
   onCreateHighlight: (rects: NormRect[], text: string) => void;
-  onCreateInk: (stroke: InkStroke) => void;
   onCreateComment: (anchor: { x: number; y: number }) => void;
   onSelectAnnotation: (a: Annotation) => void;
   onEraseAnnotation: (a: Annotation) => void;
@@ -580,9 +536,7 @@ function LazyPdfPage({
           annotations={annotations}
           tool={tool}
           color={color}
-          penWidthFraction={penWidthFraction}
           onCreateHighlight={onCreateHighlight}
-          onCreateInk={onCreateInk}
           onCreateComment={onCreateComment}
           onSelectAnnotation={onSelectAnnotation}
           onEraseAnnotation={onEraseAnnotation}
