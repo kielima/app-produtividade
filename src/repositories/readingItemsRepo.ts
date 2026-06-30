@@ -1,0 +1,115 @@
+import {
+  collection,
+  deleteDoc,
+  doc,
+  getDoc,
+  onSnapshot,
+  setDoc,
+  type Unsubscribe,
+} from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import type { ReadingItem } from '../types';
+
+// Itens da estante de leitura: users/{uid}/readingItems/{id}
+function readingItemsCol(uid: string) {
+  return collection(db, 'users', uid, 'readingItems');
+}
+
+function normalize(id: string, data: Partial<ReadingItem>): ReadingItem {
+  return {
+    id,
+    driveFileId: data.driveFileId ?? '',
+    format: 'pdf',
+    title: data.title ?? '',
+    authors: Array.isArray(data.authors) ? data.authors : [],
+    itemType: data.itemType ?? 'other',
+    tags: Array.isArray(data.tags) ? data.tags : [],
+    addedDate: data.addedDate ?? '',
+    readingStatus: data.readingStatus ?? 'to-read',
+    ...(data.doi != null ? { doi: data.doi } : {}),
+    ...(data.isbn != null ? { isbn: data.isbn } : {}),
+    ...(data.issn != null ? { issn: data.issn } : {}),
+    ...(data.year != null ? { year: data.year } : {}),
+    ...(data.publication != null ? { publication: data.publication } : {}),
+    ...(data.lastOpenedAt != null ? { lastOpenedAt: data.lastOpenedAt } : {}),
+    ...(data.currentPage != null ? { currentPage: data.currentPage } : {}),
+    ...(data.projectId != null ? { projectId: data.projectId } : {}),
+  };
+}
+
+export function subscribeToReadingItems(
+  uid: string,
+  cb: (items: ReadingItem[]) => void,
+  onError?: (err: Error) => void,
+): Unsubscribe {
+  return onSnapshot(
+    readingItemsCol(uid),
+    (snap) => {
+      const items = snap.docs.map((d) =>
+        normalize(d.id, d.data() as Partial<ReadingItem>),
+      );
+      // Recentes primeiro: por última abertura, depois por data de adição.
+      items.sort((a, b) => {
+        const aKey = a.lastOpenedAt ?? a.addedDate;
+        const bKey = b.lastOpenedAt ?? b.addedDate;
+        return bKey.localeCompare(aKey) || a.title.localeCompare(b.title);
+      });
+      cb(items);
+    },
+    (err) => onError?.(err),
+  );
+}
+
+export async function upsertReadingItem(
+  uid: string,
+  item: ReadingItem,
+): Promise<void> {
+  await setDoc(doc(db, 'users', uid, 'readingItems', item.id), item, {
+    merge: true,
+  });
+}
+
+export async function patchReadingItem(
+  uid: string,
+  itemId: string,
+  patch: Partial<ReadingItem>,
+): Promise<void> {
+  await setDoc(doc(db, 'users', uid, 'readingItems', itemId), patch, {
+    merge: true,
+  });
+}
+
+export async function deleteReadingItem(
+  uid: string,
+  itemId: string,
+): Promise<void> {
+  await deleteDoc(doc(db, 'users', uid, 'readingItems', itemId));
+}
+
+// Cria um item da estante a partir de um arquivo do Drive, SE ainda não
+// existir. O id do doc é o próprio driveFileId, então re-sincronizar o Drive
+// é idempotente: não duplica itens nem sobrescreve metadados/anotações que o
+// usuário já editou. Retorna true quando criou um item novo.
+export async function ensureReadingItemFromDrive(
+  uid: string,
+  file: { id: string; name: string },
+): Promise<boolean> {
+  const ref = doc(db, 'users', uid, 'readingItems', file.id);
+  const existing = await getDoc(ref);
+  if (existing.exists()) return false;
+
+  const today = new Date().toISOString().slice(0, 10);
+  const item: ReadingItem = {
+    id: file.id,
+    driveFileId: file.id,
+    format: 'pdf',
+    title: file.name.replace(/\.pdf$/i, ''),
+    authors: [],
+    itemType: 'other',
+    tags: [],
+    addedDate: today,
+    readingStatus: 'to-read',
+  };
+  await setDoc(ref, item);
+  return true;
+}

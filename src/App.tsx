@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import {
+  lazy,
+  Suspense,
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import { Login } from './components/Login';
 import {
@@ -44,6 +53,10 @@ import { SettingsView } from './views/SettingsView';
 import { TaskDetailView } from './views/TaskDetailView';
 import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
+// Carregado sob demanda: arrasta o pdf.js (~1,3 MB) só quando a aba Leitura abre.
+const LeituraView = lazy(() =>
+  import('./views/LeituraView').then((m) => ({ default: m.LeituraView })),
+);
 import {
   hasEverConnectedCalendar,
   startCalendarTokenScheduler,
@@ -51,16 +64,19 @@ import {
 } from './lib/googleCalendar';
 import { createProject } from './repositories/projectsRepo';
 import { createNote, patchNote, subscribeToNotes } from './repositories/notesRepo';
-import { nextTaskId, upsertTask } from './repositories/tasksRepo';
 import { transcribeImage } from './lib/aiTranscribe';
-import { serializeTitle } from './lib/parser';
+import {
+  createNoteFromText,
+  createTaskFromText,
+  pickDefaultProjectId,
+} from './lib/createFromText';
 import { hasLink, hasList, LINK_TAG, LIST_TAG, normalizeTags } from './lib/tags';
 import { TasksRoot } from './views/TasksRoot';
 import { ClassifyView } from './views/ClassifyView';
 import { CountdownView } from './views/CountdownView';
 import { EstatisticasView } from './views/EstatisticasView';
 import { TodayView } from './views/TodayView';
-import type { Note, Project, Task } from './types';
+import type { Note } from './types';
 
 const TASK_FILTERS_KEY = 'app-produtividade:task-filters';
 const PROJECT_FILTERS_KEY = 'app-produtividade:project-filters';
@@ -106,16 +122,10 @@ interface SharePayload {
   error?: string;
 }
 
-function pickDefaultProjectId(projects: Project[]): string | null {
-  const available = projects.filter(
-    (p) => p.status !== 'Concluído' && p.status !== 'Cancelado',
-  );
-  return available[0]?.id ?? null;
-}
-
 type Tab =
   | 'today'
   | 'notes'
+  | 'leitura'
   | 'tasks'
   | 'projects'
   | 'countdown'
@@ -125,6 +135,7 @@ type Tab =
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'today', label: 'Hoje' },
   { key: 'notes', label: 'Keep' },
+  { key: 'leitura', label: 'Leitura' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
   { key: 'countdown', label: 'Agenda' },
@@ -549,47 +560,18 @@ function AppShell({
   }, [uid]);
 
   async function createNoteFromShare(title: string, text: string) {
-    const note = await createNote(uid);
-    await patchNote(uid, note.id, { title, note: text });
+    const noteId = await createNoteFromText(uid, title, text);
     setShareDialog(null);
     setTab('notes');
-    setSelectedNoteId(note.id);
+    setSelectedNoteId(noteId);
   }
 
   async function createTaskFromShare(title: string, text: string) {
-    const sectionId = pickDefaultProjectId(data.projects);
-    if (!sectionId) return;
-    const taskId = await nextTaskId(uid);
-    const today = new Date().toISOString().slice(0, 10);
-    const newTask: Task = {
-      id: String(taskId),
-      taskId,
-      title: serializeTitle(title || '(sem título)', {
-        taskId,
-        modo: 'manual',
-        moscow: '',
-        esforco: '',
-        deadline: '',
-        addedDate: today,
-        dependsOn: [],
-      }),
-      note: text,
-      checked: false,
-      inProgress: false,
-      moscow: '',
-      modo: 'manual',
-      esforco: '',
-      deadline: '',
-      addedDate: today,
-      dependsOn: [],
-      subtasks: [],
-      section: sectionId,
-      completedAt: null,
-    };
-    await upsertTask(uid, newTask);
+    const taskId = await createTaskFromText(uid, data.projects, title, text);
+    if (!taskId) return;
     setShareDialog(null);
     setTab('tasks');
-    setSelectedTaskId(String(taskId));
+    setSelectedTaskId(taskId);
   }
 
   const taskNavValue = useMemo(
@@ -1022,6 +1004,11 @@ function AppShell({
             projectFilter={noteProjectFilter}
             projects={data.projects}
           />
+        )}
+        {tab === 'leitura' && (
+          <Suspense fallback={<p className="reader-status">Carregando…</p>}>
+            <LeituraView uid={uid} projects={data.projects} />
+          </Suspense>
         )}
         {tab === 'tasks' && (
           <TasksRoot

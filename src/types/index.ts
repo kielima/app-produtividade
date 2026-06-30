@@ -107,6 +107,85 @@ export interface Note {
   color?: string;
 }
 
+// =============================================================
+// Aba "Leitura" — estante virtual de PDFs vindos do Google Drive,
+// com metadados (DOI/ISBN/ISSN/autores/tags) e anotações
+// não-destrutivas (marca-texto, comentário e tinta da S-Pen).
+// =============================================================
+
+// Formato do documento. Por ora só 'pdf'; 'epub' fica para fase futura.
+export type ReadingFormat = 'pdf';
+export type ReadingItemType = 'article' | 'book' | 'other';
+export type ReadingStatus = 'to-read' | 'reading' | 'read';
+
+export interface ReadingItem {
+  id: string;
+  // Id do arquivo no Google Drive. É a chave para baixar os bytes do PDF.
+  driveFileId: string;
+  format: ReadingFormat;
+  title: string;
+  authors: string[];
+  itemType: ReadingItemType;
+  doi?: string;
+  isbn?: string;
+  issn?: string;
+  year?: string;
+  // Revista (artigos) ou editora (livros).
+  publication?: string;
+  tags: string[];
+  addedDate: string; // YYYY-MM-DD
+  // ISO datetime da última abertura no leitor (para ordenar "recentes").
+  lastOpenedAt?: string | null;
+  readingStatus: ReadingStatus;
+  // Última página lida (1-based) para retomar a leitura.
+  currentPage?: number;
+  // Associação opcional a um projeto, como nas notas.
+  projectId?: string;
+}
+
+export type AnnotationType = 'highlight' | 'comment' | 'ink';
+
+// Retângulo normalizado (0–1) relativo à página. Sobrevive a zoom e a
+// diferentes escalas de render.
+export interface NormRect {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+}
+
+// Ponto de um traço de tinta: coordenadas normalizadas (0–1) + pressão (0–1).
+export interface InkPoint {
+  x: number;
+  y: number;
+  p: number;
+}
+
+export interface InkStroke {
+  points: InkPoint[];
+  // Largura base do traço em fração da largura da página (0–1).
+  width: number;
+}
+
+export interface Annotation {
+  id: string;
+  itemId: string;
+  page: number; // 1-based
+  type: AnnotationType;
+  color: string;
+  // highlight: quadpoints normalizados das linhas selecionadas.
+  rects?: NormRect[];
+  // Texto selecionado (highlight) — usado também ao converter em nota/tarefa.
+  text?: string;
+  // Corpo do comentário (type 'comment', ou comentário anexado a um highlight).
+  comment?: string;
+  // Traços de tinta da S-Pen (type 'ink').
+  strokes?: InkStroke[];
+  // Posição do pin do comentário (0–1), para type 'comment'.
+  anchor?: { x: number; y: number };
+  createdAt: string; // ISO datetime
+}
+
 export interface DependencyEntry {
   blockedByIds: string[];
   unlocksIds: string[];

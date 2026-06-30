@@ -4798,3 +4798,421 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   line-height: 1.4;
 }
 
+/* =============================================================
+   Aba Leitura — estante, cards e leitor de PDF com anotações
+   ============================================================= */
+
+.leitura-view {
+  padding: 0.75rem 1rem 4rem;
+}
+.leitura-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.75rem;
+}
+.leitura-connect,
+.leitura-sync {
+  padding: 0.5rem 0.9rem;
+  border-radius: 6px;
+  border: 1px solid var(--border);
+  background: var(--accent);
+  color: #fff;
+  font: inherit;
+  cursor: pointer;
+}
+.leitura-sync {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+.leitura-sync:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.reading-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+.reading-filters .reading-search {
+  flex: 1 1 16rem;
+  min-width: 12rem;
+}
+.reading-filters input,
+.reading-filters select {
+  padding: 0.4rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+
+.leitura-empty {
+  text-align: center;
+  margin-top: 3rem;
+  color: var(--muted);
+}
+.leitura-no-match {
+  grid-column: 1 / -1;
+  text-align: center;
+}
+
+.reading-shelf {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap: 1rem;
+}
+
+.reading-card {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  overflow: hidden;
+}
+.reading-card-cover {
+  position: relative;
+  border: none;
+  padding: 0;
+  background: var(--surface-2);
+  cursor: pointer;
+  aspect-ratio: 3 / 4;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.reading-card-thumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.reading-card-cover-placeholder {
+  font-size: 2.5rem;
+  opacity: 0.5;
+}
+.reading-card-badge {
+  position: absolute;
+  top: 0.4rem;
+  right: 0.4rem;
+  font-size: 0.7rem;
+  padding: 0.1rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+}
+.reading-card-badge.badge-reading {
+  background: var(--accent);
+}
+.reading-card-badge.badge-read {
+  background: #2e7d32;
+}
+.reading-card-body {
+  padding: 0.5rem 0.6rem 0.6rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+.reading-card-title {
+  margin: 0;
+  font-size: 0.9rem;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.reading-card-authors,
+.reading-card-pub {
+  margin: 0;
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+.reading-card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.reading-tag {
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+}
+.reading-card-meta-btn {
+  margin-top: 0.25rem;
+  align-self: flex-start;
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-family: inherit;
+}
+
+/* ---- Editor de metadados ---- */
+.metadata-editor .metadata-field {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  margin-bottom: 0.6rem;
+  font-size: 0.85rem;
+}
+.metadata-editor .metadata-field span {
+  color: var(--muted);
+}
+.metadata-editor input,
+.metadata-editor select {
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.metadata-row {
+  display: flex;
+  gap: 0.5rem;
+}
+.metadata-row .metadata-field {
+  flex: 1;
+}
+.metadata-field--narrow {
+  max-width: 6rem;
+}
+.metadata-fetch-row {
+  display: flex;
+  gap: 0.4rem;
+  margin-bottom: 0.5rem;
+}
+.metadata-fetch-row input {
+  flex: 1;
+}
+.metadata-fetch-row button {
+  padding: 0.3rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font: inherit;
+  cursor: pointer;
+}
+
+/* ---- Leitor de PDF ---- */
+.reader-view {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  z-index: 150;
+}
+.reader-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+  flex-wrap: wrap;
+}
+.reader-back {
+  font-size: 1.2rem;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--fg);
+  padding: 0.2rem 0.4rem;
+}
+.reader-title {
+  font-weight: 600;
+  font-size: 0.9rem;
+  max-width: 14rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.reader-tools,
+.reader-colors,
+.reader-zoom {
+  display: flex;
+  align-items: center;
+  gap: 0.2rem;
+}
+.reader-tool {
+  font-size: 1rem;
+  padding: 0.3rem 0.45rem;
+  border: 1px solid transparent;
+  border-radius: 6px;
+  background: transparent;
+  cursor: pointer;
+}
+.reader-tool.active {
+  border-color: var(--accent);
+  background: var(--surface-2);
+}
+.reader-color {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  cursor: pointer;
+  padding: 0;
+}
+.reader-color.active {
+  border-color: var(--fg);
+  transform: scale(1.12);
+}
+.reader-zoom span {
+  font-size: 0.8rem;
+  min-width: 3rem;
+  text-align: center;
+}
+.reader-zoom button,
+.reader-meta-btn,
+.reader-panel-btn {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font: inherit;
+  cursor: pointer;
+}
+.reader-panel-btn.active {
+  border-color: var(--accent);
+}
+.reader-meta-btn,
+.reader-panel-btn {
+  margin-left: auto;
+  font-size: 0.8rem;
+}
+.reader-panel-btn {
+  margin-left: 0;
+}
+
+.reader-body {
+  flex: 1;
+  display: flex;
+  min-height: 0;
+}
+.reader-scroll {
+  flex: 1;
+  overflow: auto;
+  padding: 1rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+}
+.reader-status {
+  margin-top: 3rem;
+  color: var(--muted);
+  text-align: center;
+}
+.reader-status.error {
+  color: var(--danger);
+}
+
+.pdf-page-slot {
+  position: relative;
+}
+.pdf-page {
+  position: relative;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  background: #fff;
+}
+.pdf-page-canvas {
+  display: block;
+}
+.pdf-text-layer {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  opacity: 0.25;
+  line-height: 1;
+}
+.pdf-text-layer ::selection {
+  background: rgba(255, 200, 0, 0.4);
+}
+.pdf-annotation-layer {
+  position: absolute;
+  inset: 0;
+}
+.pdf-ink-canvas {
+  position: absolute;
+  inset: 0;
+}
+.pdf-comment-pin {
+  position: absolute;
+  transform: translate(-50%, -100%);
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 1.1rem;
+  filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.4));
+}
+
+/* ---- Painel lateral de anotações ---- */
+.reader-panel {
+  width: min(85vw, 320px);
+  border-left: 1px solid var(--border);
+  background: var(--surface);
+  overflow-y: auto;
+  padding: 0.75rem;
+}
+.reader-panel h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1rem;
+}
+.reader-annotation-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+.reader-annotation-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.4rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.8rem;
+}
+.reader-annotation-page {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+.reader-annotation-text {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.reader-annotation-item button {
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font-size: 0.9rem;
+  padding: 0.1rem;
+}
+.reader-comment-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.5rem;
+  font: inherit;
+  background: var(--surface);
+  color: var(--fg);
+  resize: vertical;
+}
+

@@ -31,6 +31,7 @@ const GOOGLE_OAUTH_CLIENT_SECRET = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.readonly';
 
 // Caminhos no Firestore:
 // - users/{uid}/private/calendar  → refresh token (SOMENTE Admin SDK; regras negam o cliente)
@@ -40,6 +41,16 @@ function secretDocRef(uid: string) {
 }
 function statusDocRef(uid: string) {
   return getFirestore().doc(`users/${uid}/calendar/status`);
+}
+
+// Mesmos caminhos, mas para o Google Drive (aba Leitura):
+// - users/{uid}/private/drive  → refresh token (SOMENTE Admin SDK)
+// - users/{uid}/drive/status   → flag { connected } (cliente lê)
+function driveSecretDocRef(uid: string) {
+  return getFirestore().doc(`users/${uid}/private/drive`);
+}
+function driveStatusDocRef(uid: string) {
+  return getFirestore().doc(`users/${uid}/drive/status`);
 }
 
 function requireAuth(request: CallableRequest): string {
@@ -195,6 +206,117 @@ export const disconnectCalendar = onCall(
     }
     await secretDocRef(uid).delete().catch(() => undefined);
     await statusDocRef(uid).set({ connected: false }, { merge: true }).catch(() => undefined);
+
+    return { status: 'ok' as const };
+  },
+);
+
+// =============================================================
+// Google Drive (aba Leitura) — mesmas três funções do Calendar, mas com o
+// escopo drive.readonly e guardando o refresh token em users/{uid}/private/drive.
+// O OAuth client é o mesmo (constante pública acima); só muda o escopo do
+// consentimento, então estas funções podem coexistir com as do Calendar.
+// =============================================================
+
+export const connectDrive = onCall(
+  { secrets: [GOOGLE_OAUTH_CLIENT_SECRET] },
+  async (request) => {
+    const uid = requireAuth(request);
+    const code = (request.data?.code ?? '') as string;
+    if (!code) {
+      throw new HttpsError('invalid-argument', 'code é obrigatório.');
+    }
+    const redirectUri = (request.data?.redirectUri ?? 'postmessage') as string;
+
+    const { status, json } = await postForm(TOKEN_ENDPOINT, {
+      code,
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
+      client_secret: GOOGLE_OAUTH_CLIENT_SECRET.value(),
+      redirect_uri: redirectUri,
+      grant_type: 'authorization_code',
+    });
+
+    if (status !== 200 || !json.access_token) {
+      throw new HttpsError(
+        'permission-denied',
+        json.error_description || json.error || 'Falha ao trocar o code com o Google.',
+      );
+    }
+    if (!json.refresh_token) {
+      throw new HttpsError(
+        'failed-precondition',
+        'O Google não devolveu refresh token. Reconecte forçando o consentimento.',
+      );
+    }
+
+    await driveSecretDocRef(uid).set(
+      {
+        refreshToken: json.refresh_token,
+        scope: json.scope ?? DRIVE_SCOPE,
+        connectedAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp(),
+      },
+      { merge: true },
+    );
+    await driveStatusDocRef(uid).set(
+      { connected: true, connectedAt: FieldValue.serverTimestamp() },
+      { merge: true },
+    );
+
+    const expiresAt = Date.now() + (json.expires_in ?? 3600) * 1000;
+    return { accessToken: json.access_token, expiresAt };
+  },
+);
+
+export const getDriveAccessToken = onCall(
+  { secrets: [GOOGLE_OAUTH_CLIENT_SECRET] },
+  async (request) => {
+    const uid = requireAuth(request);
+    const snap = await driveSecretDocRef(uid).get();
+    const refreshToken = snap.exists ? (snap.get('refreshToken') as string | undefined) : undefined;
+    if (!refreshToken) {
+      return { status: 'needs-connect' as const };
+    }
+
+    const { status, json } = await postForm(TOKEN_ENDPOINT, {
+      refresh_token: refreshToken,
+      client_id: GOOGLE_OAUTH_CLIENT_ID,
+      client_secret: GOOGLE_OAUTH_CLIENT_SECRET.value(),
+      grant_type: 'refresh_token',
+    });
+
+    if (status === 200 && json.access_token) {
+      const expiresAt = Date.now() + (json.expires_in ?? 3600) * 1000;
+      return { status: 'ok' as const, accessToken: json.access_token, expiresAt };
+    }
+
+    if (json.error === 'invalid_grant') {
+      await driveSecretDocRef(uid).delete().catch(() => undefined);
+      await driveStatusDocRef(uid)
+        .set({ connected: false }, { merge: true })
+        .catch(() => undefined);
+      return { status: 'needs-reconnect' as const };
+    }
+
+    throw new HttpsError(
+      'internal',
+      json.error_description || json.error || 'Falha ao renovar o token.',
+    );
+  },
+);
+
+export const disconnectDrive = onCall(
+  { secrets: [GOOGLE_OAUTH_CLIENT_SECRET] },
+  async (request) => {
+    const uid = requireAuth(request);
+    const snap = await driveSecretDocRef(uid).get();
+    const refreshToken = snap.exists ? (snap.get('refreshToken') as string | undefined) : undefined;
+
+    if (refreshToken) {
+      await postForm(REVOKE_ENDPOINT, { token: refreshToken }).catch(() => undefined);
+    }
+    await driveSecretDocRef(uid).delete().catch(() => undefined);
+    await driveStatusDocRef(uid).set({ connected: false }, { merge: true }).catch(() => undefined);
 
     return { status: 'ok' as const };
   },
