@@ -74,6 +74,9 @@ export function PdfPageView({
     }
     textLayerDiv.style.width = `${viewport.width}px`;
     textLayerDiv.style.height = `${viewport.height}px`;
+    // O pdf.js v4 posiciona e dimensiona cada span com calc(var(--scale-factor)*…px);
+    // sem esta variável o texto renderiza gigante e sobreposto à página.
+    textLayerDiv.style.setProperty('--scale-factor', String(scale));
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;

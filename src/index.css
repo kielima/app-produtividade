@@ -5130,15 +5130,42 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .pdf-page-canvas {
   display: block;
 }
+/* Camada de texto do pdf.js: invisível (color: transparent), serve só para
+   seleção/copiar e ancorar o marca-texto. Os spans são posicionados via
+   calc(var(--scale-factor)*…px), com --scale-factor definido no PdfPageView. */
 .pdf-text-layer {
   position: absolute;
   inset: 0;
-  overflow: hidden;
-  opacity: 0.25;
+  overflow: clip;
+  opacity: 1;
   line-height: 1;
+  text-align: initial;
+  text-size-adjust: none;
+  forced-color-adjust: none;
+  transform-origin: 0 0;
+}
+.pdf-text-layer span,
+.pdf-text-layer br {
+  color: transparent;
+  position: absolute;
+  white-space: pre;
+  cursor: text;
+  transform-origin: 0 0;
+}
+.pdf-text-layer span.markedContent {
+  top: 0;
+  height: 0;
+}
+.pdf-text-layer .endOfContent {
+  display: block;
+  position: absolute;
+  inset: 100% 0 0;
+  z-index: -1;
+  cursor: default;
+  user-select: none;
 }
 .pdf-text-layer ::selection {
-  background: rgba(255, 200, 0, 0.4);
+  background: rgba(0, 102, 255, 0.3);
 }
 .pdf-annotation-layer {
   position: absolute;
