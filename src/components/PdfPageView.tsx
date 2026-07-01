@@ -204,6 +204,20 @@ export function PdfPageView({
       : [e.nativeEvent];
   }
 
+  // Após um TOQUE que abre um diálogo (comentário), o navegador ainda dispara um
+  // `click` sintético nas mesmas coordenadas. Como o diálogo abre um backdrop
+  // que fecha no clique, esse click fechava o diálogo na hora (só "funcionava"
+  // com toque longo, que não gera click). Engolimos o próximo click.
+  function suppressNextClick() {
+    const handler = (ev: Event) => {
+      ev.stopPropagation();
+      ev.preventDefault();
+      window.removeEventListener('click', handler, true);
+    };
+    window.addEventListener('click', handler, true);
+    window.setTimeout(() => window.removeEventListener('click', handler, true), 700);
+  }
+
   // ----------------------------------------------------------------
   // Marca-texto preciso "passando a caneta"
   // ----------------------------------------------------------------
@@ -489,8 +503,10 @@ export function PdfPageView({
           const hit = annotationAt(np);
           if (hit) {
             onSelectAnnotation(hit); // tocar um realce/pin abre o comentário
+            suppressNextClick();
           } else if (g.action === 'comment') {
             onCreateComment(np);
+            suppressNextClick();
           }
         }
       }
