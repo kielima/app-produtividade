@@ -7,6 +7,7 @@ import {
   inkStrokeToSvgPath,
   pointInRect,
 } from '../lib/ink';
+import { isSpenButtonPressed } from '../lib/spen';
 
 export type ReaderTool = 'highlight' | 'comment' | 'eraser';
 
@@ -172,10 +173,17 @@ export function PdfPageView({
     return e.pointerType === 'pen' || e.pointerType === 'mouse';
   }
 
-  // Botão lateral da S-Pen (bit 2) ou ponta-borracha (bit 32): vira borracha,
-  // como no Samsung Notes.
+  // Botão lateral da S-Pen: vira borracha, como no Samsung Notes.
+  //  - Na versão APK (Capacitor), o botão vem da ponte nativa (isSpenButtonPressed).
+  //  - No navegador, tentamos os bits de botão do PointerEvent (nem sempre
+  //    expostos pelo Android, daí a versão APK).
   function isPenEraser(e: React.PointerEvent): boolean {
-    return (e.buttons & 2) !== 0 || (e.buttons & 32) !== 0 || e.button === 5;
+    return (
+      isSpenButtonPressed() ||
+      (e.buttons & 2) !== 0 ||
+      (e.buttons & 32) !== 0 ||
+      e.button === 5
+    );
   }
 
   function armPen() {
