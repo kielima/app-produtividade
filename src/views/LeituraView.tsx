@@ -20,6 +20,12 @@ import {
   type ReadingFiltersState,
 } from '../components/LeituraFiltersBar';
 import { ReadingCard } from '../components/ReadingCard';
+import {
+  ReadingTable,
+  loadReadingColumns,
+  saveReadingColumns,
+  type ReadingColumnConfig,
+} from '../components/ReadingTable';
 import { MetadataEditor } from '../components/MetadataEditor';
 import { ReaderView } from './ReaderView';
 import { useNoteNavigation } from '../lib/noteNavigation';
@@ -29,6 +35,14 @@ type SyncState =
   | { status: 'idle' }
   | { status: 'syncing'; found: number }
   | { status: 'error'; message: string };
+
+type LeituraLayout = 'shelf' | 'table';
+
+const LEITURA_LAYOUT_KEY = 'app-produtividade:reading-layout';
+
+function loadLeituraLayout(): LeituraLayout {
+  return localStorage.getItem(LEITURA_LAYOUT_KEY) === 'table' ? 'table' : 'shelf';
+}
 
 export function LeituraView({ uid, projects }: { uid: string; projects: Project[] }) {
   const noteNav = useNoteNavigation();
@@ -42,10 +56,18 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
   const [filters, setFilters] = useState<ReadingFiltersState>(loadReadingFilters);
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [metaItemId, setMetaItemId] = useState<string | null>(null);
+  const [layout, setLayout] = useState<LeituraLayout>(loadLeituraLayout);
+  const [columns, setColumns] = useState<ReadingColumnConfig[]>(loadReadingColumns);
 
   useEffect(() => subscribeToReadingItems(uid, setItems), [uid]);
 
   useEffect(() => saveReadingFilters(filters), [filters]);
+
+  useEffect(() => {
+    localStorage.setItem(LEITURA_LAYOUT_KEY, layout);
+  }, [layout]);
+
+  useEffect(() => saveReadingColumns(columns), [columns]);
 
   // Reaquece o token em background se o usuário já conectou antes.
   useEffect(() => {
@@ -156,6 +178,25 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
           </button>
         )}
         {sync.status === 'error' && <span className="error">{sync.message}</span>}
+
+        <div className="leitura-layout-toggle" role="group" aria-label="Modo de visualização">
+          <button
+            type="button"
+            className={layout === 'shelf' ? 'active' : ''}
+            aria-pressed={layout === 'shelf'}
+            onClick={() => setLayout('shelf')}
+          >
+            Estante
+          </button>
+          <button
+            type="button"
+            className={layout === 'table' ? 'active' : ''}
+            aria-pressed={layout === 'table'}
+            onClick={() => setLayout('table')}
+          >
+            Tabela
+          </button>
+        </div>
       </div>
 
       <LeituraFiltersBar
@@ -174,6 +215,14 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
               : 'Conecte seu Google Drive para ver seus PDFs aqui.'}
           </p>
         </div>
+      ) : layout === 'table' ? (
+        <ReadingTable
+          items={filtered}
+          columns={columns}
+          setColumns={setColumns}
+          onOpen={(it) => setOpenItemId(it.id)}
+          onEditMetadata={(it) => setMetaItemId(it.id)}
+        />
       ) : (
         <div className="reading-shelf">
           {filtered.map((it) => (
