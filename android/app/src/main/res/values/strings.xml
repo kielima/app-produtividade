@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Produtividade</string>
+    <string name="title_activity_main">Produtividade</string>
+    <string name="package_name">com.kielima.produtividade</string>
+    <string name="custom_url_scheme">com.kielima.produtividade</string>
+</resources>
