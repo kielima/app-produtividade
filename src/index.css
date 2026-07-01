@@ -4803,7 +4803,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
    ============================================================= */
 
 .leitura-view {
-  padding: 0.75rem 1rem 4rem;
+  /* Sem padding horizontal: a barra de ferramentas, a busca e o filtro
+     alinham com o título da aba e o botão de menu (≡) do topbar, que só
+     recebem o padding lateral do container .app. */
+  padding: 0.75rem 0 4rem;
 }
 .leitura-toolbar {
   display: flex;
