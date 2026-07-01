@@ -25,7 +25,7 @@ import {
 } from '../repositories/glickoRepo';
 import type { Project } from '../types';
 
-const INACTIVE_STATUSES = new Set(['Concluído', 'Cancelado']);
+const INACTIVE_STATUSES = new Set(['Pausado', 'Concluído', 'Cancelado']);
 
 type Phase = 'dueling' | 'summary';
 
