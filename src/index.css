@@ -4957,6 +4957,162 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-family: inherit;
 }
 
+/* ---- Alternância estante / tabela ---- */
+.leitura-layout-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.leitura-layout-toggle button {
+  padding: 0.4rem 0.75rem;
+  border: none;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.leitura-layout-toggle button + button {
+  border-left: 1px solid var(--border);
+}
+.leitura-layout-toggle button.active {
+  background: var(--accent);
+  color: #fff;
+}
+
+/* ---- Tabela de metadados ---- */
+.reading-table-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+.reading-table-bar {
+  display: flex;
+  justify-content: flex-end;
+}
+.reading-columns-btn {
+  padding: 0.35rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.reading-columns-menu {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.4rem;
+  min-width: 12rem;
+}
+.reading-columns-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.25rem 0.35rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.85rem;
+}
+.reading-columns-item:hover {
+  background: var(--surface-2);
+}
+.reading-columns-reset {
+  margin-top: 0.35rem;
+  padding: 0.3rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.reading-table-scroll {
+  overflow-x: auto;
+}
+.reading-table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.85rem;
+}
+.reading-table th,
+.reading-table td {
+  text-align: left;
+  padding: 0.45rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.reading-table thead th {
+  position: sticky;
+  top: 0;
+  background: var(--surface-2);
+  color: var(--muted);
+  font-weight: 600;
+  white-space: nowrap;
+  user-select: none;
+}
+.reading-table-th-grip {
+  cursor: grab;
+  display: inline-block;
+}
+.reading-table-th-grip:active {
+  cursor: grabbing;
+}
+.reading-table tbody tr:hover {
+  background: var(--surface-2);
+}
+.reading-td-title {
+  font-weight: 600;
+  max-width: 24rem;
+}
+.reading-table-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}
+.reading-status-pill {
+  display: inline-block;
+  font-size: 0.72rem;
+  padding: 0.1rem 0.45rem;
+  border-radius: 999px;
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  white-space: nowrap;
+}
+.reading-status-pill.badge-reading {
+  background: var(--accent);
+  color: #fff;
+  border-color: transparent;
+}
+.reading-status-pill.badge-read {
+  background: #2e7d32;
+  color: #fff;
+  border-color: transparent;
+}
+.reading-table-actions-th {
+  cursor: default;
+}
+.reading-table-actions {
+  white-space: nowrap;
+}
+.reading-table-action {
+  font-size: 0.75rem;
+  padding: 0.2rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  cursor: pointer;
+  font-family: inherit;
+}
+.reading-table-action + .reading-table-action {
+  margin-left: 0.35rem;
+}
+
 /* ---- Editor de metadados ---- */
 .metadata-editor .metadata-field {
   display: flex;
