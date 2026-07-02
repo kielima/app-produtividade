@@ -50,6 +50,44 @@ jobs:
           distribution: temurin
           java-version: 21
 
+      # google-services.json é a config do app Android no Firebase (necessária
+      # para o Google Sign-In nativo). Não é segredo forte, mas evitamos
+      # versioná-la: vem do secret GOOGLE_SERVICES_JSON e é sanitizada (mesmo
+      # cuidado com BOM/lixo de cola do secret do Firebase).
+      - name: Escrever google-services.json
+        env:
+          GOOGLE_SERVICES_JSON: ${{ secrets.GOOGLE_SERVICES_JSON }}
+        run: |
+          if [ -z "${GOOGLE_SERVICES_JSON:-}" ]; then
+            echo "AVISO: secret GOOGLE_SERVICES_JSON ausente — o APK vai buildar, "
+            echo "mas o login nativo com Google não vai funcionar até adicioná-lo."
+            exit 0
+          fi
+          python3 - android/app/google-services.json <<'PY'
+          import base64, json, os, sys
+          raw = os.environ["GOOGLE_SERVICES_JSON"]
+          out_path = sys.argv[1]
+          s = raw.lstrip("\ufeff").strip().strip("'\"").strip()
+          if not s.startswith("{"):
+              try:
+                  decoded = base64.b64decode(s, validate=False).decode("utf-8")
+                  if decoded.lstrip("\ufeff").strip().startswith("{"):
+                      s = decoded.lstrip("\ufeff").strip()
+              except Exception:
+                  pass
+          i, j = s.find("{"), s.rfind("}")
+          if i != -1 and j != -1 and j > i:
+              s = s[i:j + 1]
+          try:
+              d = json.loads(s)
+          except Exception as e:
+              sys.exit(f"ERRO: GOOGLE_SERVICES_JSON não é um JSON válido ({e}).")
+          with open(out_path, "w", encoding="utf-8") as f:
+              json.dump(d, f)
+          print("google-services.json escrito. project_id =",
+                d.get("project_info", {}).get("project_id"))
+          PY
+
       - name: Capacitor sync (copia web + plugins para o android/)
         run: npx cap sync android
 

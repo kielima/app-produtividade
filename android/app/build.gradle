@@ -23,6 +23,16 @@ android {
     // keystore via variáveis de ambiente (secrets). Sem isso, use assembleDebug
     // (assinado com a chave de debug, instalável por sideload / App Distribution).
     signingConfigs {
+        // Keystore de debug FIXO, versionado no repo (senha pública "android").
+        // O Gradle geraria um debug.keystore diferente a cada máquina/execução do
+        // CI, mudando o SHA-1 do APK — e o Google Sign-In nativo exige um SHA-1
+        // registrado no Firebase. Com um keystore fixo o SHA-1 é sempre o mesmo.
+        debug {
+            storeFile file("../keystore/debug.keystore")
+            storePassword "android"
+            keyAlias "androiddebugkey"
+            keyPassword "android"
+        }
         release {
             def ksPath = System.getenv("ANDROID_KEYSTORE_PATH")
             if (ksPath != null && !ksPath.isEmpty()) {
@@ -34,6 +44,9 @@ android {
         }
     }
     buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
         release {
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'

@@ -13,6 +13,15 @@ const config: CapacitorConfig = {
     // o padrão seguro.
     allowMixedContent: false,
   },
+  plugins: {
+    // Login com Google nativo no APK. `skipNativeAuth: true` porque quem
+    // mantém a sessão é o Firebase JS SDK (signInWithCredential em auth.ts); o
+    // plugin só faz o Google Sign-In nativo e devolve o idToken.
+    FirebaseAuthentication: {
+      skipNativeAuth: true,
+      providers: ['google.com'],
+    },
+  },
 };
 
 export default config;
