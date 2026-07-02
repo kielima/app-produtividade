@@ -1,4 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { auth, functions } from './firebase';
 
 // =========================================================================
@@ -191,7 +193,43 @@ async function requestAuthCode(): Promise<string> {
   });
 }
 
+// No APK (WebView) o popup do Google Identity Services não devolve o resultado,
+// então o fluxo de consentimento acima (requestAuthCode) trava. Na plataforma
+// nativa usamos o Google Sign-In nativo (@capacitor-firebase/authentication)
+// pedindo o escopo do Drive: ele devolve um access token já com esse escopo,
+// que usamos direto na Drive REST API. Não há refresh token no servidor aqui —
+// o access token vale ~1h e, ao expirar, pedimos outro nativamente (silencioso
+// quando a conta já consentiu). skipNativeAuth (capacitor.config) garante que
+// isto NÃO mexe na sessão de login do Firebase.
+const NATIVE_TOKEN_TTL_MS = 55 * 60 * 1000; // access token do Google dura ~1h
+
+async function nativeGrantDrive(uid: string): Promise<string> {
+  const result = await FirebaseAuthentication.signInWithGoogle({
+    scopes: [DRIVE_SCOPE],
+  });
+  const accessToken = result.credential?.accessToken;
+  if (!accessToken) {
+    throw new Error(
+      'O login nativo do Google não devolveu um access token do Drive. ' +
+        'Verifique se o escopo do Drive foi concedido.',
+    );
+  }
+  writeStored({ accessToken, expiresAt: Date.now() + NATIVE_TOKEN_TTL_MS, uid });
+  markEverConnected();
+  return accessToken;
+}
+
 export async function tryRefreshDriveToken(uid: string): Promise<string | null> {
+  // No nativo não há refresh token server-side; renovamos pedindo um novo
+  // access token nativo (silencioso quando já consentido).
+  if (Capacitor.isNativePlatform()) {
+    try {
+      return await nativeGrantDrive(uid);
+    } catch (err) {
+      console.debug('[gdrive] refresh nativo falhou:', err);
+      return null;
+    }
+  }
   const backoffs = [0, 1_000, 3_000];
   let lastErr: unknown = null;
   for (let i = 0; i < backoffs.length; i++) {
@@ -219,6 +257,9 @@ function sleep(ms: number): Promise<void> {
 // Interativo: abre o popup de consentimento, manda o code para o backend
 // (que guarda o refresh token) e cacheia o access token devolvido.
 export async function grantDriveAccess(uid: string): Promise<string> {
+  if (Capacitor.isNativePlatform()) {
+    return nativeGrantDrive(uid);
+  }
   const code = await requestAuthCode();
   const { data } = await callConnect({ code });
   writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
