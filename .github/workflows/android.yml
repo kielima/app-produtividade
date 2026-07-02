@@ -1,7 +1,9 @@
 name: Android APK
 
 # Builda o APK (Capacitor) e envia para o Firebase App Distribution.
-# Disparo manual: aba Actions → "Android APK" → Run workflow.
+# - Disparo manual: aba Actions → "Android APK" → Run workflow.
+# - Automático: a cada Pull Request para a main (gera um APK por PR para testar
+#   no aparelho antes de mergear).
 on:
   workflow_dispatch:
     inputs:
@@ -9,6 +11,8 @@ on:
         description: 'Notas da versão (aparecem no App Distribution)'
         required: false
         default: 'Build automático'
+  pull_request:
+    branches: [main]
 
 jobs:
   build:
@@ -59,7 +63,7 @@ jobs:
           appId: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           serviceCredentialsFileContent: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
           groups: testers
-          releaseNotes: ${{ github.event.inputs.notes }}
+          releaseNotes: ${{ github.event.inputs.notes || (github.event.pull_request && format('PR #{0}: {1}', github.event.pull_request.number, github.event.pull_request.title)) || github.sha }}
           file: android/app/build/outputs/apk/debug/app-debug.apk
 
       - name: Guardar APK como artefato do build
