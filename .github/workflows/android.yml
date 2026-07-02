@@ -43,11 +43,12 @@ jobs:
           VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
           VITE_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.VITE_GOOGLE_OAUTH_CLIENT_ID }}
 
-      - name: Setup Java 17
+      - name: Setup Java 21
         uses: actions/setup-java@v4
         with:
+          # O Capacitor 8 compila o Android com Java 21 (sourceCompatibility 21).
           distribution: temurin
-          java-version: 17
+          java-version: 21
 
       - name: Capacitor sync (copia web + plugins para o android/)
         run: npx cap sync android
