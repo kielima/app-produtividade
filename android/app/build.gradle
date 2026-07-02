@@ -9,7 +9,8 @@ android {
         targetSdkVersion rootProject.ext.targetSdkVersion
         // O CI passa ANDROID_VERSION_CODE (número da execução) para cada build ter
         // um versionCode único; localmente cai em 1.
-        versionCode (System.getenv("ANDROID_VERSION_CODE") ?: "1").toInteger()
+        def versionCodeEnv = System.getenv("ANDROID_VERSION_CODE")
+        versionCode versionCodeEnv ? versionCodeEnv.toInteger() : 1
         versionName "1.0"
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
