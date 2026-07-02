@@ -68,12 +68,17 @@ jobs:
           RELEASE_NOTES: "${{ github.event.inputs.notes || (github.event.pull_request && format('PR {0} {1}', github.event.pull_request.number, github.event.pull_request.title)) || github.sha }}"
         run: |
           printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
+          # Diagnóstico: valida o JSON e mostra só campos NÃO sensíveis. Se o
+          # secret estiver inválido/incompleto, falha aqui com mensagem clara.
+          echo "Bytes do secret: $(wc -c < "$RUNNER_TEMP/firebase-sa.json")"
+          python3 -c "import json,os; d=json.load(open(os.path.join(os.environ['RUNNER_TEMP'],'firebase-sa.json'))); print('type       =', d.get('type')); print('project_id =', d.get('project_id')); print('client_email presente =', bool(d.get('client_email'))); print('private_key presente  =', bool(d.get('private_key')))"
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
           npx --yes firebase-tools@latest appdistribution:distribute \
             android/app/build/outputs/apk/debug/app-debug.apk \
             --app "$FIREBASE_ANDROID_APP_ID" \
             --groups testers \
-            --release-notes "$RELEASE_NOTES"
+            --release-notes "$RELEASE_NOTES" \
+            --debug
 
       - name: Guardar APK como artefato do build
         uses: actions/upload-artifact@v4
