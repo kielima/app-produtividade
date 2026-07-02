@@ -1,15 +1,43 @@
 import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
+import { Capacitor } from '@capacitor/core';
+
+// No APK (Capacitor) o app já roda local no WebView e NÃO deve ter service
+// worker: um SW ativo intercepta as requisições (inclusive as do Firestore) e
+// persiste entre reinícios do app, causando "nada carrega" e telas que não
+// montam — sintomas que sobrevivem a fechar/abrir. Por isso, no nativo, não
+// registramos o SW e ainda removemos qualquer um remanescente de uma versão
+// anterior.
+const isNative = Capacitor.isNativePlatform();
+
+export function UpdatePrompt() {
+  return isNative ? <NativeSwCleanup /> : <WebUpdatePrompt />;
+}
+
+// Nativo: desregistra qualquer service worker/caches deixados por builds antigos
+// e não renderiza nada.
+function NativeSwCleanup() {
+  useEffect(() => {
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker
+        .getRegistrations()
+        .then((regs) => regs.forEach((r) => r.unregister()))
+        .catch(() => {});
+    }
+  }, []);
+  return null;
+}
 
 /**
- * Toast canto-inferior-direito. Aparece quando o vite-plugin-pwa detecta
- * que há um novo bundle disponível (novo build deployado) ou quando o
- * usuário fica offline e o app shell foi precacheado com sucesso.
+ * Toast canto-inferior-direito (apenas web/PWA). Aparece quando o
+ * vite-plugin-pwa detecta que há um novo bundle disponível (novo build
+ * deployado) ou quando o usuário fica offline e o app shell foi precacheado
+ * com sucesso.
  *
- * Botão "Recarregar" chama updateSW(true) → skipWaiting + reload da
+ * Botão "Recarregar" chama updateServiceWorker(true) → skipWaiting + reload da
  * página, ativando o novo SW.
  */
-export function UpdatePrompt() {
+function WebUpdatePrompt() {
   const {
     offlineReady: [offlineReady, setOfflineReady],
     needRefresh: [needRefresh, setNeedRefresh],

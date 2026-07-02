@@ -18,9 +18,17 @@ import {
   getFunctions,
   type Functions,
 } from 'firebase/functions';
+import { Capacitor } from '@capacitor/core';
 
 // Região das Cloud Functions — precisa bater com a definida em functions/src.
 const FUNCTIONS_REGION = 'us-central1';
+
+// No WebView do APK (Capacitor) o transporte padrão do Firestore (WebChannel via
+// streaming fetch) não estabelece conexão — a autenticação funciona, mas as
+// queries ficam penduradas e só servem o cache local (vazio numa instalação
+// nova), então "nada carrega". Forçar long polling resolve. Só no nativo: no
+// navegador o WebChannel é mais eficiente e funciona normalmente.
+const isNativePlatform = Capacitor.isNativePlatform();
 
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
@@ -40,6 +48,9 @@ export const db: Firestore = initializeFirestore(app, {
   // editor de metadados). Sem isto o Firestore rejeita a gravação inteira
   // ("Unsupported field value: undefined"); com isto ele apenas ignora o campo.
   ignoreUndefinedProperties: true,
+  // Ver comentário acima: no APK forçamos long polling para o Firestore
+  // conseguir sincronizar dentro do WebView.
+  ...(isNativePlatform ? { experimentalForceLongPolling: true } : {}),
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager(),
   }),

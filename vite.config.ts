@@ -10,7 +10,12 @@ export default defineConfig({
       // confirmar pra ativar (skipWaiting via updateSW). Pareado com o
       // toast "nova versão disponível" em src/components/UpdatePrompt.tsx.
       registerType: 'prompt',
-      injectRegister: 'auto',
+      // Registro APENAS pelo hook useRegisterSW (UpdatePrompt), que no APK
+      // (Capacitor) é pulado — um service worker no WebView intercepta
+      // requisições e persiste entre reinícios, quebrando a sincronização.
+      // 'auto' injetaria um script de registro no index.html, contornando esse
+      // controle; por isso desligamos (null).
+      injectRegister: null,
       includeAssets: ['favicon.ico', 'apple-touch-icon-180x180.png'],
       manifest: {
         name: 'Produtividade — Kiê',
