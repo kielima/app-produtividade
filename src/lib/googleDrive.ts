@@ -196,39 +196,71 @@ async function requestAuthCode(): Promise<string> {
 // No APK (WebView) o popup do Google Identity Services não devolve o resultado,
 // então o fluxo de consentimento acima (requestAuthCode) trava. Na plataforma
 // nativa usamos o Google Sign-In nativo (@capacitor-firebase/authentication)
-// pedindo o escopo do Drive: ele devolve um access token já com esse escopo,
-// que usamos direto na Drive REST API. Não há refresh token no servidor aqui —
-// o access token vale ~1h e, ao expirar, pedimos outro nativamente (silencioso
-// quando a conta já consentiu). skipNativeAuth (capacitor.config) garante que
-// isto NÃO mexe na sessão de login do Firebase.
+// pedindo o escopo do Drive. Ao pedir um escopo extra, o plugin passa pelo
+// caminho de "offline access" e devolve DOIS artefatos:
+//   - serverAuthCode: mandamos para a Cloud Function `connectDrive`, que troca
+//     por um REFRESH TOKEN guardado no servidor. Aí a conexão NÃO expira mais —
+//     `getDriveAccessToken` renova o access token sozinho, para sempre.
+//   - accessToken: token de Drive imediato (vale ~1h). É o fallback caso a troca
+//     do serverAuthCode falhe (ex.: default_web_client_id do google-services.json
+//     diferente do client da connectDrive).
+// skipNativeAuth (capacitor.config) garante que isto NÃO mexe na sessão de login.
 const NATIVE_TOKEN_TTL_MS = 55 * 60 * 1000; // access token do Google dura ~1h
 
 async function nativeGrantDrive(uid: string): Promise<string> {
   const result = await FirebaseAuthentication.signInWithGoogle({
     scopes: [DRIVE_SCOPE],
   });
+  const serverAuthCode = result.credential?.serverAuthCode;
   const accessToken = result.credential?.accessToken;
-  if (!accessToken) {
-    throw new Error(
-      'O login nativo do Google não devolveu um access token do Drive. ' +
-        'Verifique se o escopo do Drive foi concedido.',
-    );
+
+  // Preferência: serverAuthCode → refresh token no servidor (conexão permanente).
+  // redirect_uri vazio: é o exigido para o code do Google Sign-In nativo (não é
+  // o 'postmessage' do fluxo popup web).
+  if (serverAuthCode) {
+    try {
+      const { data } = await callConnect({ code: serverAuthCode, redirectUri: '' });
+      writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
+      markEverConnected();
+      return data.accessToken;
+    } catch (err) {
+      console.warn(
+        '[gdrive] troca do serverAuthCode falhou; usando access token direto:',
+        err,
+      );
+    }
   }
-  writeStored({ accessToken, expiresAt: Date.now() + NATIVE_TOKEN_TTL_MS, uid });
-  markEverConnected();
-  return accessToken;
+
+  // Fallback: access token direto (expira ~1h; renovado por novo sign-in nativo).
+  if (accessToken) {
+    writeStored({ accessToken, expiresAt: Date.now() + NATIVE_TOKEN_TTL_MS, uid });
+    markEverConnected();
+    return accessToken;
+  }
+
+  throw new Error(
+    'O login nativo do Google não devolveu token do Drive (nem serverAuthCode ' +
+      'nem accessToken). Verifique se o escopo do Drive foi concedido.',
+  );
 }
 
 export async function tryRefreshDriveToken(uid: string): Promise<string | null> {
-  // No nativo não há refresh token server-side; renovamos pedindo um novo
-  // access token nativo (silencioso quando já consentido).
   if (Capacitor.isNativePlatform()) {
+    // 1) Se a conexão foi feita via serverAuthCode, o servidor tem refresh token:
+    //    renova por lá (silencioso e permanente).
     try {
-      return await nativeGrantDrive(uid);
+      const { data } = await callGetToken();
+      if (data.status === 'ok') {
+        writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
+        markEverConnected();
+        return data.accessToken;
+      }
     } catch (err) {
-      console.debug('[gdrive] refresh nativo falhou:', err);
-      return null;
+      console.debug('[gdrive] getDriveAccessToken (nativo) falhou:', err);
     }
+    // 2) Sem refresh token no servidor (caiu no fallback de access token): não há
+    //    refresh silencioso — ensureDriveToken vai chamar grant (novo sign-in).
+    return null;
   }
   const backoffs = [0, 1_000, 3_000];
   let lastErr: unknown = null;
