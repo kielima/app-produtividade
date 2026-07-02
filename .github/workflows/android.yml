@@ -67,11 +67,50 @@ jobs:
           FIREBASE_ANDROID_APP_ID: ${{ secrets.FIREBASE_ANDROID_APP_ID }}
           RELEASE_NOTES: "${{ github.event.inputs.notes || (github.event.pull_request && format('PR {0} {1}', github.event.pull_request.number, github.event.pull_request.title)) || github.sha }}"
         run: |
-          printf '%s' "$FIREBASE_SERVICE_ACCOUNT" > "$RUNNER_TEMP/firebase-sa.json"
-          # Diagnóstico: valida o JSON e mostra só campos NÃO sensíveis. Se o
-          # secret estiver inválido/incompleto, falha aqui com mensagem clara.
-          echo "Bytes do secret: $(wc -c < "$RUNNER_TEMP/firebase-sa.json")"
-          python3 -c "import json,os; d=json.load(open(os.path.join(os.environ['RUNNER_TEMP'],'firebase-sa.json'))); print('type       =', d.get('type')); print('project_id =', d.get('project_id')); print('client_email presente =', bool(d.get('client_email'))); print('private_key presente  =', bool(d.get('private_key')))"
+          # Sanitiza o secret antes de usar: cópia/cola no celular costuma
+          # introduzir um BOM (U+FEFF), espaços não-quebráveis ou lixo antes do
+          # primeiro `{`, o que faz o JSON falhar na coluna 1. Também aceitamos o
+          # secret em base64 (forma à prova de cola). Este passo:
+          #   1. tira BOM e espaços das pontas;
+          #   2. se não começar com `{`, tenta decodificar base64;
+          #   3. recorta do primeiro `{` ao último `}` (remove lixo residual);
+          #   4. valida o JSON e mostra só campos NÃO sensíveis.
+          python3 - "$RUNNER_TEMP/firebase-sa.json" <<'PY'
+          import base64, json, os, sys
+          raw = os.environ["FIREBASE_SERVICE_ACCOUNT"]
+          out_path = sys.argv[1]
+          print("Bytes do secret (bruto):", len(raw.encode("utf-8")))
+          # 1. remove BOM e espaços/aspas das pontas
+          s = raw.lstrip("\ufeff").strip().strip("'\"").strip()
+          # 2. se não parece JSON, tenta base64
+          if not s.startswith("{"):
+              try:
+                  decoded = base64.b64decode(s, validate=False).decode("utf-8")
+                  if decoded.lstrip("\ufeff").strip().startswith("{"):
+                      s = decoded.lstrip("\ufeff").strip()
+                      print("Secret estava em base64: decodificado com sucesso.")
+              except Exception:
+                  pass
+          # 3. recorta do primeiro { ao último } (remove lixo residual de cola)
+          i, j = s.find("{"), s.rfind("}")
+          if i != -1 and j != -1 and j > i:
+              s = s[i:j + 1]
+          # 4. valida
+          try:
+              d = json.loads(s)
+          except Exception as e:
+              sys.exit(
+                  "ERRO: o secret FIREBASE_SERVICE_ACCOUNT não é um JSON válido "
+                  f"nem base64 de um JSON ({e}). Regere a chave da conta de "
+                  "serviço no Firebase e cole o JSON INTEIRO (do { ao }) no secret."
+              )
+          with open(out_path, "w", encoding="utf-8") as f:
+              json.dump(d, f)
+          print("type       =", d.get("type"))
+          print("project_id =", d.get("project_id"))
+          print("client_email presente =", bool(d.get("client_email")))
+          print("private_key presente  =", bool(d.get("private_key")))
+          PY
           export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
           npx --yes firebase-tools@latest appdistribution:distribute \
             android/app/build/outputs/apk/debug/app-debug.apk \
