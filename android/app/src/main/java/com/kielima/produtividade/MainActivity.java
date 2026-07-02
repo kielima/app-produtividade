@@ -1,6 +1,7 @@
 package com.kielima.produtividade;
 
 import android.view.MotionEvent;
+import android.view.View;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
@@ -35,6 +36,28 @@ public class MainActivity extends BridgeActivity {
         if (webView == null) return;
         final String js = "window.__spenButton && window.__spenButton(" + (pressed ? "true" : "false") + ")";
         webView.post(() -> webView.evaluateJavascript(js, null));
+    }
+
+    // Oculta a barra de status (topo) para leitura em tela cheia. Mantém a
+    // barra de navegação. IMMERSIVE_STICKY faz a barra reaparecer só
+    // temporariamente ao deslizar da borda superior, voltando a esconder.
+    private void hideStatusBar() {
+        View decor = getWindow().getDecorView();
+        decor.setSystemUiVisibility(
+            View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+                | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_FULLSCREEN
+                | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        );
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        // Reaplica ao voltar o foco (ex.: depois de puxar a barra ou trocar de app).
+        if (hasFocus) {
+            hideStatusBar();
+        }
     }
 
     @Override

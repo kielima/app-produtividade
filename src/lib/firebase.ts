@@ -9,6 +9,7 @@ import {
 import {
   connectFirestoreEmulator,
   initializeFirestore,
+  memoryLocalCache,
   persistentLocalCache,
   persistentMultipleTabManager,
   type Firestore,
@@ -23,11 +24,15 @@ import { Capacitor } from '@capacitor/core';
 // Região das Cloud Functions — precisa bater com a definida em functions/src.
 const FUNCTIONS_REGION = 'us-central1';
 
-// No WebView do APK (Capacitor) o transporte padrão do Firestore (WebChannel via
-// streaming fetch) não estabelece conexão — a autenticação funciona, mas as
-// queries ficam penduradas e só servem o cache local (vazio numa instalação
-// nova), então "nada carrega". Forçar long polling resolve. Só no nativo: no
-// navegador o WebChannel é mais eficiente e funciona normalmente.
+// No WebView do APK (Capacitor) duas coisas do Firestore quebram e são tratadas
+// só no nativo (no navegador nada muda):
+//  - Cache: a persistência em IndexedDB falha dentro do WebView
+//    (IndexedDbTransactionError code=unavailable / AbortError), e como TODA
+//    query passa pelo cache, "nada carrega". Usamos cache EM MEMÓRIA, que não
+//    toca no IndexedDB. Custo: sem persistência offline no APK (recarrega do
+//    servidor a cada abertura) — aceitável.
+//  - Rede: o transporte padrão (WebChannel via streaming fetch) às vezes não
+//    conecta no WebView; forçar long polling é mais robusto.
 const isNativePlatform = Capacitor.isNativePlatform();
 
 const config = {
@@ -51,9 +56,13 @@ export const db: Firestore = initializeFirestore(app, {
   // Ver comentário acima: no APK forçamos long polling para o Firestore
   // conseguir sincronizar dentro do WebView.
   ...(isNativePlatform ? { experimentalForceLongPolling: true } : {}),
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
+  // No APK, cache em memória (IndexedDB falha no WebView); no navegador,
+  // persistência em IndexedDB com suporte a múltiplas abas.
+  localCache: isNativePlatform
+    ? memoryLocalCache()
+    : persistentLocalCache({
+        tabManager: persistentMultipleTabManager(),
+      }),
 });
 
 export const auth: Auth = getAuth(app);
