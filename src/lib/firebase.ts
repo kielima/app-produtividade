@@ -35,6 +35,27 @@ const FUNCTIONS_REGION = 'us-central1';
 //    conecta no WebView; forçar long polling é mais robusto.
 const isNativePlatform = Capacitor.isNativePlatform();
 
+// Em alguns WebView do Android, `navigator.onLine` retorna `false` mesmo com
+// internet. O monitor de conectividade do Firestore lê essa flag e declara o
+// cliente "offline", travando as queries ("Failed to get document because the
+// client is offline") — mesmo com a rede funcionando (o login, que não passa
+// pelo Firestore, funciona). No APK forçamos onLine=true e emitimos o evento
+// 'online' para o Firestore reconhecer que está conectado. Roda ANTES de
+// initializeFirestore para o monitor já iniciar em estado online.
+if (isNativePlatform && typeof navigator !== 'undefined') {
+  try {
+    Object.defineProperty(navigator, 'onLine', {
+      configurable: true,
+      get: () => true,
+    });
+    if (typeof window !== 'undefined') {
+      window.dispatchEvent(new Event('online'));
+    }
+  } catch {
+    // se o navegador não deixar redefinir, segue sem — não piora nada
+  }
+}
+
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
