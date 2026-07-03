@@ -74,18 +74,11 @@ export const db: Firestore = initializeFirestore(app, {
   // editor de metadados). Sem isto o Firestore rejeita a gravação inteira
   // ("Unsupported field value: undefined"); com isto ele apenas ignora o campo.
   ignoreUndefinedProperties: true,
-  // Ver comentário acima: no APK forçamos long polling para o Firestore
-  // conseguir sincronizar dentro do WebView. `useFetchStreams: false` é o par
-  // obrigatório em WebView Android: o fetch com resposta em streaming é
-  // quebrado em vários WebViews e derruba o transporte mesmo em long polling
-  // ("client is offline" com a rede funcionando). A opção existe no SDK mas
-  // não está nas typings públicas — daí o cast.
-  ...(isNativePlatform
-    ? ({
-        experimentalForceLongPolling: true,
-        useFetchStreams: false,
-      } as object)
-    : {}),
+  // Transporte: depois de testar forceLongPolling (+useFetchStreams=false) e
+  // continuar "client is offline", voltamos ao transporte PADRÃO do SDK também
+  // no nativo (v10 usa auto-detecção de long polling — o mesmo modo em que o
+  // app funciona no navegador). O diagnóstico nativo (UpdatePrompt) mostra na
+  // tela o que a rede do WebView consegue alcançar.
   // No APK, cache em memória (IndexedDB falha no WebView); no navegador,
   // persistência em IndexedDB com suporte a múltiplas abas.
   localCache: isNativePlatform
