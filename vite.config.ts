@@ -2,7 +2,22 @@ import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 
+// Carimbo de build mostrado nas Configurações, para identificar qual versão do
+// app está instalada. No CI usa o commit + data; localmente, 'dev'.
+// APP_COMMIT (definido no workflow a partir de `git rev-parse HEAD`) é o commit
+// realmente construído; GITHUB_SHA é o fallback. O commit completo é injetado
+// separadamente (__APP_COMMIT__) para o verificador de atualização comparar com
+// a última build publicada no Firestore.
+const commit = process.env.APP_COMMIT ?? process.env.GITHUB_SHA ?? '';
+const sha = commit.slice(0, 7);
+const buildData = new Date().toISOString().slice(0, 16).replace('T', ' ');
+const buildStamp = `${sha || 'dev'} · ${buildData}`;
+
 export default defineConfig({
+  define: {
+    __APP_BUILD__: JSON.stringify(buildStamp),
+    __APP_COMMIT__: JSON.stringify(commit),
+  },
   plugins: [
     react(),
     VitePWA({
