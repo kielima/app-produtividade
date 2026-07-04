@@ -1,10 +1,12 @@
 package com.kielima.produtividade;
 
+import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
+import com.kielima.produtividade.atualizador.AtualizadorPlugin;
 
 /**
  * Ponte do botão da S-Pen para o WebView.
@@ -19,6 +21,15 @@ import com.getcapacitor.BridgeActivity;
 public class MainActivity extends BridgeActivity {
 
     private boolean spenButtonDown = false;
+
+    @Override
+    public void onCreate(Bundle savedInstanceState) {
+        // Plugin nativo do verificador de atualização in-app (baixa o APK da
+        // build publicada e abre o instalador). Registrado ANTES do super para
+        // o bridge do Capacitor já o conhecer ao inicializar.
+        registerPlugin(AtualizadorPlugin.class);
+        super.onCreate(savedInstanceState);
+    }
 
     private boolean isStylusButtonPressed(MotionEvent ev) {
         int state = ev.getButtonState();

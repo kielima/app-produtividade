@@ -26,6 +26,14 @@ import {
   getLatestChangelogEntry,
 } from '../lib/changelog';
 import { ChangelogDialog } from '../components/ChangelogDialog';
+import {
+  buildIdentificavel,
+  podeInstalarApk,
+  servicoDisponivel,
+  verificarAtualizacao,
+  instalarAtualizacao,
+  type InfoAtualizacao,
+} from '../lib/atualizacao';
 
 const IMPORT_STAT_LABELS: Record<keyof ImportStats, string> = {
   sections: 'sections',
@@ -62,6 +70,66 @@ export function SettingsView({ uid }: { uid: string }) {
 
   const [changelogOpen, setChangelogOpen] = useState(false);
   const latestEntry = getLatestChangelogEntry();
+
+  // Verificação de atualização (compara o commit da build com a última build
+  // publicada no Firestore). No APK, baixa e instala direto; no navegador, o
+  // service worker atualiza sozinho ao recarregar.
+  const [verificandoUpd, setVerificandoUpd] = useState(false);
+  const [instalandoUpd, setInstalandoUpd] = useState(false);
+  const [infoUpd, setInfoUpd] = useState<InfoAtualizacao | null>(null);
+  const [statusUpd, setStatusUpd] = useState<string | null>(null);
+  const [erroUpd, setErroUpd] = useState<string | null>(null);
+
+  async function verificarUpd() {
+    setErroUpd(null);
+    setStatusUpd(null);
+    setInfoUpd(null);
+    setVerificandoUpd(true);
+    try {
+      const info = await verificarAtualizacao();
+      setInfoUpd(info);
+      if (!buildIdentificavel()) {
+        setStatusUpd(
+          'Build de desenvolvimento — não dá para comparar com a última versão.',
+        );
+      } else if (info.disponivel && podeInstalarApk() && info.urlApk) {
+        // No APK, já baixa e instala direto ao encontrar versão nova.
+        await instalarUpd(info.urlApk);
+      } else if (info.disponivel) {
+        setStatusUpd(null);
+      } else {
+        setStatusUpd('Você já está na última versão.');
+      }
+    } catch (e) {
+      setErroUpd(
+        e instanceof Error
+          ? `Não foi possível verificar: ${e.message}`
+          : 'Não foi possível verificar a atualização.',
+      );
+    } finally {
+      setVerificandoUpd(false);
+    }
+  }
+
+  async function instalarUpd(url: string) {
+    setErroUpd(null);
+    setStatusUpd(null);
+    setInstalandoUpd(true);
+    try {
+      await instalarAtualizacao(url);
+      setStatusUpd(
+        'Baixando a atualização… acompanhe na barra de notificações. O instalador abrirá ao terminar.',
+      );
+    } catch (e) {
+      setErroUpd(
+        e instanceof Error
+          ? `Falha ao baixar/instalar: ${e.message}`
+          : 'Falha ao baixar/instalar a atualização.',
+      );
+    } finally {
+      setInstalandoUpd(false);
+    }
+  }
 
   async function handleGenerate() {
     setLoading(true);
@@ -464,6 +532,71 @@ export function SettingsView({ uid }: { uid: string }) {
             </ul>
           </div>
         )}
+      </article>
+
+      <article className="settings-card">
+        <h3>Atualização</h3>
+        <p className="muted">
+          Verifica se há uma build mais recente publicada.
+          {podeInstalarApk()
+            ? ' Se houver, baixa o APK e abre o instalador direto.'
+            : ' No navegador, o app se atualiza sozinho ao recarregar; aqui você só confere a versão publicada.'}
+        </p>
+
+        {servicoDisponivel() ? (
+          <div className="settings-actions">
+            <button
+              type="button"
+              className="btn-primary"
+              onClick={verificarUpd}
+              disabled={verificandoUpd || instalandoUpd}
+            >
+              {verificandoUpd
+                ? 'Verificando…'
+                : instalandoUpd
+                  ? 'Baixando…'
+                  : 'Verificar atualização'}
+            </button>
+          </div>
+        ) : (
+          <p className="muted">
+            Verificação de atualização indisponível nesta build (sem Firebase
+            configurado).
+          </p>
+        )}
+
+        {infoUpd?.disponivel && buildIdentificavel() && (
+          <div className="settings-preview">
+            <p className="muted">
+              Atualização disponível
+              {infoUpd.commitRemoto && ` · versão ${infoUpd.commitRemoto}`}
+              {infoUpd.publicadoEm &&
+                ` · ${infoUpd.publicadoEm.toLocaleDateString('pt-BR')}`}
+              .
+            </p>
+            {podeInstalarApk() && infoUpd.urlApk ? (
+              <div className="settings-actions">
+                <button
+                  type="button"
+                  className="btn-primary"
+                  onClick={() => void instalarUpd(infoUpd.urlApk!)}
+                  disabled={instalandoUpd}
+                >
+                  {instalandoUpd ? 'Baixando…' : 'Baixar e instalar'}
+                </button>
+              </div>
+            ) : (
+              <p className="muted">Recarregue a página para aplicar a nova versão.</p>
+            )}
+          </div>
+        )}
+
+        {statusUpd && <p className="muted">{statusUpd}</p>}
+        {erroUpd && <p className="error">{erroUpd}</p>}
+
+        <p className="muted" style={{ fontSize: '0.75rem', opacity: 0.6 }}>
+          build {__APP_BUILD__}
+        </p>
       </article>
 
       <article className="settings-card">

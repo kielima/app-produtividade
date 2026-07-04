@@ -22,6 +22,8 @@ dev-dist/
 # -------- Firebase (segredos e cache) --------
 .firebase/
 .firebaserc.local
+# APK da distribuição in-app: gerado pelo workflow, nunca versionado.
+firebase-hosting/builds/
 *firebase-adminsdk*.json
 serviceAccount*.json
 service-account*.json
