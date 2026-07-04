@@ -5197,24 +5197,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.reader-tools,
 .reader-colors,
 .reader-zoom {
   display: flex;
   align-items: center;
   gap: 0.2rem;
-}
-.reader-tool {
-  font-size: 1rem;
-  padding: 0.3rem 0.45rem;
-  border: 1px solid transparent;
-  border-radius: 6px;
-  background: transparent;
-  cursor: pointer;
-}
-.reader-tool.active {
-  border-color: var(--accent);
-  background: var(--surface-2);
 }
 .reader-color {
   width: 20px;

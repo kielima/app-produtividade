@@ -46,7 +46,10 @@ export function ReaderView({
 
   // Padrão: marca-texto já ativo ao abrir o PDF — é só passar a caneta/dedo
   // sobre o texto para realçar (rolagem vertical continua funcionando).
-  const [tool, setTool] = useState<ReaderTool>('highlight');
+  // Ferramenta fixa: a caneta marca por padrão; a borracha vem do botão da
+  // S-Pen (ou de tocar numa marcação para editar/apagar). Sem botões de
+  // ferramenta na barra — só as cores.
+  const tool: ReaderTool = 'highlight';
   const [highlightColor, setHighlightColor] = useState(HIGHLIGHT_COLORS[0]);
   const [zoom, setZoom] = useState(1);
   const [panelOpen, setPanelOpen] = useState(false);
@@ -270,26 +273,21 @@ export function ReaderView({
           {item.title || '(sem título)'}
         </span>
 
-        <div className="reader-tools" role="toolbar" aria-label="Ferramentas de anotação">
-          <ToolButton tool="highlight" current={tool} setTool={setTool} label="Marca-texto" icon="🖍️" />
-          <ToolButton tool="comment" current={tool} setTool={setTool} label="Comentário" icon="💬" />
-          <ToolButton tool="eraser" current={tool} setTool={setTool} label="Borracha" icon="🧽" />
+        {/* Sem botões de ferramenta: a caneta já marca direto, tocar numa
+            marcação abre o comentário e o botão da S-Pen apaga. Fica só a
+            paleta de cores do marca-texto. */}
+        <div className="reader-colors" aria-label="Cor do marca-texto">
+          {HIGHLIGHT_COLORS.map((c) => (
+            <button
+              key={c}
+              type="button"
+              className={`reader-color${highlightColor === c ? ' active' : ''}`}
+              style={{ background: c }}
+              onClick={() => setHighlightColor(c)}
+              aria-label={`Cor ${c}`}
+            />
+          ))}
         </div>
-
-        {tool === 'highlight' && (
-          <div className="reader-colors" aria-label="Cor do marca-texto">
-            {HIGHLIGHT_COLORS.map((c) => (
-              <button
-                key={c}
-                type="button"
-                className={`reader-color${highlightColor === c ? ' active' : ''}`}
-                style={{ background: c }}
-                onClick={() => setHighlightColor(c)}
-                aria-label={`Cor ${c}`}
-              />
-            ))}
-          </div>
-        )}
 
         <div className="reader-zoom">
           <button type="button" onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))} aria-label="Diminuir zoom">−</button>
@@ -447,33 +445,6 @@ export function ReaderView({
         />
       )}
     </div>
-  );
-}
-
-function ToolButton({
-  tool,
-  current,
-  setTool,
-  label,
-  icon,
-}: {
-  tool: ReaderTool;
-  current: ReaderTool;
-  setTool: (t: ReaderTool) => void;
-  label: string;
-  icon: string;
-}) {
-  return (
-    <button
-      type="button"
-      className={`reader-tool${current === tool ? ' active' : ''}`}
-      onClick={() => setTool(tool)}
-      aria-pressed={current === tool}
-      title={label}
-      aria-label={label}
-    >
-      {icon}
-    </button>
   );
 }
 
