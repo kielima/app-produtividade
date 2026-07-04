@@ -38,6 +38,29 @@ public class MainActivity extends BridgeActivity {
         webView.post(() -> webView.evaluateJavascript(js, null));
     }
 
+    /**
+     * Borracha 100% nativa: enquanto o botão da S-Pen está pressionado e a
+     * caneta TOCA a tela, mandamos as coordenadas (em px CSS) direto para o
+     * app web apagar. Isso não depende do fluxo de Pointer Events do WebView —
+     * que em alguns aparelhos cancela/segura o traço quando o botão do stylus
+     * está pressionado, deixando a borracha muda mesmo com a ponte do botão
+     * funcionando.
+     */
+    private void notifySpenErase(MotionEvent ev) {
+        if (!isStylusButtonPressed(ev)) return;
+        int action = ev.getActionMasked();
+        if (action != MotionEvent.ACTION_DOWN && action != MotionEvent.ACTION_MOVE) return;
+        if (getBridge() == null) return;
+        final WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+        // px físicos → px CSS (o WebView usa density como devicePixelRatio).
+        float density = getResources().getDisplayMetrics().density;
+        final float x = ev.getX() / density;
+        final float y = ev.getY() / density;
+        final String js = "window.__spenErase && window.__spenErase(" + x + "," + y + ")";
+        webView.post(() -> webView.evaluateJavascript(js, null));
+    }
+
     // Oculta a barra de status (topo) para leitura em tela cheia. Mantém a
     // barra de navegação. IMMERSIVE_STICKY faz a barra reaparecer só
     // temporariamente ao deslizar da borda superior, voltando a esconder.
@@ -63,6 +86,7 @@ public class MainActivity extends BridgeActivity {
     @Override
     public boolean dispatchTouchEvent(MotionEvent ev) {
         notifySpenButton(ev);
+        notifySpenErase(ev);
         return super.dispatchTouchEvent(ev);
     }
 
