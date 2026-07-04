@@ -18,6 +18,7 @@ import { createNoteFromText, createTaskFromText, pickDefaultProjectId } from '..
 import type { Annotation, NormRect, Project, ReadingItem } from '../types';
 
 const HIGHLIGHT_COLORS = ['#ffd54a', '#a5d6a7', '#90caf9', '#f48fb1', '#ce93d8'];
+const VIEW_MODE_KEY = 'app-produtividade:reader-view-mode';
 
 type LoadState =
   | { status: 'loading' }
@@ -55,8 +56,47 @@ export function ReaderView({
   const [panelOpen, setPanelOpen] = useState(false);
   const [metaOpen, setMetaOpen] = useState(false);
 
+  // Modo de visualização: rolagem vertical contínua (padrão) ou página a
+  // página com virada horizontal estilo livro. Persistido entre sessões.
+  const [viewMode, setViewMode] = useState<'scroll' | 'page'>(() => {
+    try {
+      return localStorage.getItem(VIEW_MODE_KEY) === 'page' ? 'page' : 'scroll';
+    } catch {
+      return 'scroll';
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(VIEW_MODE_KEY, viewMode);
+    } catch {
+      // sem storage — segue sem persistir
+    }
+  }, [viewMode]);
+
+  // Barra superior auto-oculta: some ao rolar/virar página, volta ao rolar
+  // para cima, tocar no centro da página (modo livro) ou voltar ao topo.
+  const [barHidden, setBarHidden] = useState(false);
+  const toolbarRef = useRef<HTMLElement | null>(null);
+
+  // Página atual do modo livro (0-based); retoma de item.currentPage.
+  const [pageIndex, setPageIndex] = useState(() =>
+    Math.max(0, (item.currentPage ?? 1) - 1),
+  );
+  // Virada de página em curso (arrasto ou animação de conclusão).
+  const [turn, setTurn] = useState<
+    null | { dir: 'next' | 'prev'; progress: number; animating: boolean }
+  >(null);
+
   const scrollRef = useRef<HTMLDivElement>(null);
-  const [containerWidth, setContainerWidth] = useState(0);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const pagesWrapRef = useRef<HTMLDivElement>(null);
+  const bookRef = useRef<HTMLDivElement | null>(null);
+  const stageRef = useRef<HTMLDivElement | null>(null);
+  const [areaSize, setAreaSize] = useState({ w: 0, h: 0 });
+  const zoomRef = useRef(zoom);
+  useEffect(() => {
+    zoomRef.current = zoom;
+  }, [zoom]);
 
   // Editor de comentário: novo (com anchor) ou edição de uma anotação existente.
   const [commentTarget, setCommentTarget] = useState<
@@ -114,18 +154,110 @@ export function ReaderView({
     return subscribeToAnnotations(uid, item.id, setAnnotations);
   }, [uid, item.id]);
 
-  // -------- Largura do container (responsivo) --------
+  // -------- Dimensões do container ativo (responsivo) --------
   useEffect(() => {
-    const el = scrollRef.current;
+    const el = viewMode === 'page' ? bookRef.current : scrollRef.current;
     if (!el) return;
-    const update = () => setContainerWidth(el.clientWidth);
+    const update = () => setAreaSize({ w: el.clientWidth, h: el.clientHeight });
     update();
     const ro = new ResizeObserver(update);
     ro.observe(el);
     return () => ro.disconnect();
-  }, [load.status]);
+  }, [load.status, viewMode]);
 
-  const targetWidth = Math.min(Math.max(containerWidth - 24, 280), 1000) * zoom;
+  const targetWidth = Math.min(Math.max(areaSize.w - 24, 280), 1000) * zoom;
+
+  // Modo livro: página "contida" na área visível (largura E altura), depois
+  // multiplicada pelo zoom da pinça.
+  const fitPageWidth = useMemo(() => {
+    const availW = Math.max(200, areaSize.w - 12);
+    const availH = Math.max(200, areaSize.h - 12);
+    return Math.min(availW, availH / baseAspect);
+  }, [areaSize, baseAspect]);
+  const bookPageWidth = fitPageWidth * zoom;
+
+  // Clampa a página atual quando o total é conhecido; persiste pra retomar.
+  useEffect(() => {
+    if (numPages > 0) setPageIndex((i) => Math.min(i, numPages - 1));
+  }, [numPages]);
+  useEffect(() => {
+    if (viewMode !== 'page' || numPages === 0) return;
+    const t = setTimeout(() => {
+      void patchReadingItem(uid, item.id, { currentPage: pageIndex + 1 });
+    }, 800);
+    return () => clearTimeout(t);
+  }, [viewMode, pageIndex, numPages, uid, item.id]);
+
+  // -------- Barra auto-oculta na rolagem vertical --------
+  useEffect(() => {
+    const el = scrollRef.current;
+    if (!el || viewMode !== 'scroll') return;
+    let last = el.scrollTop;
+    const onScroll = () => {
+      const st = el.scrollTop;
+      const d = st - last;
+      last = st;
+      if (st < 48) setBarHidden(false);
+      else if (d > 6) setBarHidden(true);
+      else if (d < -6) setBarHidden(false);
+    };
+    el.addEventListener('scroll', onScroll, { passive: true });
+    return () => el.removeEventListener('scroll', onScroll);
+  }, [viewMode, load.status]);
+
+  // -------- Pinça (dois dedos) para zoom --------
+  // Durante o gesto aplicamos um scale de CSS (feedback imediato); ao soltar,
+  // commitamos no estado `zoom`, que re-renderiza o PDF nítido na nova escala.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    let pinching = false;
+    let startDist = 0;
+    let startZoom = 1;
+    let factor = 1;
+    const dist = (e: TouchEvent) =>
+      Math.hypot(
+        e.touches[0].clientX - e.touches[1].clientX,
+        e.touches[0].clientY - e.touches[1].clientY,
+      );
+    const target = () =>
+      viewMode === 'page' ? stageRef.current : pagesWrapRef.current;
+    const onStart = (e: TouchEvent) => {
+      if (e.touches.length !== 2) return;
+      pinching = true;
+      startDist = dist(e);
+      startZoom = zoomRef.current;
+      factor = 1;
+      setTurn(null); // pinça cancela virada em curso
+    };
+    const onMove = (e: TouchEvent) => {
+      if (!pinching || e.touches.length !== 2) return;
+      e.preventDefault(); // impede a rolagem enquanto pinça
+      factor = dist(e) / Math.max(1, startDist);
+      const t = target();
+      if (t) {
+        t.style.transformOrigin = '50% 30%';
+        t.style.transform = `scale(${factor})`;
+      }
+    };
+    const onEnd = () => {
+      if (!pinching) return;
+      pinching = false;
+      const t = target();
+      if (t) t.style.transform = '';
+      setZoom(Math.min(3, Math.max(0.5, +(startZoom * factor).toFixed(2))));
+    };
+    el.addEventListener('touchstart', onStart, { passive: true });
+    el.addEventListener('touchmove', onMove, { passive: false });
+    el.addEventListener('touchend', onEnd);
+    el.addEventListener('touchcancel', onEnd);
+    return () => {
+      el.removeEventListener('touchstart', onStart);
+      el.removeEventListener('touchmove', onMove);
+      el.removeEventListener('touchend', onEnd);
+      el.removeEventListener('touchcancel', onEnd);
+    };
+  }, [viewMode]);
 
   const annotationsByPage = useMemo(() => {
     const map = new Map<number, Annotation[]>();
@@ -263,9 +395,177 @@ export function ReaderView({
     }
   }
 
+  // -------- Virada de página (modo livro) --------
+  // Arrasto horizontal com o DEDO vira a página acompanhando o toque (a caneta
+  // continua reservada para marcar). Soltar além de ~30% completa a virada com
+  // animação; menos que isso, volta. Toques: bordas viram, centro alterna a
+  // barra. Com zoom de pinça aplicado, o dedo faz pan na página.
+  const turnPtr = useRef({ id: -1, x: 0, y: 0, lastX: 0, lastY: 0, active: false });
+  const turnTimer = useRef<number | null>(null);
+
+  function finishTurn(dir: 'next' | 'prev', complete: boolean) {
+    turnTimer.current = null;
+    if (complete) setPageIndex((i) => (dir === 'next' ? i + 1 : i - 1));
+    setTurn(null);
+  }
+
+  function beginAnimatedTurn(dir: 'next' | 'prev') {
+    if (turnTimer.current !== null) return;
+    if (dir === 'next' && pageIndex >= numPages - 1) return;
+    if (dir === 'prev' && pageIndex <= 0) return;
+    setBarHidden(true);
+    setTurn({ dir, progress: 0.02, animating: true });
+    requestAnimationFrame(() =>
+      setTurn((t) => (t ? { ...t, progress: 1 } : t)),
+    );
+    turnTimer.current = window.setTimeout(() => finishTurn(dir, true), 340);
+  }
+
+  function onBookPointerDown(e: React.PointerEvent) {
+    if (e.pointerType !== 'touch' || turn?.animating) return;
+    turnPtr.current = {
+      id: e.pointerId,
+      x: e.clientX,
+      y: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
+      active: true,
+    };
+  }
+
+  function onBookPointerMove(e: React.PointerEvent) {
+    const p = turnPtr.current;
+    if (!p.active || e.pointerId !== p.id) return;
+    // Com zoom aplicado, o dedo faz PAN na página (sem virar).
+    if (zoom > 1.05) {
+      bookRef.current?.scrollBy(p.lastX - e.clientX, p.lastY - e.clientY);
+      p.lastX = e.clientX;
+      p.lastY = e.clientY;
+      return;
+    }
+    const dx = e.clientX - p.x;
+    const dy = e.clientY - p.y;
+    if (!turn) {
+      if (Math.abs(dx) > 14 && Math.abs(dx) > Math.abs(dy)) {
+        const dir: 'next' | 'prev' = dx < 0 ? 'next' : 'prev';
+        if (
+          (dir === 'next' && pageIndex < numPages - 1) ||
+          (dir === 'prev' && pageIndex > 0)
+        ) {
+          setBarHidden(true);
+          setTurn({ dir, progress: 0, animating: false });
+        }
+      }
+      return;
+    }
+    if (!turn.animating) {
+      const w = bookRef.current?.clientWidth || 1;
+      const raw = turn.dir === 'next' ? -dx : dx;
+      setTurn({
+        ...turn,
+        progress: Math.min(1, Math.max(0, raw / (w * 0.8))),
+      });
+    }
+  }
+
+  function onBookPointerUp(e: React.PointerEvent) {
+    const p = turnPtr.current;
+    if (!p.active || e.pointerId !== p.id) return;
+    p.active = false;
+    if (turn && !turn.animating) {
+      const complete = turn.progress > 0.3;
+      setTurn({ ...turn, progress: complete ? 1 : 0, animating: true });
+      turnTimer.current = window.setTimeout(
+        () => finishTurn(turn.dir, complete),
+        340,
+      );
+      return;
+    }
+    const dist = Math.hypot(e.clientX - p.x, e.clientY - p.y);
+    if (dist <= 8 && !turn) {
+      const rect = bookRef.current?.getBoundingClientRect();
+      const rx = rect ? (e.clientX - rect.left) / rect.width : 0.5;
+      if (rx < 0.16) beginAnimatedTurn('prev');
+      else if (rx > 0.84) beginAnimatedTurn('next');
+      else setBarHidden((v) => !v);
+    }
+  }
+
+  function onBookPointerCancel() {
+    turnPtr.current.active = false;
+    setTurn((t) => (t && !t.animating ? null : t));
+  }
+
+  // Camadas do livro: [anterior, atual, próxima] montadas juntas (as vizinhas
+  // ficam ocultas mas pré-renderizadas → virada sem página em branco).
+  function bookLayers() {
+    const curN = pageIndex + 1;
+    const nums = [curN - 1, curN, curN + 1].filter(
+      (n) => n >= 1 && n <= numPages,
+    );
+    const progress = turn?.progress ?? 0;
+    const shade = Math.sin(Math.PI * progress) * 0.4;
+    return nums.map((n) => {
+      let style: React.CSSProperties = { zIndex: 1, visibility: 'hidden' };
+      let flipping = false;
+      if (n === curN) {
+        if (turn?.dir === 'next') {
+          flipping = true;
+          style = {
+            zIndex: 3,
+            transform: `rotateY(${-180 * progress}deg)`,
+          };
+        } else {
+          style = { zIndex: 2 };
+        }
+      } else if (n === curN + 1 && turn?.dir === 'next') {
+        style = { zIndex: 1 }; // destino visível por baixo
+      } else if (n === curN - 1 && turn?.dir === 'prev') {
+        flipping = true;
+        style = {
+          zIndex: 3,
+          transform: `rotateY(${-180 * (1 - progress)}deg)`,
+        };
+      }
+      const interactive = !turn && n === curN;
+      return (
+        <div
+          key={n}
+          className={`book-layer${flipping ? ' book-flip' : ''}${
+            flipping && turn?.animating ? ' animating' : ''
+          }`}
+          style={{ ...style, pointerEvents: interactive ? 'auto' : 'none' }}
+        >
+          <LazyPdfPage
+            getDoc={() => docRef.current}
+            pageNumber={n}
+            targetWidth={bookPageWidth}
+            baseAspect={baseAspect}
+            annotations={annotationsByPage.get(n) ?? []}
+            tool={tool}
+            color={highlightColor}
+            onCreateHighlight={(rects, text) => handleCreateHighlight(n, rects, text)}
+            onCreateComment={(anchor) => handleCreateComment(n, anchor)}
+            onSelectAnnotation={handleSelectAnnotation}
+            onEraseAnnotation={handleErase}
+          />
+          {flipping && <div className="book-shade" style={{ opacity: shade }} />}
+        </div>
+      );
+    });
+  }
+
   return (
     <div className="reader-view">
-      <header className="reader-toolbar">
+      <header
+        ref={toolbarRef}
+        className={`reader-toolbar${barHidden ? ' hidden' : ''}`}
+        style={
+          barHidden
+            ? { marginTop: -(toolbarRef.current?.offsetHeight ?? 72) }
+            : undefined
+        }
+      >
         <button type="button" className="reader-back" onClick={onClose} aria-label="Voltar">
           ←
         </button>
@@ -289,6 +589,20 @@ export function ReaderView({
           ))}
         </div>
 
+        <button
+          type="button"
+          className="reader-mode-btn"
+          onClick={() => {
+            setTurn(null);
+            setBarHidden(false);
+            setViewMode((m) => (m === 'scroll' ? 'page' : 'scroll'));
+          }}
+          title={viewMode === 'scroll' ? 'Modo página (horizontal)' : 'Modo rolagem (vertical)'}
+          aria-label={viewMode === 'scroll' ? 'Mudar para modo página' : 'Mudar para modo rolagem'}
+        >
+          {viewMode === 'scroll' ? '📖' : '📜'}
+        </button>
+
         <div className="reader-zoom">
           <button type="button" onClick={() => setZoom((z) => Math.max(0.5, z - 0.15))} aria-label="Diminuir zoom">−</button>
           <span>{Math.round(zoom * 100)}%</span>
@@ -307,37 +621,78 @@ export function ReaderView({
         </button>
       </header>
 
-      <div className="reader-body">
-        <div className="reader-scroll" ref={scrollRef}>
-          {load.status === 'loading' && <p className="reader-status">Carregando documento…</p>}
-          {load.status === 'error' && <p className="reader-status error">{load.message}</p>}
-          {load.status === 'needs-drive' && (
-            <div className="reader-status">
-              <p>{load.message}</p>
-              <button type="button" onClick={reconnectDrive}>
-                Reconectar Google Drive
-              </button>
-            </div>
-          )}
-          {load.status === 'ready' &&
-            containerWidth > 0 &&
-            Array.from({ length: numPages }, (_, i) => i + 1).map((pageNumber) => (
-              <LazyPdfPage
-                key={pageNumber}
-                getDoc={() => docRef.current}
-                pageNumber={pageNumber}
-                targetWidth={targetWidth}
-                baseAspect={baseAspect}
-                annotations={annotationsByPage.get(pageNumber) ?? []}
-                tool={tool}
-                color={highlightColor}
-                onCreateHighlight={(rects, text) => handleCreateHighlight(pageNumber, rects, text)}
-                onCreateComment={(anchor) => handleCreateComment(pageNumber, anchor)}
-                onSelectAnnotation={handleSelectAnnotation}
-                onEraseAnnotation={handleErase}
-              />
-            ))}
-        </div>
+      <div className="reader-body" ref={bodyRef}>
+        {viewMode === 'scroll' ? (
+          <div className="reader-scroll" ref={scrollRef}>
+            {load.status === 'loading' && <p className="reader-status">Carregando documento…</p>}
+            {load.status === 'error' && <p className="reader-status error">{load.message}</p>}
+            {load.status === 'needs-drive' && (
+              <div className="reader-status">
+                <p>{load.message}</p>
+                <button type="button" onClick={reconnectDrive}>
+                  Reconectar Google Drive
+                </button>
+              </div>
+            )}
+            {load.status === 'ready' && areaSize.w > 0 && (
+              <div className="reader-pages" ref={pagesWrapRef}>
+                {Array.from({ length: numPages }, (_, i) => i + 1).map((pageNumber) => (
+                  <LazyPdfPage
+                    key={pageNumber}
+                    getDoc={() => docRef.current}
+                    pageNumber={pageNumber}
+                    targetWidth={targetWidth}
+                    baseAspect={baseAspect}
+                    annotations={annotationsByPage.get(pageNumber) ?? []}
+                    tool={tool}
+                    color={highlightColor}
+                    onCreateHighlight={(rects, text) => handleCreateHighlight(pageNumber, rects, text)}
+                    onCreateComment={(anchor) => handleCreateComment(pageNumber, anchor)}
+                    onSelectAnnotation={handleSelectAnnotation}
+                    onEraseAnnotation={handleErase}
+                  />
+                ))}
+              </div>
+            )}
+          </div>
+        ) : (
+          <div
+            className="reader-book"
+            ref={bookRef}
+            onPointerDown={onBookPointerDown}
+            onPointerMove={onBookPointerMove}
+            onPointerUp={onBookPointerUp}
+            onPointerCancel={onBookPointerCancel}
+          >
+            {load.status === 'loading' && <p className="reader-status">Carregando documento…</p>}
+            {load.status === 'error' && <p className="reader-status error">{load.message}</p>}
+            {load.status === 'needs-drive' && (
+              <div className="reader-status">
+                <p>{load.message}</p>
+                <button type="button" onClick={reconnectDrive}>
+                  Reconectar Google Drive
+                </button>
+              </div>
+            )}
+            {load.status === 'ready' && areaSize.w > 0 && (
+              <>
+                <div
+                  className="book-stage"
+                  ref={stageRef}
+                  style={{
+                    width: bookPageWidth,
+                    height: bookPageWidth * baseAspect,
+                  }}
+                >
+                  {bookLayers()}
+                </div>
+                <div className="book-pagenum" aria-live="polite">
+                  {pageIndex + 1} / {numPages}
+                </div>
+              </>
+            )}
+          </div>
+        )}
 
         {panelOpen && (
           <aside className="reader-panel">
