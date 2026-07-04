@@ -7,6 +7,10 @@
 // muda nada.
 
 let spenButtonPressed = false;
+// Instrumentação (painel de diagnóstico): conta quantas vezes a ponte nativa
+// chamou e quando — permite ver no aparelho se o aviso do botão está chegando.
+let nativeCallCount = 0;
+let lastNativeCallAt = 0;
 
 declare global {
   interface Window {
@@ -17,9 +21,19 @@ declare global {
 if (typeof window !== 'undefined') {
   window.__spenButton = (pressed: boolean) => {
     spenButtonPressed = !!pressed;
+    nativeCallCount++;
+    lastNativeCallAt = Date.now();
   };
 }
 
 export function isSpenButtonPressed(): boolean {
   return spenButtonPressed;
+}
+
+export function getSpenDebug(): {
+  pressed: boolean;
+  nativeCallCount: number;
+  lastNativeCallAt: number;
+} {
+  return { pressed: spenButtonPressed, nativeCallCount, lastNativeCallAt };
 }

@@ -3,6 +3,7 @@ import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Capacitor } from '@capacitor/core';
 import { collection, getDocs, limit, query } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { getSpenDebug } from '../lib/spen';
 
 // No APK (Capacitor) o app já roda local no WebView e NÃO deve ter service
 // worker: um SW ativo intercepta as requisições (inclusive as do Firestore) e
@@ -36,6 +37,29 @@ function NativeDiagnostics() {
   const [open, setOpen] = useState(false);
   const [lines, setLines] = useState<string[]>(diagCache ?? []);
   const [running, setRunning] = useState(false);
+  // Linha AO VIVO da S-Pen: mostra o último evento de ponteiro (tipo, bits de
+  // botão) e o estado da ponte nativa — com o painel aberto, segurar o botão
+  // da caneta e tocar/pairar na tela revela em qual elo a borracha quebra.
+  const [penLive, setPenLive] = useState('S-Pen: (mexa a caneta na tela)');
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: PointerEvent) => {
+      const d = getSpenDebug();
+      setPenLive(
+        `S-Pen: ev=${e.type} tipo=${e.pointerType} buttons=${e.buttons} button=${e.button}\n` +
+          `ponte nativa: pressionado=${d.pressed} chamadas=${d.nativeCallCount}`,
+      );
+    };
+    window.addEventListener('pointerdown', handler, true);
+    window.addEventListener('pointermove', handler, true);
+    window.addEventListener('pointerup', handler, true);
+    return () => {
+      window.removeEventListener('pointerdown', handler, true);
+      window.removeEventListener('pointermove', handler, true);
+      window.removeEventListener('pointerup', handler, true);
+    };
+  }, [open]);
 
   async function run() {
     if (running) return;
@@ -176,6 +200,7 @@ function NativeDiagnostics() {
           fechar
         </button>
       </div>
+      <div style={{ color: '#ff9', marginBottom: 6 }}>{penLive}</div>
       {lines.length === 0 ? 'rodando…' : lines.join('\n')}
     </div>
   );
