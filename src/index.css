@@ -5180,6 +5180,13 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   border-bottom: 1px solid var(--border);
   background: var(--surface);
   flex-wrap: wrap;
+  /* Auto-oculta ao rolar/virar página: desliza para cima (margin-top negativa
+     via inline style, medida pela altura real) e some. */
+  transition: margin-top 0.25s ease, opacity 0.2s ease;
+}
+.reader-toolbar.hidden {
+  opacity: 0;
+  pointer-events: none;
 }
 .reader-back {
   font-size: 1.2rem;
@@ -5256,6 +5263,77 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   align-items: center;
   gap: 1rem;
 }
+/* Wrapper das páginas na rolagem vertical — alvo do scale temporário da pinça. */
+.reader-pages {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  width: 100%;
+}
+
+/* ---------------- Modo livro (página a página, virada horizontal) --------- */
+.reader-book {
+  flex: 1;
+  position: relative;
+  overflow: auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* O arrasto horizontal é nosso (virada); o vertical não tem pra onde rolar
+     com a página contida — e com zoom o pan é manual (scrollBy). */
+  touch-action: pan-y;
+}
+.book-stage {
+  position: relative;
+  margin: 6px;
+  perspective: 1600px;
+  flex-shrink: 0;
+}
+.book-layer {
+  position: absolute;
+  inset: 0;
+}
+/* Página que está virando: gira em torno da lombada (borda esquerda), com
+   sombra projetada — aproximação da virada do Play Livros. */
+.book-flip {
+  transform-origin: left center;
+  backface-visibility: hidden;
+  will-change: transform;
+  box-shadow: 14px 0 26px rgba(0, 0, 0, 0.2);
+}
+.book-flip.animating {
+  transition: transform 0.32s ease-out;
+}
+.book-shade {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(to left, rgba(0, 0, 0, 0.38), rgba(0, 0, 0, 0) 55%);
+}
+.book-pagenum {
+  position: absolute;
+  bottom: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  color: var(--muted);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.1rem 0.6rem;
+  opacity: 0.85;
+  pointer-events: none;
+}
+.reader-mode-btn {
+  padding: 0.25rem 0.55rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font: inherit;
+  cursor: pointer;
+}
+
 .reader-status {
   margin-top: 3rem;
   color: var(--muted);
