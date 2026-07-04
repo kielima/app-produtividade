@@ -451,6 +451,17 @@ export function PdfPageView({
 
     if (g.mode === 'active') {
       e.preventDefault();
+      // Botão da S-Pen no MEIO do traço: o aviso da ponte nativa chega
+      // assíncrono (evaluateJavascript) e muitas vezes DEPOIS do gesto já ter
+      // nascido como marca-texto — o diagnóstico no aparelho mostrou a ponte
+      // funcionando (chamadas > 0) e a borracha mesmo assim inerte. Reavaliar
+      // a cada movimento (como no Samsung Notes: apertou o botão, virou
+      // borracha na hora), descartando o preview do realce em curso.
+      if (g.action === 'highlight' && isPenEraser(e)) {
+        g.action = 'erase';
+        g.spans.clear();
+        clearOverlay();
+      }
       if (g.action === 'highlight') {
         for (const ev of coalesced(e)) {
           g.minX = Math.min(g.minX, ev.clientX);
