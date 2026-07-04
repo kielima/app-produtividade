@@ -158,6 +158,26 @@ export function PdfPageView({
   }, [page, scale]);
 
   // ----------------------------------------------------------------
+  // Borracha 100% nativa (APK): o MainActivity manda 'spen-erase' com as
+  // coordenadas (px CSS na janela) enquanto o botão da S-Pen está pressionado
+  // com a caneta na tela. Apagamos por aqui SEM depender dos Pointer Events —
+  // que em alguns WebViews são cancelados quando o botão do stylus está
+  // pressionado (a ponte do botão chegava, mas o traço morria antes de apagar).
+  // ----------------------------------------------------------------
+  useEffect(() => {
+    function onSpenErase(e: Event) {
+      const { x, y } = (e as CustomEvent<{ x: number; y: number }>).detail;
+      const container = containerRef.current;
+      if (!container) return;
+      const r = container.getBoundingClientRect();
+      if (x < r.left || x > r.right || y < r.top || y > r.bottom) return;
+      eraseAt({ x: (x - r.left) / r.width, y: (y - r.top) / r.height });
+    }
+    window.addEventListener('spen-erase', onSpenErase);
+    return () => window.removeEventListener('spen-erase', onSpenErase);
+  });
+
+  // ----------------------------------------------------------------
   // Detecção da caneta (técnica do app de apresentações / laser)
   // ----------------------------------------------------------------
   // A S-Pen (e o Apple Pencil) são reconhecidos diretamente por

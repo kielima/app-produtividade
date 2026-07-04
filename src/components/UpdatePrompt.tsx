@@ -48,7 +48,7 @@ function NativeDiagnostics() {
       const d = getSpenDebug();
       setPenLive(
         `S-Pen: ev=${e.type} tipo=${e.pointerType} buttons=${e.buttons} button=${e.button}\n` +
-          `ponte nativa: pressionado=${d.pressed} chamadas=${d.nativeCallCount}`,
+          `ponte nativa: pressionado=${d.pressed} chamadas=${d.nativeCallCount} borracha=${d.eraseCallCount}`,
       );
     };
     window.addEventListener('pointerdown', handler, true);
