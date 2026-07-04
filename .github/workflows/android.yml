@@ -1,9 +1,12 @@
 name: Android APK
 
-# Builda o APK (Capacitor) e envia para o Firebase App Distribution.
+# Builda o APK (Capacitor) e o distribui em dois canais:
+# - App Distribution: em cada Pull Request e no disparo manual (APK por PR para
+#   testar no aparelho antes de mergear).
+# - Atualização in-app: em cada push na main (e no disparo manual), hospeda o
+#   APK no Firebase Hosting e grava o commit + URL no Firestore (`app/versao`).
+#   É o canal que o verificador de atualização in-app (Configurações) consome.
 # - Disparo manual: aba Actions → "Android APK" → Run workflow.
-# - Automático: a cada Pull Request para a main (gera um APK por PR para testar
-#   no aparelho antes de mergear).
 on:
   workflow_dispatch:
     inputs:
@@ -11,6 +14,8 @@ on:
         description: 'Notas da versão (aparecem no App Distribution)'
         required: false
         default: 'Build automático'
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -21,6 +26,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      # Carimba no app o commit realmente construído (tip do checkout). É o
+      # MESMO valor gravado no Firestore (`app/versao.commit`) pelo passo de
+      # publicação, então o verificador de atualização compara igual com igual.
+      - name: Carimbar commit do build
+        run: echo "APP_COMMIT=$(git rev-parse HEAD)" >> "$GITHUB_ENV"
 
       - name: Setup Node 22
         uses: actions/setup-node@v4
@@ -35,6 +46,9 @@ jobs:
       - name: Build web (dist/)
         run: npm run build
         env:
+          # Injeta o commit no bundle (__APP_COMMIT__) para o verificador
+          # comparar com a última build publicada.
+          APP_COMMIT: ${{ env.APP_COMMIT }}
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
           VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
           VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
@@ -162,3 +176,61 @@ jobs:
         with:
           name: app-debug-apk
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      # Canal de atualização in-app: hospeda o APK no Firebase Hosting (site
+      # DEDICADO, separado do site do PWA para não sobrescrevê-lo) e grava o doc
+      # `app/versao` no Firestore com o commit + URL. O verificador dentro do app
+      # lê esse doc, compara com o commit instalado (__APP_COMMIT__) e baixa o
+      # APK se houver versão nova. Só fora de PR (o commit do PR não é a versão
+      # publicada). Reaproveita a service account escrita pelo passo anterior.
+      #
+      # PRÉ-REQUISITO (uma vez): criar o site de distribuição no Firebase Console
+      # (Hosting → Adicionar outro site) com o id abaixo. O plano gratuito
+      # (Spark) permite hospedar o APK; o Storage exigiria o plano Blaze. Se usar
+      # outro id, defina a Variable PRODUTIVIDADE_HOSTING_SITE no repositório.
+      - name: Publicar atualização no Firebase (Hosting + Firestore)
+        if: ${{ always() && github.event_name != 'pull_request' }}
+        env:
+          # Site de Hosting DEDICADO à distribuição do APK. Sem a Variable, usa
+          # 'app-produtividade-builds'. O APK fica em
+          # https://<site>.web.app/builds/produtividade.zip
+          HOSTING_SITE: ${{ vars.PRODUTIVIDADE_HOSTING_SITE || 'app-produtividade-builds' }}
+        run: |
+          set -euo pipefail
+          if [ ! -f "$RUNNER_TEMP/firebase-sa.json" ]; then
+            echo "Service account ausente — o passo de App Distribution não a escreveu."
+            exit 1
+          fi
+          export GOOGLE_APPLICATION_CREDENTIALS="$RUNNER_TEMP/firebase-sa.json"
+          PROJECT_ID=$(node -p "require(process.env.GOOGLE_APPLICATION_CREDENTIALS).project_id")
+          # Aponta o deploy para o SITE dedicado (não o site padrão do PWA).
+          node -e "const fs=require('fs');const p='firebase.hosting-builds.json';const j=JSON.parse(fs.readFileSync(p));j.hosting.site=process.env.HOSTING_SITE;fs.writeFileSync(p,JSON.stringify(j,null,2));"
+          # Servimos com extensão .zip (um APK É um zip) porque o plano gratuito
+          # do Hosting recusa ficheiros .apk. O plugin nativo grava como
+          # produtividade.apk e força o tipo APK no instalador, então a extensão
+          # do URL não afeta a instalação.
+          mkdir -p firebase-hosting/builds
+          cp android/app/build/outputs/apk/debug/app-debug.apk firebase-hosting/builds/produtividade.zip
+          # Tolera o caso benigno em que o APK é byte-idêntico ao já publicado
+          # (re-deploy do mesmo commit): o Hosting recusa "re-lançar" a versão
+          # idêntica com HTTP 400 "is the current active version". Nesse caso o
+          # APK correto JÁ está no ar, então seguimos e atualizamos o Firestore.
+          set +e
+          DEPLOY_OUT=$(npx --yes firebase-tools@latest deploy --only hosting \
+            --config firebase.hosting-builds.json --project "$PROJECT_ID" \
+            --non-interactive 2>&1)
+          DEPLOY_RC=$?
+          set -e
+          printf '%s\n' "$DEPLOY_OUT"
+          if [ "$DEPLOY_RC" -ne 0 ]; then
+            if printf '%s' "$DEPLOY_OUT" | grep -q "is the current active version"; then
+              echo "Deploy no-op (APK já é a versão ativa) — seguindo para o Firestore."
+            else
+              echo "Deploy do Hosting falhou (rc=$DEPLOY_RC)."
+              exit "$DEPLOY_RC"
+            fi
+          fi
+          # Registra a versão (commit + URL) no Firestore. firebase-admin já vem
+          # das devDependencies instaladas por `npm ci`.
+          APK_URL="https://$HOSTING_SITE.web.app/builds/produtividade.zip" \
+            node scripts/publicar-firebase.mjs

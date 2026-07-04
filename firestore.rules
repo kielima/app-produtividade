@@ -51,6 +51,15 @@ service cloud.firestore {
       }
     }
 
+    // Versão publicada do app (verificador de atualização in-app). Contém só o
+    // commit da última build e a URL do APK — nenhum dado pessoal —, por isso a
+    // leitura é pública: o app confere atualização mesmo sem login. Só o backend
+    // (Admin SDK do workflow, que ignora estas regras) escreve aqui.
+    match /app/{doc} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // Default deny — qualquer outro path é bloqueado.
     match /{document=**} {
       allow read, write: if false;
