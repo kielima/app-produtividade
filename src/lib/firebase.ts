@@ -56,10 +56,23 @@ if (isNativePlatform && typeof navigator !== 'undefined') {
   }
 }
 
+// O projectId NÃO é segredo (vai em claro em todo bundle). O diagnóstico do
+// APK mostrou o secret VITE_FIREBASE_PROJECT_ID vazio no CI: o Firestore então
+// consultava `projects//...` e se declarava "client is offline" (o login
+// funcionava porque usa só a apiKey). Fallback em duas etapas: deriva do
+// authDomain (`<projectId>.firebaseapp.com`) e, por fim, o id fixo do projeto —
+// assim um secret ausente nunca mais derruba o Firestore silenciosamente.
+const projectId =
+  import.meta.env.VITE_FIREBASE_PROJECT_ID ||
+  ((import.meta.env.VITE_FIREBASE_AUTH_DOMAIN as string | undefined) || '').split(
+    '.',
+  )[0] ||
+  'app-produtividade-3ec9d';
+
 const config = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
   authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  projectId,
   storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
   messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
   appId: import.meta.env.VITE_FIREBASE_APP_ID,
