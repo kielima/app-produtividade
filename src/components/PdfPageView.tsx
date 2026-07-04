@@ -41,9 +41,11 @@ type Gesture = {
   pointerId: number;
   startX: number;
   startY: number;
-  minX: number;
-  maxX: number;
-  spans: Set<number>;
+  // Ponto atual da caneta. A seleção do marca-texto é computada como seleção
+  // de TEXTO (ordem de leitura) entre (startX,startY) e (curX,curY) — não como
+  // faixa retangular.
+  curX: number;
+  curY: number;
 };
 
 function freshGesture(): Gesture {
@@ -54,9 +56,8 @@ function freshGesture(): Gesture {
     pointerId: -1,
     startX: 0,
     startY: 0,
-    minX: 0,
-    maxX: 0,
-    spans: new Set(),
+    curX: 0,
+    curY: 0,
   };
 }
 
@@ -262,16 +263,63 @@ export function PdfPageView({
     }
   }
 
-  function collectSpansAt(clientX: number, clientY: number) {
+  // "Caret" mais próximo de um ponto: o span (na ordem do texto) em cuja linha
+  // o ponto está, com o X grampeado às bordas do span. Se o ponto não está na
+  // altura de nenhuma linha, cai para o span verticalmente mais próximo.
+  function locateCaret(x: number, y: number): { index: number; x: number } | null {
     const boxes = spanBoxes.current;
-    const g = gesture.current;
+    let best = -1;
+    let bestD = Infinity;
     for (let i = 0; i < boxes.length; i++) {
-      if (g.spans.has(i)) continue;
-      const s = boxes[i];
-      if (clientX >= s.left && clientX <= s.right && clientY >= s.top && clientY <= s.bottom) {
-        g.spans.add(i);
+      const b = boxes[i];
+      if (y < b.top || y > b.bottom) continue;
+      const dx = x < b.left ? b.left - x : x > b.right ? x - b.right : 0;
+      if (dx < bestD) {
+        bestD = dx;
+        best = i;
       }
     }
+    if (best === -1) {
+      for (let i = 0; i < boxes.length; i++) {
+        const b = boxes[i];
+        const d = Math.abs((b.top + b.bottom) / 2 - y);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      }
+    }
+    if (best === -1) return null;
+    const b = boxes[best];
+    return { index: best, x: Math.min(Math.max(x, b.left), b.right) };
+  }
+
+  // Seleção em ORDEM DE LEITURA entre o início e o ponto atual do gesto (como
+  // seleção de texto): primeiro span do X inicial até o fim, spans do meio
+  // inteiros, último span do começo até o X atual. Arrastar "para trás"
+  // inverte âncora/foco e funciona igual.
+  function selectionClamps(): Array<{ index: number; left: number; right: number }> {
+    const g = gesture.current;
+    const boxes = spanBoxes.current;
+    if (!boxes.length) return [];
+    const a = locateCaret(g.startX, g.startY);
+    const f = locateCaret(g.curX, g.curY);
+    if (!a || !f) return [];
+    let s = a;
+    let e = f;
+    if (e.index < s.index || (e.index === s.index && e.x < s.x)) {
+      s = f;
+      e = a;
+    }
+    const out: Array<{ index: number; left: number; right: number }> = [];
+    for (let i = s.index; i <= e.index; i++) {
+      const b = boxes[i];
+      const left = i === s.index ? Math.max(b.left, s.x) : b.left;
+      const right = i === e.index ? Math.min(b.right, e.x) : b.right;
+      if (right - left < 1) continue;
+      out.push({ index: i, left, right });
+    }
+    return out;
   }
 
   // Caixas (client coords) de cada caractere de um span, para realce com
@@ -291,18 +339,14 @@ export function PdfPageView({
     return out;
   }
 
-  // Retângulos do realce, recortados horizontalmente ao trecho varrido (0–1).
+  // Retângulos do realce (0–1) a partir da seleção em ordem de leitura.
   function clampedHighlightRects(): NormRect[] {
-    const g = gesture.current;
     const container = containerRef.current;
     if (!container) return [];
     const c = container.getBoundingClientRect();
     const rects: NormRect[] = [];
-    for (const i of g.spans) {
-      const s = spanBoxes.current[i];
-      const left = Math.max(s.left, g.minX);
-      const right = Math.min(s.right, g.maxX);
-      if (right - left < 1) continue;
+    for (const { index, left, right } of selectionClamps()) {
+      const s = spanBoxes.current[index];
       rects.push({
         x: (left - c.left) / c.width,
         y: (s.top - c.top) / c.height,
@@ -337,18 +381,13 @@ export function PdfPageView({
   }
 
   function finishHighlight() {
-    const g = gesture.current;
     const container = containerRef.current;
     if (!container) return;
     const c = container.getBoundingClientRect();
-    const indices = [...g.spans].sort((a, b) => a - b);
     const rects: NormRect[] = [];
     const parts: string[] = [];
-    for (const i of indices) {
-      const s = spanBoxes.current[i];
-      const left = Math.max(s.left, g.minX);
-      const right = Math.min(s.right, g.maxX);
-      if (right - left < 1) continue;
+    for (const { index, left, right } of selectionClamps()) {
+      const s = spanBoxes.current[index];
       rects.push({
         x: (left - c.left) / c.width,
         y: (s.top - c.top) / c.height,
@@ -434,9 +473,8 @@ export function PdfPageView({
         pointerId: e.pointerId,
         startX: e.clientX,
         startY: e.clientY,
-        minX: e.clientX,
-        maxX: e.clientX,
-        spans: new Set(),
+        curX: e.clientX,
+        curY: e.clientY,
       };
       if (action === 'highlight') snapshotSpans();
       if (action === 'erase') eraseAt(localPoint(e));
@@ -452,9 +490,8 @@ export function PdfPageView({
       pointerId: e.pointerId,
       startX: e.clientX,
       startY: e.clientY,
-      minX: e.clientX,
-      maxX: e.clientX,
-      spans: new Set(),
+      curX: e.clientX,
+      curY: e.clientY,
     };
   }
 
@@ -479,15 +516,11 @@ export function PdfPageView({
       // borracha na hora), descartando o preview do realce em curso.
       if (g.action === 'highlight' && isPenEraser(e)) {
         g.action = 'erase';
-        g.spans.clear();
         clearOverlay();
       }
       if (g.action === 'highlight') {
-        for (const ev of coalesced(e)) {
-          g.minX = Math.min(g.minX, ev.clientX);
-          g.maxX = Math.max(g.maxX, ev.clientX);
-          collectSpansAt(ev.clientX, ev.clientY);
-        }
+        g.curX = e.clientX;
+        g.curY = e.clientY;
         previewHighlight();
       } else if (g.action === 'erase') {
         for (const ev of coalesced(e)) eraseAt(localPoint(ev));
@@ -513,10 +546,8 @@ export function PdfPageView({
     armPen();
     e.preventDefault();
     if (g.action === 'highlight') {
-      g.minX = Math.min(g.startX, e.clientX);
-      g.maxX = Math.max(g.startX, e.clientX);
-      collectSpansAt(g.startX, g.startY);
-      for (const ev of coalesced(e)) collectSpansAt(ev.clientX, ev.clientY);
+      g.curX = e.clientX;
+      g.curY = e.clientY;
       previewHighlight();
     } else if (g.action === 'erase') {
       eraseAt(localPoint({ clientX: g.startX, clientY: g.startY }));
