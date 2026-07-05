@@ -1,21 +1,30 @@
-import { useState } from 'react';
-import type { ReadingItem, ReadingItemType, ReadingStatus } from '../types';
+import { useMemo, useState } from 'react';
+import type { ReadingItem, ReadingStatus } from '../types';
 import {
   fetchByDoi,
   fetchByIsbn,
   fetchByIssn,
   type FetchedMetadata,
 } from '../lib/readingMetadata';
+import {
+  BUILTIN_TYPE_LABELS,
+  readingTypeFromInput,
+  readingTypeLabel,
+} from '../lib/readingTypes';
 import { normalizeTags } from '../lib/tags';
 
 // Editor de metadados de um item da estante, com busca automática por
 // DOI/ISBN/ISSN. Apresentado como diálogo sobre o leitor ou a estante.
 export function MetadataEditor({
   item,
+  allTypes,
   onSave,
   onClose,
 }: {
   item: ReadingItem;
+  // Tipos já existentes na estante, para sugerir no campo "Tipo" (o usuário
+  // pode escolher um destes ou digitar um novo, criando uma nova estante).
+  allTypes: string[];
   // Persiste o patch. Pode renomear o arquivo no Drive (assíncrono e falível),
   // então devolve uma Promise: o editor mostra "Salvando…", fecha no sucesso e
   // mantém-se aberto com a mensagem de erro se algo falhar.
@@ -27,7 +36,9 @@ export function MetadataEditor({
   const [saving, setSaving] = useState(false);
   const [title, setTitle] = useState(item.title);
   const [authors, setAuthors] = useState(item.authors.join(', '));
-  const [itemType, setItemType] = useState<ReadingItemType>(item.itemType);
+  // Campo "Tipo" é livre: guarda o rótulo digitado/escolhido; na hora de salvar
+  // é convertido de volta para o valor canônico (chave embutida ou texto puro).
+  const [typeInput, setTypeInput] = useState(readingTypeLabel(item.itemType));
   const [readingStatus, setReadingStatus] = useState<ReadingStatus>(item.readingStatus);
   const [doi, setDoi] = useState(item.doi ?? '');
   const [isbn, setIsbn] = useState(item.isbn ?? '');
@@ -38,13 +49,21 @@ export function MetadataEditor({
   const [fetching, setFetching] = useState<null | 'doi' | 'isbn' | 'issn'>(null);
   const [error, setError] = useState<string | null>(null);
 
+  // Sugestões do campo "Tipo": rótulos dos embutidos + tipos já usados na
+  // estante, sem duplicar e em ordem alfabética.
+  const typeOptions = useMemo(() => {
+    const set = new Set<string>(Object.values(BUILTIN_TYPE_LABELS));
+    for (const t of allTypes) set.add(readingTypeLabel(t));
+    return [...set].sort((a, b) => a.localeCompare(b));
+  }, [allTypes]);
+
   function applyFetched(meta: FetchedMetadata) {
     if (meta.title) setTitle(meta.title);
     if (meta.authors?.length) setAuthors(meta.authors.join(', '));
     if (meta.year) setYear(meta.year);
     if (meta.publication) setPublication(meta.publication);
     if (meta.issn) setIssn(meta.issn);
-    if (meta.itemType) setItemType(meta.itemType);
+    if (meta.itemType) setTypeInput(readingTypeLabel(meta.itemType));
   }
 
   async function runFetch(kind: 'doi' | 'isbn' | 'issn') {
@@ -71,7 +90,7 @@ export function MetadataEditor({
     const patch: Partial<ReadingItem> = {
       title: title.trim(),
       authors: authors.split(',').map((a) => a.trim()).filter(Boolean),
-      itemType,
+      itemType: readingTypeFromInput(typeInput),
       readingStatus,
       doi: doi.trim() || undefined,
       isbn: isbn.trim() || undefined,
@@ -127,15 +146,18 @@ export function MetadataEditor({
 
         <div className="metadata-row">
           <label className="metadata-field">
-            <span>Tipo</span>
-            <select
-              value={itemType}
-              onChange={(e) => setItemType(e.target.value as ReadingItemType)}
-            >
-              <option value="article">Artigo</option>
-              <option value="book">Livro</option>
-              <option value="other">Outro</option>
-            </select>
+            <span>Tipo (estante)</span>
+            <input
+              list="metadata-type-options"
+              value={typeInput}
+              onChange={(e) => setTypeInput(e.target.value)}
+              placeholder="ex.: Artigo, Livro, Tese…"
+            />
+            <datalist id="metadata-type-options">
+              {typeOptions.map((o) => (
+                <option key={o} value={o} />
+              ))}
+            </datalist>
           </label>
           <label className="metadata-field">
             <span>Status</span>

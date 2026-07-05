@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { ReadingItem } from '../types';
+import { readingTypeLabel } from '../lib/readingTypes';
 import { Popover } from './Popover';
 
 // ---- Definição das colunas disponíveis ----
@@ -44,12 +45,6 @@ interface ColumnDef {
   defaultVisible: boolean;
   render: (item: ReadingItem) => ReactNode;
 }
-
-const TYPE_LABEL: Record<ReadingItem['itemType'], string> = {
-  article: 'Artigo',
-  book: 'Livro',
-  other: 'Outro',
-};
 
 const STATUS_LABEL: Record<ReadingItem['readingStatus'], string> = {
   'to-read': 'A ler',
@@ -82,7 +77,7 @@ const ALL_COLUMNS: ColumnDef[] = [
     key: 'itemType',
     label: 'Tipo',
     defaultVisible: true,
-    render: (it) => TYPE_LABEL[it.itemType],
+    render: (it) => readingTypeLabel(it.itemType),
   },
   {
     key: 'year',

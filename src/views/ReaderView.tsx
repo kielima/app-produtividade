@@ -795,6 +795,7 @@ export function ReaderView({
       {metaOpen && (
         <MetadataEditor
           item={item}
+          allTypes={item.itemType ? [item.itemType] : []}
           onSave={(patch) => saveReadingMetadata(uid, item, patch)}
           onClose={() => setMetaOpen(false)}
         />

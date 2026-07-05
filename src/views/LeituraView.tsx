@@ -27,6 +27,7 @@ import {
   type ReadingColumnConfig,
 } from '../components/ReadingTable';
 import { MetadataEditor } from '../components/MetadataEditor';
+import { groupIntoShelves, sortReadingTypes } from '../lib/readingTypes';
 import { ReaderView } from './ReaderView';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import { useTaskNavigation } from '../lib/taskNavigation';
@@ -116,6 +117,12 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
     return [...set].sort((a, b) => a.localeCompare(b));
   }, [items]);
 
+  const allTypes = useMemo(() => {
+    const set = new Set<string>();
+    for (const it of items) set.add(it.itemType || 'other');
+    return sortReadingTypes([...set]);
+  }, [items]);
+
   const filtered = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
     return items.filter((it) => {
@@ -138,6 +145,8 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
       return true;
     });
   }, [items, filters]);
+
+  const shelves = useMemo(() => groupIntoShelves(filtered), [filtered]);
 
   const openItem = openItemId ? items.find((i) => i.id === openItemId) ?? null : null;
   const metaItem = metaItemId ? items.find((i) => i.id === metaItemId) ?? null : null;
@@ -204,6 +213,7 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
         setState={setFilters}
         allAuthors={allAuthors}
         allTags={allTags}
+        allTypes={allTypes}
       />
 
       {items.length === 0 ? (
@@ -223,25 +233,35 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
           onOpen={(it) => setOpenItemId(it.id)}
           onEditMetadata={(it) => setMetaItemId(it.id)}
         />
+      ) : filtered.length === 0 ? (
+        <p className="muted leitura-no-match">Nenhum item corresponde aos filtros.</p>
       ) : (
-        <div className="reading-shelf">
-          {filtered.map((it) => (
-            <ReadingCard
-              key={it.id}
-              item={it}
-              onOpen={() => setOpenItemId(it.id)}
-              onEditMetadata={() => setMetaItemId(it.id)}
-            />
+        <div className="reading-shelves">
+          {shelves.map((shelf) => (
+            <section key={shelf.type} className="reading-shelf-row">
+              <header className="reading-shelf-header">
+                <h2 className="reading-shelf-title">{shelf.label}</h2>
+                <span className="reading-shelf-count">{shelf.items.length}</span>
+              </header>
+              <div className="reading-shelf-carousel">
+                {shelf.items.map((it) => (
+                  <ReadingCard
+                    key={it.id}
+                    item={it}
+                    onOpen={() => setOpenItemId(it.id)}
+                    onEditMetadata={() => setMetaItemId(it.id)}
+                  />
+                ))}
+              </div>
+            </section>
           ))}
-          {filtered.length === 0 && (
-            <p className="muted leitura-no-match">Nenhum item corresponde aos filtros.</p>
-          )}
         </div>
       )}
 
       {metaItem && (
         <MetadataEditor
           item={metaItem}
+          allTypes={allTypes}
           onSave={(patch) => saveReadingMetadata(uid, metaItem, patch)}
           onClose={() => setMetaItemId(null)}
         />
