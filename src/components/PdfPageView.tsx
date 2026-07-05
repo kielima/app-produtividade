@@ -263,30 +263,35 @@ export function PdfPageView({
     }
   }
 
-  // "Caret" mais próximo de um ponto: o span (na ordem do texto) em cuja linha
-  // o ponto está, com o X grampeado às bordas do span. Se o ponto não está na
-  // altura de nenhuma linha, cai para o span verticalmente mais próximo.
-  function locateCaret(x: number, y: number): { index: number; x: number } | null {
+  // "Caret" mais próximo de um ponto: pontua cada span pela distância
+  // horizontal (dx) + vertical (dy, com peso alto: mesma linha ganha) e, se
+  // houver um span de referência (a âncora da seleção), penaliza spans que NÃO
+  // compartilham a faixa horizontal dele (outra coluna).
+  //
+  // A penalidade de coluna existe porque as linhas das duas colunas têm
+  // alturas desalinhadas: ao terminar o traço num vão entre linhas da coluna
+  // da âncora, esse vão pode coincidir com a faixa vertical de uma linha da
+  // OUTRA coluna — sem a penalidade, o caret do foco pulava de coluna e a
+  // seleção "abraçava" as duas colunas (fragmentos alheios no realce, visto no
+  // aparelho). Só um arrasto bem para dentro da outra coluna supera a
+  // penalidade (seleção entre colunas de propósito continua possível).
+  function locateCaret(
+    x: number,
+    y: number,
+    ref?: SpanBox,
+  ): { index: number; x: number } | null {
     const boxes = spanBoxes.current;
     let best = -1;
-    let bestD = Infinity;
+    let bestScore = Infinity;
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i];
-      if (y < b.top || y > b.bottom) continue;
       const dx = x < b.left ? b.left - x : x > b.right ? x - b.right : 0;
-      if (dx < bestD) {
-        bestD = dx;
+      const dy = y < b.top ? b.top - y : y > b.bottom ? y - b.bottom : 0;
+      const sameCol = !ref || (b.left < ref.right && b.right > ref.left);
+      const score = dx + dy * 4 + (sameCol ? 0 : 160);
+      if (score < bestScore) {
+        bestScore = score;
         best = i;
-      }
-    }
-    if (best === -1) {
-      for (let i = 0; i < boxes.length; i++) {
-        const b = boxes[i];
-        const d = Math.abs((b.top + b.bottom) / 2 - y);
-        if (d < bestD) {
-          bestD = d;
-          best = i;
-        }
       }
     }
     if (best === -1) return null;
@@ -309,8 +314,10 @@ export function PdfPageView({
     const boxes = spanBoxes.current;
     if (!boxes.length) return [];
     const a = locateCaret(g.startX, g.startY);
-    const f = locateCaret(g.curX, g.curY);
-    if (!a || !f) return [];
+    if (!a) return [];
+    // O foco é enviesado para a coluna da âncora (ver locateCaret).
+    const f = locateCaret(g.curX, g.curY, boxes[a.index]);
+    if (!f) return [];
     const aB = boxes[a.index];
     const fB = boxes[f.index];
     const aMid = (aB.top + aB.bottom) / 2;
