@@ -619,6 +619,34 @@ export function ReaderView({
         >
           Anotações ({annotations.length})
         </button>
+        {/* TEMPORÁRIO: exporta o retrato da última marcação (geometria real do
+            aparelho) para depurar o vazamento entre colunas. */}
+        <button
+          type="button"
+          className="reader-panel-btn"
+          title="Exportar diagnóstico da última marcação"
+          aria-label="Exportar diagnóstico da última marcação"
+          onClick={() => {
+            const dump = (window as unknown as { __lastSelDebug?: unknown }).__lastSelDebug;
+            if (!dump) {
+              alert('Faça uma marcação primeiro, depois toque no 🔬.');
+              return;
+            }
+            const text = JSON.stringify(dump);
+            const nav = navigator as Navigator & {
+              share?: (d: { text: string }) => Promise<void>;
+            };
+            navigator.clipboard
+              ?.writeText(text)
+              .then(() => alert('Diagnóstico copiado! Cole no chat.'))
+              .catch(() => {
+                if (nav.share) void nav.share({ text });
+                else alert(text.slice(0, 1500));
+              });
+          }}
+        >
+          🔬
+        </button>
       </header>
 
       <div className="reader-body" ref={bodyRef}>
