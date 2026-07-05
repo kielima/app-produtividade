@@ -454,13 +454,48 @@ export function PdfPageView({
     return out;
   }
 
+  // Recorte VISUAL dos retângulos do realce. No aparelho real as caixas e
+  // segmentos de texto saem mais LARGOS que os glifos desenhados no canvas
+  // (dump real, página 2: linhas cheias da coluna esquerda com borda direita
+  // em 493–497 enquanto as células da coluna vizinha começam em 465), então o
+  // retângulo de uma linha inteira invade as primeiras letras da coluna do
+  // lado, mesmo com a ESCOLHA dos trechos correta. A borda ESQUERDA dos spans
+  // é confiável (vem da posição absoluta do PDF, não da largura da fonte);
+  // recortamos a direita de cada retângulo na borda esquerda do primeiro
+  // vizinho de OUTRA coluna que cruza a mesma linha. Afeta só o DESENHO — o
+  // texto da citação continua usando o intervalo original, senão os últimos
+  // caracteres da linha (com caixas igualmente inchadas) cairiam fora.
+  function clipRectsToNeighbors(
+    picked: Array<{ index: number; left: number; right: number }>,
+  ): Array<{ index: number; left: number; right: number }> {
+    const boxes = spanBoxes.current;
+    const pickedIdx = new Set(picked.map((p) => p.index));
+    return picked.map((p) => {
+      const pb = boxes[p.index];
+      let right = p.right;
+      for (let j = 0; j < boxes.length; j++) {
+        if (pickedIdx.has(j)) continue;
+        const nb = boxes[j];
+        if (nb.top >= pb.bottom || nb.bottom <= pb.top) continue; // outra linha
+        // Outra coluna = borda esquerda bem distante da do span realçado
+        // (mesmo critério de afinidade de coluna do caret).
+        if (Math.abs(nb.left - pb.left) <= Math.max(48, 0.12 * (pb.right - pb.left))) continue;
+        const segs = spanSegments(j);
+        if (!segs.length) continue; // span vazio
+        const nl = segs[0].l;
+        if (nl > p.left + 4 && nl < right) right = nl - 2;
+      }
+      return { index: p.index, left: p.left, right };
+    });
+  }
+
   // Retângulos do realce (0–1) a partir da seleção em ordem de leitura.
   function clampedHighlightRects(): NormRect[] {
     const container = containerRef.current;
     if (!container) return [];
     const c = container.getBoundingClientRect();
     const rects: NormRect[] = [];
-    for (const { index, left, right } of selectionClamps()) {
+    for (const { index, left, right } of clipRectsToNeighbors(selectionClamps())) {
       const s = spanBoxes.current[index];
       rects.push({
         x: (left - c.left) / c.width,
@@ -535,12 +570,15 @@ export function PdfPageView({
     const parts: string[] = [];
     const picked = selectionClamps();
     dumpSelectionDebug(picked);
-    for (const { index, left, right } of picked) {
+    // Desenho recortado no vizinho; texto da citação com o intervalo original.
+    const clipped = clipRectsToNeighbors(picked);
+    for (let k = 0; k < picked.length; k++) {
+      const { index, left, right } = picked[k];
       const s = spanBoxes.current[index];
       rects.push({
-        x: (left - c.left) / c.width,
+        x: (clipped[k].left - c.left) / c.width,
         y: (s.top - c.top) / c.height,
-        w: (right - left) / c.width,
+        w: (clipped[k].right - clipped[k].left) / c.width,
         h: (s.bottom - s.top) / c.height,
       });
       const chars = charBoxes(s.el);
