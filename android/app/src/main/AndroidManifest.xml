@@ -38,4 +38,10 @@
     <!-- Permissions -->
 
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Permite abrir o instalador do Android para o APK baixado pelo
+         verificador de atualização in-app (AtualizadorPlugin). Sem ela, no
+         Android 8+ o sistema bloqueia a abertura do instalador — o APK baixa
+         mas nada acontece ao tocar. Na primeira vez o sistema pede ao usuário
+         para autorizar "instalar apps desconhecidos" deste app. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 </manifest>
