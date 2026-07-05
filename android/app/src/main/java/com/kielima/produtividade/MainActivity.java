@@ -29,6 +29,26 @@ public class MainActivity extends BridgeActivity {
         // o bridge do Capacitor já o conhecer ao inicializar.
         registerPlugin(AtualizadorPlugin.class);
         super.onCreate(savedInstanceState);
+        fixWebViewTextScale();
+    }
+
+    /**
+     * O WebView segue a escala de fonte de acessibilidade do sistema
+     * (textZoom = fontScale × 100). Isso infla TODO o texto do DOM (~14% num
+     * Samsung com fonte "grande") sem afetar o canvas — a camada de texto do
+     * pdf.js fica mais larga que os glifos desenhados e o marca-texto sai
+     * desalinhado (pdf.js issues #12243/#14426; o contorno interno do pdf.js
+     * cobre só o "minimum font size" estrito, não o text zoom do WebView).
+     * Fixamos o zoom de texto em 100% e o font size mínimo em 1px: o DOM
+     * passa a medir exatamente o que o pdf.js calculou.
+     */
+    private void fixWebViewTextScale() {
+        if (getBridge() == null) return;
+        final WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+        webView.getSettings().setTextZoom(100);
+        webView.getSettings().setMinimumFontSize(1);
+        webView.getSettings().setMinimumLogicalFontSize(1);
     }
 
     private boolean isStylusButtonPressed(MotionEvent ev) {
