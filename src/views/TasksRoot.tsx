@@ -9,7 +9,7 @@ import {
 } from '../components/TaskFiltersBar';
 import { normalizeForSearch } from '../lib/searchNormalize';
 import { isSnoozed } from '../lib/snooze';
-import { buildChildStatsMap } from '../lib/taskHierarchy';
+import { buildChildStatsMap, isOrphaned } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
 import { migrateCompletedTasksIntoTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
@@ -100,10 +100,17 @@ export function TasksRoot({
 
   // Subtarefas (filhas) ficam ocultas da lista principal — só aparecem dentro
   // da página do pai. Mantemos `data.tasks` completo para calcular o progresso
-  // das filhas via `childStats`.
+  // das filhas via `childStats`. Tarefas com `parentId` órfão (pai apagado sem
+  // desvincular as filhas) voltam a ser tratadas como de topo, senão ficariam
+  // escondidas para sempre.
   const childStats = useMemo(() => buildChildStatsMap(data.tasks), [data.tasks]);
   const filteredTasks = useMemo(
-    () => applyFilters(data.tasks.filter((t) => !t.parentId), filters, searchQuery),
+    () =>
+      applyFilters(
+        data.tasks.filter((t) => !t.parentId || isOrphaned(t, data.tasks)),
+        filters,
+        searchQuery,
+      ),
     [data.tasks, filters, searchQuery],
   );
 
