@@ -115,7 +115,12 @@ export interface Note {
 
 // Formato do documento. Por ora só 'pdf'; 'epub' fica para fase futura.
 export type ReadingFormat = 'pdf';
-export type ReadingItemType = 'article' | 'book' | 'other';
+// Tipo do item da estante. Os três embutidos ('article' | 'book' | 'other')
+// ganham rótulos amigáveis; qualquer outro texto é um tipo personalizado
+// criado pelo usuário no editor de metadados. Cada tipo distinto vira uma
+// "estante" (carrossel) própria na visualização em estante. O `(string & {})`
+// mantém o autocompletar dos embutidos sem impedir strings arbitrárias.
+export type ReadingItemType = 'article' | 'book' | 'other' | (string & {});
 export type ReadingStatus = 'to-read' | 'reading' | 'read';
 
 export interface ReadingItem {

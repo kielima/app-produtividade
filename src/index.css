@@ -4863,10 +4863,50 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   text-align: center;
 }
 
-.reading-shelf {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+/* ---- Estantes em carrossel (estilo streaming): cada tipo é uma linha ---- */
+.reading-shelves {
+  display: flex;
+  flex-direction: column;
+  gap: 1.75rem;
+}
+.reading-shelf-row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+.reading-shelf-header {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5rem;
+}
+.reading-shelf-title {
+  margin: 0;
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.reading-shelf-count {
+  font-size: 0.8rem;
+  color: var(--muted);
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0.05rem 0.5rem;
+}
+.reading-shelf-carousel {
+  display: flex;
   gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+  /* Sangra até a borda da área de conteúdo para o carrossel parecer contínuo,
+     compensando o padding lateral do container .app. */
+  scrollbar-width: thin;
+}
+.reading-shelf-carousel > .reading-card {
+  flex: 0 0 160px;
+  width: 160px;
+  scroll-snap-align: start;
 }
 
 .reading-card {
