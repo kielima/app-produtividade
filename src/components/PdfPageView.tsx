@@ -472,13 +472,47 @@ export function PdfPageView({
     overlay.getContext('2d')?.clearRect(0, 0, overlay.width, overlay.height);
   }
 
+  // TEMPORÁRIO (diagnóstico no aparelho): guarda um retrato completo da última
+  // marcação — pontos do gesto, TODOS os spans (caixa + segmentos + texto) e o
+  // que foi selecionado. O botão 🔬 do leitor copia/compartilha esse JSON para
+  // depurarmos com os dados REAIS do dispositivo. Remover quando estabilizar.
+  function dumpSelectionDebug(picked: Array<{ index: number; left: number; right: number }>) {
+    try {
+      const g = gesture.current;
+      (window as unknown as { __lastSelDebug?: unknown }).__lastSelDebug = {
+        page: pageNumber,
+        dpr: window.devicePixelRatio,
+        start: { x: Math.round(g.startX), y: Math.round(g.startY) },
+        cur: { x: Math.round(g.curX), y: Math.round(g.curY) },
+        picked: picked.map((p) => ({
+          i: p.index,
+          l: Math.round(p.left),
+          r: Math.round(p.right),
+        })),
+        spans: spanBoxes.current.map((b, i) => ({
+          i,
+          l: Math.round(b.left),
+          r: Math.round(b.right),
+          t: Math.round(b.top),
+          b: Math.round(b.bottom),
+          s: (b.el.textContent ?? '').slice(0, 16),
+          seg: spanSegments(i).map((sg) => [Math.round(sg.l), Math.round(sg.r)]),
+        })),
+      };
+    } catch {
+      // diagnóstico nunca pode quebrar a marcação
+    }
+  }
+
   function finishHighlight() {
     const container = containerRef.current;
     if (!container) return;
     const c = container.getBoundingClientRect();
     const rects: NormRect[] = [];
     const parts: string[] = [];
-    for (const { index, left, right } of selectionClamps()) {
+    const picked = selectionClamps();
+    dumpSelectionDebug(picked);
+    for (const { index, left, right } of picked) {
       const s = spanBoxes.current[index];
       rects.push({
         x: (left - c.left) / c.width,
