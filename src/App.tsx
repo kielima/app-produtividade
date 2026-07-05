@@ -41,6 +41,12 @@ import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
 import { auth } from './lib/firebase';
 import { NotesFiltersBar } from './components/NotesFiltersBar';
+import {
+  LeituraFiltersBar,
+  loadReadingFilters,
+  saveReadingFilters,
+  type ReadingFiltersState,
+} from './components/LeituraFiltersBar';
 import { SearchInput, SearchToggle } from './components/SearchBar';
 import { NoteNavigationContext } from './lib/noteNavigation';
 import { ProjectNavigationContext } from './lib/projectNavigation';
@@ -330,6 +336,13 @@ function AppShell({
   const [searchOpen, setSearchOpen] = useState(false);
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [readingFilters, setReadingFilters] =
+    useState<ReadingFiltersState>(loadReadingFilters);
+  const [readingOptions, setReadingOptions] = useState<{
+    authors: string[];
+    tags: string[];
+    types: string[];
+  }>({ authors: [], tags: [], types: [] });
   const [shareDialog, setShareDialog] = useState<ShareTargetDialogState | null>(
     null,
   );
@@ -419,6 +432,8 @@ function AppShell({
     const unsub = subscribeToNotes(uid, setNotes);
     return unsub;
   }, [uid]);
+
+  useEffect(() => saveReadingFilters(readingFilters), [readingFilters]);
 
   // Mantém o token do Google Calendar quente em background: o scheduler
   // refresca silenciosamente ~30min antes da expiração, evitando que o
@@ -847,13 +862,29 @@ function AppShell({
         className="topbar"
         role="banner"
       >
-        {searchOpen && (tab === 'notes' || tab === 'tasks') ? (
+        {searchOpen && (tab === 'notes' || tab === 'tasks' || tab === 'leitura') ? (
           <SearchInput
-            query={tab === 'notes' ? noteSearchQuery : taskSearchQuery}
-            setQuery={tab === 'notes' ? setNoteSearchQuery : setTaskSearchQuery}
+            query={
+              tab === 'notes'
+                ? noteSearchQuery
+                : tab === 'tasks'
+                  ? taskSearchQuery
+                  : readingFilters.search
+            }
+            setQuery={
+              tab === 'notes'
+                ? setNoteSearchQuery
+                : tab === 'tasks'
+                  ? setTaskSearchQuery
+                  : (q) => setReadingFilters({ ...readingFilters, search: q })
+            }
             onClose={() => setSearchOpen(false)}
             placeholder={
-              tab === 'notes' ? 'Pesquisar anotações...' : 'Pesquisar tarefas...'
+              tab === 'notes'
+                ? 'Pesquisar anotações...'
+                : tab === 'tasks'
+                  ? 'Pesquisar tarefas...'
+                  : 'Pesquisar título, autor, DOI…'
             }
           />
         ) : (
@@ -922,6 +953,21 @@ function AppShell({
               classifyCount={classifyCount}
               searchQuery={taskSearchQuery}
               onClearSearch={() => setTaskSearchQuery('')}
+            />
+          </>
+        )}
+        {tab === 'leitura' && (
+          <>
+            <SearchToggle
+              active={readingFilters.search.length > 0}
+              onClick={() => setSearchOpen(true)}
+            />
+            <LeituraFiltersBar
+              state={readingFilters}
+              setState={setReadingFilters}
+              allAuthors={readingOptions.authors}
+              allTags={readingOptions.tags}
+              allTypes={readingOptions.types}
             />
           </>
         )}
@@ -1007,7 +1053,12 @@ function AppShell({
         )}
         {tab === 'leitura' && (
           <Suspense fallback={<p className="reader-status">Carregando…</p>}>
-            <LeituraView uid={uid} projects={data.projects} />
+            <LeituraView
+              uid={uid}
+              projects={data.projects}
+              filters={readingFilters}
+              onOptionsChange={setReadingOptions}
+            />
           </Suspense>
         )}
         {tab === 'tasks' && (
