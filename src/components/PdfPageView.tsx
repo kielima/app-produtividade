@@ -255,12 +255,53 @@ export function PdfPageView({
   function snapshotSpans() {
     const textLayer = textLayerRef.current;
     spanBoxes.current = [];
+    segCache.current.clear();
     if (!textLayer) return;
     for (const el of Array.from(textLayer.children)) {
       const r = el.getBoundingClientRect();
       if (r.width < 1 || r.height < 1) continue;
       spanBoxes.current.push({ el, left: r.left, top: r.top, right: r.right, bottom: r.bottom });
     }
+  }
+
+  // Segmentos de GLIFOS VISÍVEIS de cada span (cache por gesto). Em alguns
+  // PDFs, um span da coluna direita começa com espaços que ocupam a largura da
+  // coluna esquerda: a CAIXA do span começa numa coluna e o texto visível está
+  // na outra — qualquer filtro baseado na caixa deixa passar. Os segmentos
+  // (sequências de caracteres não-brancos, quebradas em vãos grandes como o
+  // corredor entre colunas) dizem onde existe texto DE VERDADE.
+  const segCache = useRef<Map<number, Array<{ l: number; r: number }>>>(new Map());
+
+  function spanSegments(i: number): Array<{ l: number; r: number }> {
+    const cached = segCache.current.get(i);
+    if (cached) return cached;
+    const b = spanBoxes.current[i];
+    const chars = charBoxes(b.el);
+    const segs: Array<{ l: number; r: number }> = [];
+    const gap = Math.max(8, (b.bottom - b.top) * 1.2);
+    for (const ch of chars) {
+      if (!ch.ch.trim() || ch.r - ch.l <= 0) continue;
+      const last = segs[segs.length - 1];
+      if (last && ch.l - last.r <= gap) last.r = Math.max(last.r, ch.r);
+      else segs.push({ l: ch.l, r: ch.r });
+    }
+    const out = segs.length ? segs : [{ l: b.left, r: b.right }];
+    segCache.current.set(i, out);
+    return out;
+  }
+
+  function segmentNear(i: number, x: number): { l: number; r: number } {
+    const segs = spanSegments(i);
+    let best = segs[0];
+    let bestD = Infinity;
+    for (const sg of segs) {
+      const d = x < sg.l ? sg.l - x : x > sg.r ? x - sg.r : 0;
+      if (d < bestD) {
+        bestD = d;
+        best = sg;
+      }
+    }
+    return best;
   }
 
   // "Caret" mais próximo de um ponto: pontua cada span pela distância
@@ -331,25 +372,35 @@ export function PdfPageView({
     }
     const sMid = (sB.top + sB.bottom) / 2;
     const eMid = (eB.top + eB.bottom) / 2;
-    // Coluna da seleção: faixa horizontal coberta pelos trechos de início/fim.
-    const colLeft = Math.min(sB.left, eB.left);
-    const colRight = Math.max(sB.right, eB.right);
+    // Coluna da seleção: faixa horizontal dos SEGMENTOS de glifos da âncora e
+    // do foco (não das caixas — ver spanSegments), com os X de recorte
+    // grampeados dentro deles.
+    const sSeg = segmentNear(s.index, s.x);
+    const eSeg = segmentNear(e.index, e.x);
+    const sx = Math.min(Math.max(s.x, sSeg.l), sSeg.r);
+    const ex = Math.min(Math.max(e.x, eSeg.l), eSeg.r);
+    const colLeft = Math.min(sSeg.l, eSeg.l);
+    const colRight = Math.max(sSeg.r, eSeg.r);
 
     const picked: Array<{ index: number; left: number; right: number; cy: number }> = [];
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i];
-      const cx = (b.left + b.right) / 2;
-      if (cx < colLeft - 2 || cx > colRight + 2) continue; // fora da coluna
       const cy = (b.top + b.bottom) / 2;
       const onStart = cy >= sB.top && cy <= sB.bottom; // linha da âncora
       const onEnd = cy >= eB.top && cy <= eB.bottom; // linha do foco
       if (!onStart && !onEnd && (cy <= sMid || cy >= eMid)) continue; // fora do intervalo
-      if (onStart && b.right <= s.x) continue; // antes do início, mesma linha
-      if (onEnd && b.left >= e.x) continue; // depois do fim, mesma linha
-      const left = onStart ? Math.max(b.left, s.x) : b.left;
-      const right = onEnd ? Math.min(b.right, e.x) : b.right;
-      if (right - left < 1) continue;
-      picked.push({ index: i, left, right, cy });
+      // Testes horizontais POR SEGMENTO de glifos: imune a spans com espaços
+      // enormes internos ou caixas que atravessam o corredor entre colunas.
+      for (const sg of spanSegments(i)) {
+        const cx = (sg.l + sg.r) / 2;
+        if (cx < colLeft - 2 || cx > colRight + 2) continue; // fora da coluna
+        if (onStart && sg.r <= sx) continue; // antes do início, mesma linha
+        if (onEnd && sg.l >= ex) continue; // depois do fim, mesma linha
+        const left = onStart ? Math.max(sg.l, sx) : sg.l;
+        const right = onEnd ? Math.min(sg.r, ex) : sg.r;
+        if (right - left < 1) continue;
+        picked.push({ index: i, left, right, cy });
+      }
     }
     // Ordena em ordem de leitura (linha de cima para baixo; na linha, esquerda
     // para direita) — vale para o texto extraído da citação.
