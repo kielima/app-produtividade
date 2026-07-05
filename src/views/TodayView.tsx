@@ -60,7 +60,7 @@ import { getDisplayTitle } from '../lib/parser';
 import { useProjectNavigation } from '../lib/projectNavigation';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import { isSnoozed } from '../lib/snooze';
-import { buildChildStatsMap } from '../lib/taskHierarchy';
+import { buildChildStatsMap, buildTaskCountByProject } from '../lib/taskHierarchy';
 import type {
   Esforco,
   MoSCoW,
@@ -763,16 +763,7 @@ export function TodayView({
 
   const childStatsMap = useMemo(() => buildChildStatsMap(tasks), [tasks]);
 
-  const taskCountByProject = useMemo(() => {
-    const counts: Record<string, { total: number; done: number }> = {};
-    for (const t of tasks) {
-      const entry = counts[t.section] ?? { total: 0, done: 0 };
-      entry.total += 1;
-      if (t.checked) entry.done += 1;
-      counts[t.section] = entry;
-    }
-    return counts;
-  }, [tasks]);
+  const taskCountByProject = useMemo(() => buildTaskCountByProject(tasks), [tasks]);
 
   // Snapshot diário das 3 tarefas: uma vez escolhidas para o dia, ficam
   // congeladas na tela (mesmo após marcadas como concluídas) e só são

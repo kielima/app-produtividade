@@ -1,14 +1,21 @@
 import { describe, expect, it } from 'vitest';
 import {
   buildChildStatsMap,
+  buildTaskCountByProject,
   getChildren,
   getDescendantIds,
   hasIncompleteChildren,
   isOrphaned,
+  isTopLevel,
 } from './taskHierarchy';
 import type { Task } from '../types';
 
-function mk(id: string, parentId: string | null, checked = false): Task {
+function mk(
+  id: string,
+  parentId: string | null,
+  checked = false,
+  section = 'p',
+): Task {
   return {
     id,
     taskId: Number(id),
@@ -24,7 +31,7 @@ function mk(id: string, parentId: string | null, checked = false): Task {
     dependsOn: [],
     subtasks: [],
     parentId,
-    section: 'p',
+    section,
     completedAt: null,
   };
 }
@@ -65,5 +72,23 @@ describe('taskHierarchy', () => {
     expect(isOrphaned(withZombie.find((t) => t.id === '6')!, withZombie)).toBe(true);
     expect(isOrphaned(withZombie.find((t) => t.id === '2')!, withZombie)).toBe(false);
     expect(isOrphaned(withZombie.find((t) => t.id === '1')!, withZombie)).toBe(false);
+  });
+
+  it('isTopLevel exclui filhas com pai existente e inclui órfãs', () => {
+    const withZombie = [...tasks, mk('6', 'pai-apagado')];
+    expect(isTopLevel(withZombie.find((t) => t.id === '1')!, withZombie)).toBe(true);
+    expect(isTopLevel(withZombie.find((t) => t.id === '2')!, withZombie)).toBe(false);
+    expect(isTopLevel(withZombie.find((t) => t.id === '6')!, withZombie)).toBe(true);
+  });
+
+  it('buildTaskCountByProject ignora filhas de pai existente, mesmo se o pai já mudou de section', () => {
+    // '3' é filha de '1' (projeto "p") mas ficou com section="antigo" porque o
+    // pai foi movido pra outro projeto sem cascatear (bug já corrigido, mas os
+    // dados legados ainda existem) — não deve contar em nenhum projeto.
+    const moved = [mk('1', null, false, 'novo'), mk('2', '1', true, 'p'), mk('3', '1', false, 'antigo')];
+    const counts = buildTaskCountByProject(moved);
+    expect(counts['novo']).toEqual({ total: 1, done: 0 });
+    expect(counts['antigo']).toBeUndefined();
+    expect(counts['p']).toBeUndefined();
   });
 });

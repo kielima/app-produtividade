@@ -39,6 +39,32 @@ export function hasIncompleteChildren(taskId: string, allTasks: Task[]): boolean
 }
 
 /**
+ * Indica se `t` deve ser tratada como tarefa de topo: não tem pai, ou tem
+ * (`isOrphaned`). Subtarefas de um pai que ainda existe não contam.
+ */
+export function isTopLevel(t: Task, allTasks: Task[]): boolean {
+  return !t.parentId || isOrphaned(t, allTasks);
+}
+
+/**
+ * Conta tarefas de topo por projeto (`section`). Subtarefas de um pai que
+ * ainda existe são ignoradas, para bater com o que a lista de Tasks exibe.
+ */
+export function buildTaskCountByProject(
+  allTasks: Task[],
+): Record<string, { total: number; done: number }> {
+  const counts: Record<string, { total: number; done: number }> = {};
+  for (const t of allTasks) {
+    if (!isTopLevel(t, allTasks)) continue;
+    const entry = counts[t.section] ?? { total: 0, done: 0 };
+    entry.total += 1;
+    if (t.checked) entry.done += 1;
+    counts[t.section] = entry;
+  }
+  return counts;
+}
+
+/**
  * Mapa parentId → { total, done } das filhas diretas. Usado para mostrar
  * progresso (ex: 2/5) e para travar a conclusão de pais com filhas abertas.
  */
