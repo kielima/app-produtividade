@@ -4835,22 +4835,16 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 
 .reading-filters {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.25rem;
   margin-bottom: 1rem;
 }
-.reading-filters .reading-search {
-  flex: 1 1 16rem;
-  min-width: 12rem;
-}
-.reading-filters input,
-.reading-filters select {
-  padding: 0.4rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface);
-  color: var(--fg);
-  font: inherit;
+/* Fora do topbar não vale o espaçamento automático; agrupa os ícones. */
+.reading-filters .topbar-search,
+.reading-filters .topbar-filter {
+  margin-left: 0;
+  padding-left: 0;
 }
 
 .leitura-empty {
