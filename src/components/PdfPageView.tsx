@@ -155,6 +155,12 @@ export function PdfPageView({
       cancelled = true;
       renderTask.cancel();
       textLayer.cancel();
+      // Higiene de render: um render CANCELADO (troca de zoom/escala) deixa os
+      // spans já emitidos para trás, e chunks atrasados ainda podem pousar
+      // depois do próximo replaceChildren. O diagnóstico no aparelho mostrou a
+      // camada de texto com spans duplicados (título ×5) e mistos de renders
+      // antigos — geometria fantasma que bagunçava a seleção do marca-texto.
+      textLayerDiv.replaceChildren();
     };
   }, [page, scale]);
 
@@ -328,7 +334,14 @@ export function PdfPageView({
       const b = boxes[i];
       const dx = x < b.left ? b.left - x : x > b.right ? x - b.right : 0;
       const dy = y < b.top ? b.top - y : y > b.bottom ? y - b.bottom : 0;
-      const sameCol = !ref || (b.left < ref.right && b.right > ref.left);
+      // Mesma coluna = bordas ESQUERDAS próximas (colunas são alinhadas à
+      // esquerda; tolerância cobre o recuo de parágrafo). O diagnóstico real
+      // do aparelho mostrou que as CAIXAS dos spans podem se sobrepor entre
+      // colunas (caixa ~15% mais larga que os glifos visíveis), o que
+      // enganava o teste anterior por interseção de caixas.
+      const sameCol =
+        !ref ||
+        Math.abs(b.left - ref.left) <= Math.max(48, 0.12 * (ref.right - ref.left));
       const score = dx + dy * 4 + (sameCol ? 0 : 160);
       if (score < bestScore) {
         bestScore = score;
