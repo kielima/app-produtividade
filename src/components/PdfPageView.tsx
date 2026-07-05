@@ -295,9 +295,15 @@ export function PdfPageView({
   }
 
   // Seleção em ORDEM DE LEITURA entre o início e o ponto atual do gesto (como
-  // seleção de texto): primeiro span do X inicial até o fim, spans do meio
-  // inteiros, último span do começo até o X atual. Arrastar "para trás"
-  // inverte âncora/foco e funciona igual.
+  // seleção de texto): linha da âncora do X inicial até o fim, linhas do meio
+  // inteiras, linha do foco do começo até o X atual.
+  //
+  // IMPORTANTE: a seleção é 100% GEOMÉTRICA — linhas pela posição vertical e
+  // coluna pela faixa horizontal — e NÃO usa a ordem interna dos trechos do
+  // PDF. Motivo: em muitos arquivos (sobretudo de duas colunas) essa ordem
+  // intercala as colunas de formas imprevisíveis, e qualquer seleção "por
+  // índice" arrasta pedaços da outra coluna para o realce (bug visto no
+  // aparelho mesmo com filtro de coluna sobre o intervalo de índices).
   function selectionClamps(): Array<{ index: number; left: number; right: number }> {
     const g = gesture.current;
     const boxes = spanBoxes.current;
@@ -305,34 +311,49 @@ export function PdfPageView({
     const a = locateCaret(g.startX, g.startY);
     const f = locateCaret(g.curX, g.curY);
     if (!a || !f) return [];
-    let s = a;
-    let e = f;
-    if (e.index < s.index || (e.index === s.index && e.x < s.x)) {
-      s = f;
-      e = a;
+    const aB = boxes[a.index];
+    const fB = boxes[f.index];
+    const aMid = (aB.top + aB.bottom) / 2;
+    const fMid = (fB.top + fB.bottom) / 2;
+    // Mesma linha = faixas verticais se sobrepõem no centro uma da outra.
+    const sameRow = aMid <= fB.bottom && fMid <= aB.bottom && aMid >= fB.top && fMid >= aB.top;
+    // Âncora antes do foco (linha acima, ou mesma linha e X menor).
+    let s = a, sB = aB, e = f, eB = fB;
+    if (sameRow ? f.x < a.x : fMid < aMid) {
+      s = f; sB = fB; e = a; eB = aB;
     }
-    // Faixa horizontal (coluna) da seleção: em PDFs de duas colunas, a ordem
-    // interna dos trechos às vezes intercala as colunas — sem este filtro,
-    // "tudo entre âncora e foco" arrasta pedaços da OUTRA coluna para o
-    // realce. Trechos intermediários só entram se o centro deles estiver na
-    // faixa horizontal coberta pelos trechos de início/fim.
-    const sBox = boxes[s.index];
-    const eBox = boxes[e.index];
-    const colLeft = Math.min(sBox.left, eBox.left);
-    const colRight = Math.max(sBox.right, eBox.right);
-    const out: Array<{ index: number; left: number; right: number }> = [];
-    for (let i = s.index; i <= e.index; i++) {
+    const sMid = (sB.top + sB.bottom) / 2;
+    const eMid = (eB.top + eB.bottom) / 2;
+    // Coluna da seleção: faixa horizontal coberta pelos trechos de início/fim.
+    const colLeft = Math.min(sB.left, eB.left);
+    const colRight = Math.max(sB.right, eB.right);
+
+    const picked: Array<{ index: number; left: number; right: number; cy: number }> = [];
+    for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i];
-      if (i !== s.index && i !== e.index) {
-        const cx = (b.left + b.right) / 2;
-        if (cx < colLeft - 2 || cx > colRight + 2) continue; // outra coluna
-      }
-      const left = i === s.index ? Math.max(b.left, s.x) : b.left;
-      const right = i === e.index ? Math.min(b.right, e.x) : b.right;
+      const cx = (b.left + b.right) / 2;
+      if (cx < colLeft - 2 || cx > colRight + 2) continue; // fora da coluna
+      const cy = (b.top + b.bottom) / 2;
+      const onStart = cy >= sB.top && cy <= sB.bottom; // linha da âncora
+      const onEnd = cy >= eB.top && cy <= eB.bottom; // linha do foco
+      if (!onStart && !onEnd && (cy <= sMid || cy >= eMid)) continue; // fora do intervalo
+      if (onStart && b.right <= s.x) continue; // antes do início, mesma linha
+      if (onEnd && b.left >= e.x) continue; // depois do fim, mesma linha
+      const left = onStart ? Math.max(b.left, s.x) : b.left;
+      const right = onEnd ? Math.min(b.right, e.x) : b.right;
       if (right - left < 1) continue;
-      out.push({ index: i, left, right });
+      picked.push({ index: i, left, right, cy });
     }
-    return out;
+    // Ordena em ordem de leitura (linha de cima para baixo; na linha, esquerda
+    // para direita) — vale para o texto extraído da citação.
+    picked.sort((p, q) => {
+      const bp = boxes[p.index];
+      const bq = boxes[q.index];
+      const rowTol = Math.min(bp.bottom - bp.top, bq.bottom - bq.top) * 0.6;
+      if (Math.abs(p.cy - q.cy) > rowTol) return p.cy - q.cy;
+      return p.left - q.left;
+    });
+    return picked.map(({ index, left, right }) => ({ index, left, right }));
   }
 
   // Caixas (client coords) de cada caractere de um span, para realce com
