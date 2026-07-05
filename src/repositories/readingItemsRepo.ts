@@ -28,6 +28,8 @@ function normalize(id: string, data: Partial<ReadingItem>): ReadingItem {
     addedDate: data.addedDate ?? '',
     readingStatus: data.readingStatus ?? 'to-read',
     ...(data.fileName != null ? { fileName: data.fileName } : {}),
+    ...(data.folderId != null ? { folderId: data.folderId } : {}),
+    ...(data.folderPath != null ? { folderPath: data.folderPath } : {}),
     ...(data.doi != null ? { doi: data.doi } : {}),
     ...(data.isbn != null ? { isbn: data.isbn } : {}),
     ...(data.issn != null ? { issn: data.issn } : {}),
@@ -114,17 +116,26 @@ export async function saveReadingMetadata(
 // usuário já editou. Retorna true quando criou um item novo.
 export async function ensureReadingItemFromDrive(
   uid: string,
-  file: { id: string; name: string },
+  file: { id: string; name: string; folderId?: string; folderPath?: string },
 ): Promise<boolean> {
   const ref = doc(db, 'users', uid, 'readingItems', file.id);
   const existing = await getDoc(ref);
   if (existing.exists()) {
-    // Item já existe: o Drive é a fonte de verdade do nome do arquivo, então
-    // espelha o nome atual no app (cobre itens antigos sem fileName e arquivos
-    // renomeados direto no Drive). Não toca em mais nenhum metadado editado.
+    // Item já existe: o Drive é a fonte de verdade do nome do arquivo e da pasta,
+    // então espelha o estado atual no app (cobre itens antigos sem fileName/pasta
+    // e arquivos renomeados ou movidos direto no Drive). Não toca em mais nenhum
+    // metadado editado.
     const data = existing.data() as Partial<ReadingItem>;
-    if (data.fileName !== file.name) {
-      await setDoc(ref, { fileName: file.name }, { merge: true });
+    const patch: Partial<ReadingItem> = {};
+    if (data.fileName !== file.name) patch.fileName = file.name;
+    if (file.folderId != null && data.folderId !== file.folderId) {
+      patch.folderId = file.folderId;
+    }
+    if (file.folderPath != null && data.folderPath !== file.folderPath) {
+      patch.folderPath = file.folderPath;
+    }
+    if (Object.keys(patch).length > 0) {
+      await setDoc(ref, patch, { merge: true });
     }
     return false;
   }
@@ -134,6 +145,8 @@ export async function ensureReadingItemFromDrive(
     id: file.id,
     driveFileId: file.id,
     fileName: file.name,
+    ...(file.folderId != null ? { folderId: file.folderId } : {}),
+    ...(file.folderPath != null ? { folderPath: file.folderPath } : {}),
     format: 'pdf',
     title: file.name.replace(/\.pdf$/i, ''),
     authors: [],

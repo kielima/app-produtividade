@@ -130,6 +130,12 @@ export interface ReadingItem {
   // Nome do arquivo no Google Drive (com extensão). Espelha o nome real no
   // Drive: a sincronização traz daqui e renomear pelo app reescreve aqui e lá.
   fileName?: string;
+  // Id da pasta que contém o arquivo no Drive. Permite montar o link direto
+  // para abrir a pasta (https://drive.google.com/drive/folders/{folderId}).
+  folderId?: string;
+  // Caminho legível da pasta no Drive, da raiz até a pasta imediata
+  // (ex.: "Meu Drive / Artigos / 2024"). Preenchido na sincronização.
+  folderPath?: string;
   format: ReadingFormat;
   title: string;
   authors: string[];

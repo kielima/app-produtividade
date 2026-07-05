@@ -12,6 +12,8 @@ import {
   listDrivePdfs,
   ensureDriveToken,
   tryRefreshDriveToken,
+  resolveDriveFolderPath,
+  type DriveFolderMeta,
 } from '../lib/googleDrive';
 import { type ReadingFiltersState } from '../components/LeituraFiltersBar';
 import { ReadingCard } from '../components/ReadingCard';
@@ -102,8 +104,24 @@ export function LeituraView({
       setConnected(true);
       const files = await listDrivePdfs(token);
       setSync({ status: 'syncing', found: files.length });
+      // Cache de pastas compartilhado por toda a sincronização: muitas PDFs
+      // dividem as mesmas pastas, então cada uma só é resolvida uma vez.
+      const folderCache = new Map<string, DriveFolderMeta | null>();
       for (const f of files) {
-        await ensureReadingItemFromDrive(uid, { id: f.id, name: f.name });
+        let folderId: string | undefined;
+        let folderPath: string | undefined;
+        const parent = f.parents?.[0];
+        if (parent) {
+          const resolved = await resolveDriveFolderPath(token, parent, folderCache);
+          folderId = resolved.folderId;
+          folderPath = resolved.folderPath;
+        }
+        await ensureReadingItemFromDrive(uid, {
+          id: f.id,
+          name: f.name,
+          folderId,
+          folderPath,
+        });
       }
       setSync({ status: 'idle' });
     } catch (e) {

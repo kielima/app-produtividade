@@ -5227,6 +5227,40 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font: inherit;
   cursor: pointer;
 }
+.metadata-folder {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+}
+.metadata-folder-path {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--fg);
+}
+.metadata-folder-link {
+  flex: none;
+  color: var(--accent);
+  text-decoration: none;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.metadata-folder-link:hover {
+  text-decoration: underline;
+}
+.reading-table-folder-link {
+  color: var(--accent);
+  text-decoration: none;
+}
+.reading-table-folder-link:hover {
+  text-decoration: underline;
+}
 
 /* ---- Leitor de PDF ---- */
 .reader-view {
