@@ -4833,19 +4833,6 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   cursor: progress;
 }
 
-.reading-filters {
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  gap: 0.25rem;
-  margin-bottom: 1rem;
-}
-/* Fora do topbar não vale o espaçamento automático; agrupa os ícones. */
-.reading-filters .topbar-search,
-.reading-filters .topbar-filter {
-  margin-left: 0;
-  padding-left: 0;
-}
 
 .leitura-empty {
   text-align: center;

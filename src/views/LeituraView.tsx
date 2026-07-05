@@ -13,14 +13,8 @@ import {
   ensureDriveToken,
   tryRefreshDriveToken,
 } from '../lib/googleDrive';
-import {
-  LeituraFiltersBar,
-  loadReadingFilters,
-  saveReadingFilters,
-  type ReadingFiltersState,
-} from '../components/LeituraFiltersBar';
+import { type ReadingFiltersState } from '../components/LeituraFiltersBar';
 import { ReadingCard } from '../components/ReadingCard';
-import { SearchInput, SearchToggle } from '../components/SearchBar';
 import {
   ReadingTable,
   loadReadingColumns,
@@ -46,7 +40,21 @@ function loadLeituraLayout(): LeituraLayout {
   return localStorage.getItem(LEITURA_LAYOUT_KEY) === 'table' ? 'table' : 'shelf';
 }
 
-export function LeituraView({ uid, projects }: { uid: string; projects: Project[] }) {
+export function LeituraView({
+  uid,
+  projects,
+  filters,
+  onOptionsChange,
+}: {
+  uid: string;
+  projects: Project[];
+  filters: ReadingFiltersState;
+  onOptionsChange: (opts: {
+    authors: string[];
+    tags: string[];
+    types: string[];
+  }) => void;
+}) {
   const noteNav = useNoteNavigation();
   const taskNav = useTaskNavigation();
 
@@ -55,16 +63,12 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
     () => hasDriveAccess(uid) || hasEverConnectedDrive(),
   );
   const [sync, setSync] = useState<SyncState>({ status: 'idle' });
-  const [filters, setFilters] = useState<ReadingFiltersState>(loadReadingFilters);
   const [openItemId, setOpenItemId] = useState<string | null>(null);
   const [metaItemId, setMetaItemId] = useState<string | null>(null);
   const [layout, setLayout] = useState<LeituraLayout>(loadLeituraLayout);
   const [columns, setColumns] = useState<ReadingColumnConfig[]>(loadReadingColumns);
-  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => subscribeToReadingItems(uid, setItems), [uid]);
-
-  useEffect(() => saveReadingFilters(filters), [filters]);
 
   useEffect(() => {
     localStorage.setItem(LEITURA_LAYOUT_KEY, layout);
@@ -124,6 +128,11 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
     for (const it of items) set.add(it.itemType || 'other');
     return sortReadingTypes([...set]);
   }, [items]);
+
+  // Publica as opções de filtro para a barra que vive no topbar (App).
+  useEffect(() => {
+    onOptionsChange({ authors: allAuthors, tags: allTags, types: allTypes });
+  }, [allAuthors, allTags, allTypes, onOptionsChange]);
 
   const filtered = useMemo(() => {
     const q = filters.search.trim().toLowerCase();
@@ -208,31 +217,6 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
             Tabela
           </button>
         </div>
-      </div>
-
-      <div className="reading-filters">
-        {searchOpen ? (
-          <SearchInput
-            query={filters.search}
-            setQuery={(q) => setFilters({ ...filters, search: q })}
-            onClose={() => setSearchOpen(false)}
-            placeholder="Pesquisar título, autor, DOI…"
-          />
-        ) : (
-          <>
-            <SearchToggle
-              active={filters.search.length > 0}
-              onClick={() => setSearchOpen(true)}
-            />
-            <LeituraFiltersBar
-              state={filters}
-              setState={setFilters}
-              allAuthors={allAuthors}
-              allTags={allTags}
-              allTypes={allTypes}
-            />
-          </>
-        )}
       </div>
 
       {items.length === 0 ? (
