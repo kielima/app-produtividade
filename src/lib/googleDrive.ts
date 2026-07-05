@@ -338,6 +338,9 @@ export type DriveFile = {
   mimeType: string;
   modifiedTime?: string;
   size?: string;
+  // Ids das pastas que contêm o arquivo. Normalmente uma só; usamos a primeira
+  // para montar o caminho e o link da pasta na estante.
+  parents?: string[];
 };
 
 type DriveListResponse = {
@@ -373,7 +376,7 @@ export async function listDrivePdfs(token: string): Promise<DriveFile[]> {
   let pageToken: string | undefined;
   const baseParams = {
     q: "mimeType='application/pdf' and trashed=false",
-    fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size)',
+    fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, parents)',
     pageSize: '200',
     orderBy: 'modifiedTime desc',
     spaces: 'drive',
@@ -394,6 +397,69 @@ export async function listDrivePdfs(token: string): Promise<DriveFile[]> {
     pageToken = json.nextPageToken;
   } while (pageToken);
   return files;
+}
+
+// Link direto para abrir uma pasta no Google Drive na web.
+export function driveFolderLink(folderId: string): string {
+  return `https://drive.google.com/drive/folders/${encodeURIComponent(folderId)}`;
+}
+
+export type DriveFolderMeta = { id: string; name: string; parents?: string[] };
+
+// Metadados de uma pasta (nome + pasta-mãe). Devolve null quando a pasta não é
+// acessível (ex.: raiz de um Drive compartilhado), para a subida do caminho
+// parar sem quebrar a sincronização inteira.
+async function getDriveFolderMeta(
+  token: string,
+  folderId: string,
+): Promise<DriveFolderMeta | null> {
+  const params = new URLSearchParams({
+    fields: 'id, name, parents',
+    supportsAllDrives: 'true',
+  });
+  try {
+    const res = await driveFetch(
+      token,
+      `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(folderId)}?${params.toString()}`,
+    );
+    const json = (await res.json()) as DriveFolderMeta;
+    return json?.id ? json : null;
+  } catch (e) {
+    // Um problema de auth deve interromper a sincronização (o chamador reconecta);
+    // qualquer outra falha (404/pasta inacessível) apenas encerra o caminho aqui.
+    if (e instanceof DriveAuthError) throw e;
+    return null;
+  }
+}
+
+export type ResolvedDriveFolder = { folderId: string; folderPath: string };
+
+// Monta o caminho legível de uma pasta, da raiz até ela própria
+// (ex.: "Meu Drive / Artigos / 2024"), subindo pela cadeia de `parents`.
+// `metaCache` é compartilhado por toda a sincronização: como muitas PDFs dividem
+// as mesmas pastas, cada pasta só é buscada uma vez.
+export async function resolveDriveFolderPath(
+  token: string,
+  folderId: string,
+  metaCache: Map<string, DriveFolderMeta | null>,
+): Promise<ResolvedDriveFolder> {
+  const names: string[] = [];
+  const seen = new Set<string>();
+  let currentId: string | undefined = folderId;
+  // Cap de profundidade defensivo contra ciclos ou hierarquias muito fundas.
+  for (let depth = 0; currentId && depth < 20; depth++) {
+    if (seen.has(currentId)) break;
+    seen.add(currentId);
+    let meta = metaCache.get(currentId);
+    if (meta === undefined) {
+      meta = await getDriveFolderMeta(token, currentId);
+      metaCache.set(currentId, meta);
+    }
+    if (!meta) break;
+    names.unshift(meta.name);
+    currentId = meta.parents?.[0];
+  }
+  return { folderId, folderPath: names.join(' / ') };
 }
 
 // Baixa os bytes de um arquivo do Drive (alt=media).

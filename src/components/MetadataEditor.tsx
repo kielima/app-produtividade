@@ -12,6 +12,7 @@ import {
   readingTypeLabel,
 } from '../lib/readingTypes';
 import { normalizeTags } from '../lib/tags';
+import { driveFolderLink } from '../lib/googleDrive';
 
 // Editor de metadados de um item da estante, com busca automática por
 // DOI/ISBN/ISSN. Apresentado como diálogo sobre o leitor ou a estante.
@@ -138,6 +139,27 @@ export function MetadataEditor({
             placeholder="ex.: artigo.pdf"
           />
         </label>
+
+        {(item.folderPath || item.folderId) && (
+          <div className="metadata-field">
+            <span>Pasta no Google Drive</span>
+            <div className="metadata-folder">
+              <span className="metadata-folder-path" title={item.folderPath}>
+                {item.folderPath || '—'}
+              </span>
+              {item.folderId && (
+                <a
+                  className="metadata-folder-link"
+                  href={driveFolderLink(item.folderId)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  Abrir no Drive
+                </a>
+              )}
+            </div>
+          </div>
+        )}
 
         <label className="metadata-field">
           <span>Autores (separados por vírgula)</span>
