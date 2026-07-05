@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReadingItemType, ReadingStatus } from '../types';
+import { readingTypeLabel } from '../lib/readingTypes';
 
 export interface ReadingFiltersState {
   search: string;
@@ -48,11 +49,14 @@ export function LeituraFiltersBar({
   setState,
   allAuthors,
   allTags,
+  allTypes,
 }: {
   state: ReadingFiltersState;
   setState: (s: ReadingFiltersState) => void;
   allAuthors: string[];
   allTags: string[];
+  // Tipos ("estantes") existentes, para as opções do filtro por tipo.
+  allTypes: string[];
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -199,9 +203,11 @@ export function LeituraFiltersBar({
                 aria-label="Filtrar por tipo"
               >
                 <option value="all">Todos os tipos</option>
-                <option value="article">Artigos</option>
-                <option value="book">Livros</option>
-                <option value="other">Outros</option>
+                {allTypes.map((t) => (
+                  <option key={t} value={t}>
+                    {readingTypeLabel(t)}
+                  </option>
+                ))}
               </select>
             </fieldset>
 
