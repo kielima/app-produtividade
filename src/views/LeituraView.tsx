@@ -20,6 +20,7 @@ import {
   type ReadingFiltersState,
 } from '../components/LeituraFiltersBar';
 import { ReadingCard } from '../components/ReadingCard';
+import { SearchInput, SearchToggle } from '../components/SearchBar';
 import {
   ReadingTable,
   loadReadingColumns,
@@ -59,6 +60,7 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
   const [metaItemId, setMetaItemId] = useState<string | null>(null);
   const [layout, setLayout] = useState<LeituraLayout>(loadLeituraLayout);
   const [columns, setColumns] = useState<ReadingColumnConfig[]>(loadReadingColumns);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   useEffect(() => subscribeToReadingItems(uid, setItems), [uid]);
 
@@ -208,13 +210,30 @@ export function LeituraView({ uid, projects }: { uid: string; projects: Project[
         </div>
       </div>
 
-      <LeituraFiltersBar
-        state={filters}
-        setState={setFilters}
-        allAuthors={allAuthors}
-        allTags={allTags}
-        allTypes={allTypes}
-      />
+      <div className="reading-filters">
+        {searchOpen ? (
+          <SearchInput
+            query={filters.search}
+            setQuery={(q) => setFilters({ ...filters, search: q })}
+            onClose={() => setSearchOpen(false)}
+            placeholder="Pesquisar título, autor, DOI…"
+          />
+        ) : (
+          <>
+            <SearchToggle
+              active={filters.search.length > 0}
+              onClick={() => setSearchOpen(true)}
+            />
+            <LeituraFiltersBar
+              state={filters}
+              setState={setFilters}
+              allAuthors={allAuthors}
+              allTags={allTags}
+              allTypes={allTypes}
+            />
+          </>
+        )}
+      </div>
 
       {items.length === 0 ? (
         <div className="leitura-empty">

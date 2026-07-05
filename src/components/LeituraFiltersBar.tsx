@@ -87,41 +87,33 @@ export function LeituraFiltersBar({
   const count = activeReadingFilterCount(state);
 
   return (
-    <div className="reading-filters">
-      <input
-        className="reading-search"
-        type="search"
-        placeholder="Pesquisar título, autor, DOI…"
-        value={state.search}
-        onChange={(e) => setState({ ...state, search: e.target.value })}
-      />
-      <div className="topbar-filter" ref={wrapRef}>
-        <button
-          type="button"
-          className={`btn-secondary filters-toggle${count > 0 ? ' filters-toggle--active' : ''}`}
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-haspopup="dialog"
-          aria-label={`Filtros${count > 0 ? ` (${count} ativos)` : ''}`}
-          title={`Filtros${count > 0 ? ` (${count})` : ''}`}
+    <div className="topbar-filter" ref={wrapRef}>
+      <button
+        type="button"
+        className={`btn-secondary filters-toggle${count > 0 ? ' filters-toggle--active' : ''}`}
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-haspopup="dialog"
+        aria-label={`Filtros${count > 0 ? ` (${count} ativos)` : ''}`}
+        title={`Filtros${count > 0 ? ` (${count})` : ''}`}
+      >
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          viewBox="0 0 512 512"
+          width="17"
+          height="17"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="36"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          focusable="false"
         >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            viewBox="0 0 512 512"
-            width="17"
-            height="17"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="36"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            aria-hidden="true"
-            focusable="false"
-          >
-            <path d="M16 18h480L320 240v206l-128 48V240L16 18z" />
-          </svg>
-        </button>
-        {open && (
+          <path d="M16 18h480L320 240v206l-128 48V240L16 18z" />
+        </svg>
+      </button>
+      {open && (
           <div
             className="filters-panel filters-panel-pop"
             role="dialog"
@@ -242,6 +234,5 @@ export function LeituraFiltersBar({
           </div>
         )}
       </div>
-    </div>
   );
 }
