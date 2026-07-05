@@ -20,6 +20,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-07-05T02:00:00-03:00',
+    title: 'Atualização do app pelas Configurações',
+    items: [
+      'Novo cartão "Atualização" nas Configurações: toque em "Verificar atualização" para ver se há uma versão mais recente publicada.',
+      'No app instalado (APK), quando há versão nova ele baixa e abre o instalador direto — sem precisar procurar o arquivo. Na primeira vez o Android pede para autorizar "instalar apps desconhecidos".',
+      'Cada nova versão é publicada automaticamente a cada atualização do app; no navegador, ele continua se atualizando sozinho ao recarregar.',
+    ],
+  },
+  {
     date: '2026-06-19T15:00:00-03:00',
     title: 'Reordenar subtarefas arrastando',
     items: [
