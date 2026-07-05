@@ -262,6 +262,7 @@ export function PdfPageView({
     const textLayer = textLayerRef.current;
     spanBoxes.current = [];
     segCache.current.clear();
+    effRightCache.current.clear();
     if (!textLayer) return;
     for (const el of Array.from(textLayer.children)) {
       const r = el.getBoundingClientRect();
@@ -294,6 +295,38 @@ export function PdfPageView({
     const out = segs.length ? segs : [{ l: b.left, r: b.right }];
     segCache.current.set(i, out);
     return out;
+  }
+
+  // Borda direita EFETIVA de um span: a reportada pela caixa, recortada no
+  // primeiro glifo do vizinho de OUTRA coluna que cruza a mesma linha. Nos
+  // aparelhos reais as caixas saem mais LARGAS que os glifos desenhados
+  // (dump: linha cheia da coluna esquerda com borda direita em 497 e a coluna
+  // vizinha começando em 484), então a caixa inflada invade o começo da
+  // coluna do lado. Sem esse recorte, um toque no INÍCIO da coluna direita
+  // cai dentro da caixa da esquerda, o caret empata entre as duas e ancora na
+  // coluna errada (dump real: gesto em "For inventory" marcou a esquerda).
+  // Cache por gesto, como segCache.
+  const effRightCache = useRef<Map<number, number>>(new Map());
+
+  function effRight(i: number): number {
+    const cached = effRightCache.current.get(i);
+    if (cached !== undefined) return cached;
+    const boxes = spanBoxes.current;
+    const b = boxes[i];
+    let right = b.right;
+    const tol = Math.max(48, 0.12 * (b.right - b.left));
+    for (let j = 0; j < boxes.length; j++) {
+      if (j === i) continue;
+      const nb = boxes[j];
+      if (nb.top >= b.bottom || nb.bottom <= b.top) continue; // outra linha
+      if (Math.abs(nb.left - b.left) <= tol) continue; // mesma coluna
+      if (!(nb.el.textContent ?? '').trim()) continue; // só espaços não recorta
+      const nl = spanSegments(j)[0].l;
+      if (nl > b.left + 4 && nl < right) right = nl - 2;
+    }
+    if (right < b.left + 2) right = b.left + 2;
+    effRightCache.current.set(i, right);
+    return right;
   }
 
   function segmentNear(i: number, x: number): { l: number; r: number } {
@@ -332,7 +365,10 @@ export function PdfPageView({
     let bestScore = Infinity;
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i];
-      const dx = x < b.left ? b.left - x : x > b.right ? x - b.right : 0;
+      // Borda direita EFETIVA: a caixa inflada da coluna vizinha não pode
+      // "conter" um toque dado no começo desta coluna (ver effRight).
+      const bR = effRight(i);
+      const dx = x < b.left ? b.left - x : x > bR ? x - bR : 0;
       const dy = y < b.top ? b.top - y : y > b.bottom ? y - b.bottom : 0;
       // Mesma coluna = bordas ESQUERDAS próximas (colunas são alinhadas à
       // esquerda; tolerância cobre o recuo de parágrafo). O diagnóstico real
@@ -350,7 +386,7 @@ export function PdfPageView({
     }
     if (best === -1) return null;
     const b = boxes[best];
-    return { index: best, x: Math.min(Math.max(x, b.left), b.right) };
+    return { index: best, x: Math.min(Math.max(x, b.left), effRight(best)) };
   }
 
   // Seleção em ORDEM DE LEITURA entre o início e o ponto atual do gesto (como
@@ -468,25 +504,11 @@ export function PdfPageView({
   function clipRectsToNeighbors(
     picked: Array<{ index: number; left: number; right: number }>,
   ): Array<{ index: number; left: number; right: number }> {
-    const boxes = spanBoxes.current;
-    const pickedIdx = new Set(picked.map((p) => p.index));
-    return picked.map((p) => {
-      const pb = boxes[p.index];
-      let right = p.right;
-      for (let j = 0; j < boxes.length; j++) {
-        if (pickedIdx.has(j)) continue;
-        const nb = boxes[j];
-        if (nb.top >= pb.bottom || nb.bottom <= pb.top) continue; // outra linha
-        // Outra coluna = borda esquerda bem distante da do span realçado
-        // (mesmo critério de afinidade de coluna do caret).
-        if (Math.abs(nb.left - pb.left) <= Math.max(48, 0.12 * (pb.right - pb.left))) continue;
-        const segs = spanSegments(j);
-        if (!segs.length) continue; // span vazio
-        const nl = segs[0].l;
-        if (nl > p.left + 4 && nl < right) right = nl - 2;
-      }
-      return { index: p.index, left: p.left, right };
-    });
+    return picked.map((p) => ({
+      index: p.index,
+      left: p.left,
+      right: Math.min(p.right, effRight(p.index)),
+    }));
   }
 
   // Retângulos do realce (0–1) a partir da seleção em ordem de leitura.
@@ -496,6 +518,7 @@ export function PdfPageView({
     const c = container.getBoundingClientRect();
     const rects: NormRect[] = [];
     for (const { index, left, right } of clipRectsToNeighbors(selectionClamps())) {
+      if (right - left < 1) continue; // esvaziado pelo recorte
       const s = spanBoxes.current[index];
       rects.push({
         x: (left - c.left) / c.width,
@@ -551,6 +574,7 @@ export function PdfPageView({
           i,
           l: Math.round(b.left),
           r: Math.round(b.right),
+          er: Math.round(effRight(i)),
           t: Math.round(b.top),
           b: Math.round(b.bottom),
           s: (b.el.textContent ?? '').slice(0, 16),
@@ -575,12 +599,14 @@ export function PdfPageView({
     for (let k = 0; k < picked.length; k++) {
       const { index, left, right } = picked[k];
       const s = spanBoxes.current[index];
-      rects.push({
-        x: (clipped[k].left - c.left) / c.width,
-        y: (s.top - c.top) / c.height,
-        w: (clipped[k].right - clipped[k].left) / c.width,
-        h: (s.bottom - s.top) / c.height,
-      });
+      if (clipped[k].right - clipped[k].left >= 1) {
+        rects.push({
+          x: (clipped[k].left - c.left) / c.width,
+          y: (s.top - c.top) / c.height,
+          w: (clipped[k].right - clipped[k].left) / c.width,
+          h: (s.bottom - s.top) / c.height,
+        });
+      }
       const chars = charBoxes(s.el);
       if (chars.length) {
         parts.push(
