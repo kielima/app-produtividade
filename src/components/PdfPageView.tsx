@@ -404,9 +404,19 @@ export function PdfPageView({
       if (!onStart && !onEnd && (cy <= sMid || cy >= eMid)) continue; // fora do intervalo
       // Testes horizontais POR SEGMENTO de glifos: imune a spans com espaços
       // enormes internos ou caixas que atravessam o corredor entre colunas.
+      // Segmento que COMEÇA na beirada final da banda não é continuação de
+      // linha da coluna — é conteúdo da coluna vizinha (dump real: células
+      // estreitas de tabela da coluna direita, começando ~93% adentro da
+      // banda, com centro ainda dentro dela). Fragmentos legítimos de linha
+      // (ex.: subscrito do CO2 e o resto da linha após ele) começam no meio.
+      const nearEdge = colRight - Math.max(40, 0.12 * (colRight - colLeft));
       for (const sg of spanSegments(i)) {
         const cx = (sg.l + sg.r) / 2;
         if (cx < colLeft - 2 || cx > colRight + 2) continue; // fora da coluna
+        // Vale para TODAS as linhas (células de tabela podem encavalar
+        // verticalmente com a linha da âncora/foco); só os spans da âncora e
+        // do foco em si ficam isentos.
+        if (i !== s.index && i !== e.index && sg.l > nearEdge) continue;
         if (onStart && sg.r <= sx) continue; // antes do início, mesma linha
         if (onEnd && sg.l >= ex) continue; // depois do fim, mesma linha
         const left = onStart ? Math.max(sg.l, sx) : sg.l;
