@@ -4,7 +4,7 @@ import TrashIcon from '../components/TrashIcon';
 import { hapticCelebrate, hapticSuccess, hapticTap } from '../lib/haptics';
 import { getDisplayTitle } from '../lib/parser';
 import { orphanChildren, patchTask } from '../lib/taskMutations';
-import { getChildren } from '../lib/taskHierarchy';
+import { getChildren, isTopLevel } from '../lib/taskHierarchy';
 import { deleteTask } from '../repositories/tasksRepo';
 import type { Esforco, MoSCoW, Project, Task } from '../types';
 
@@ -21,9 +21,9 @@ const ESFORCO_OPTIONS: Array<{ key: Exclude<Esforco, ''>; label: string }> = [
   { key: 'longo', label: 'Longo' },
 ];
 
-function needsClassification(t: Task): boolean {
+function needsClassification(t: Task, allTasks: Task[]): boolean {
   // Subtarefas (filhas) ficam ocultas e são classificadas na sua própria página.
-  return !t.checked && !t.parentId && (t.moscow === '' || t.esforco === '');
+  return !t.checked && isTopLevel(t, allTasks) && (t.moscow === '' || t.esforco === '');
 }
 
 /**
@@ -66,7 +66,7 @@ export function ClassifyView({
   // Captura snapshot da fila no mount. Não reage a mudanças no `tasks` pra
   // não embaralhar a ordem enquanto o usuário classifica.
   useEffect(() => {
-    const ids = tasks.filter(needsClassification).map((t) => t.id);
+    const ids = tasks.filter((t) => needsClassification(t, tasks)).map((t) => t.id);
     setQueue(ids);
     initialTotalRef.current = ids.length;
     // eslint-disable-next-line react-hooks/exhaustive-deps

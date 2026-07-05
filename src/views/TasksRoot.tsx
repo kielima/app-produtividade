@@ -9,7 +9,7 @@ import {
 } from '../components/TaskFiltersBar';
 import { normalizeForSearch } from '../lib/searchNormalize';
 import { isSnoozed } from '../lib/snooze';
-import { buildChildStatsMap, isOrphaned } from '../lib/taskHierarchy';
+import { buildChildStatsMap, isTopLevel } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
 import { migrateCompletedTasksIntoTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
@@ -107,7 +107,7 @@ export function TasksRoot({
   const filteredTasks = useMemo(
     () =>
       applyFilters(
-        data.tasks.filter((t) => !t.parentId || isOrphaned(t, data.tasks)),
+        data.tasks.filter((t) => isTopLevel(t, data.tasks)),
         filters,
         searchQuery,
       ),
