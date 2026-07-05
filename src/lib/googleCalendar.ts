@@ -1,4 +1,6 @@
 import { httpsCallable } from 'firebase/functions';
+import { Capacitor } from '@capacitor/core';
+import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
 import { auth, functions } from './firebase';
 
 // =========================================================================
@@ -309,9 +311,66 @@ function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Interativo: abre o popup de consentimento uma vez, manda o code para o
-// backend (que guarda o refresh token) e cacheia o access token devolvido.
+// No APK (WebView) o popup do Google Identity Services não devolve o resultado,
+// então o fluxo de consentimento acima (requestAuthCode) trava — mesmo problema
+// do login em auth.ts e do Drive em googleDrive.ts. Na plataforma nativa usamos
+// o Google Sign-In nativo (@capacitor-firebase/authentication) pedindo o escopo
+// do Calendar. Ao pedir um escopo extra, o plugin passa pelo caminho de "offline
+// access" e devolve DOIS artefatos:
+//   - serverAuthCode: mandamos para a Cloud Function `connectCalendar`, que troca
+//     por um REFRESH TOKEN guardado no servidor. Aí a conexão NÃO expira mais —
+//     `getCalendarAccessToken` renova o access token sozinho.
+//   - accessToken: token de Calendar imediato (vale ~1h). Fallback caso a troca
+//     do serverAuthCode falhe.
+// skipNativeAuth (capacitor.config) garante que isto NÃO mexe na sessão de login.
+const NATIVE_TOKEN_TTL_MS = 55 * 60 * 1000; // access token do Google dura ~1h
+
+async function nativeGrantCalendar(uid: string): Promise<string> {
+  const result = await FirebaseAuthentication.signInWithGoogle({
+    scopes: [CALENDAR_SCOPE],
+  });
+  const serverAuthCode = result.credential?.serverAuthCode;
+  const accessToken = result.credential?.accessToken;
+
+  // Preferência: serverAuthCode → refresh token no servidor (conexão permanente).
+  // redirect_uri vazio: é o exigido para o code do Google Sign-In nativo (não é
+  // o 'postmessage' do fluxo popup web).
+  if (serverAuthCode) {
+    try {
+      const { data } = await callConnect({ code: serverAuthCode, redirectUri: '' });
+      writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
+      markEverConnected();
+      return data.accessToken;
+    } catch (err) {
+      console.warn(
+        '[gcal] troca do serverAuthCode falhou; usando access token direto:',
+        err,
+      );
+    }
+  }
+
+  // Fallback: access token direto (expira ~1h; renovado por novo sign-in nativo).
+  if (accessToken) {
+    writeStored({ accessToken, expiresAt: Date.now() + NATIVE_TOKEN_TTL_MS, uid });
+    markEverConnected();
+    return accessToken;
+  }
+
+  throw new Error(
+    'O login nativo do Google não devolveu token do Calendar (nem serverAuthCode ' +
+      'nem accessToken). Verifique se o escopo do Calendar foi concedido.',
+  );
+}
+
+// Interativo: no web abre o popup de consentimento; no APK usa o Sign-In nativo.
+// Em ambos, manda o code para o backend (que guarda o refresh token) e cacheia
+// o access token devolvido.
 export async function grantCalendarAccess(uid: string): Promise<string> {
+  if (Capacitor.isNativePlatform()) {
+    const token = await nativeGrantCalendar(uid);
+    startCalendarTokenScheduler(uid);
+    return token;
+  }
   const code = await requestAuthCode();
   const { data } = await callConnect({ code });
   writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
