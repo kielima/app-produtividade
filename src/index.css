@@ -5176,6 +5176,50 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   color: var(--fg);
   font: inherit;
 }
+/* ---- Combobox do campo "Tipo" (dropdown próprio, substitui o datalist) ---- */
+.type-combobox {
+  position: relative;
+}
+.type-combobox > input {
+  width: 100%;
+  box-sizing: border-box;
+}
+.type-combobox-list {
+  position: absolute;
+  top: calc(100% + 2px);
+  left: 0;
+  right: 0;
+  z-index: 5;
+  margin: 0;
+  padding: 0.2rem;
+  list-style: none;
+  max-height: 11rem;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
+}
+.type-combobox-list li {
+  margin: 0;
+}
+.type-combobox-list button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0.4rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.type-combobox-list button:hover,
+.type-combobox-list button.active {
+  background: var(--surface-2);
+}
+
 .metadata-row {
   display: flex;
   gap: 0.5rem;

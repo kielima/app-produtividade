@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ReadingItem, ReadingStatus } from '../types';
 import {
   fetchByDoi,
@@ -145,20 +145,14 @@ export function MetadataEditor({
         </label>
 
         <div className="metadata-row">
-          <label className="metadata-field">
+          <div className="metadata-field">
             <span>Tipo (estante)</span>
-            <input
-              list="metadata-type-options"
+            <TypeCombobox
               value={typeInput}
-              onChange={(e) => setTypeInput(e.target.value)}
-              placeholder="ex.: Artigo, Livro, Tese…"
+              onChange={setTypeInput}
+              options={typeOptions}
             />
-            <datalist id="metadata-type-options">
-              {typeOptions.map((o) => (
-                <option key={o} value={o} />
-              ))}
-            </datalist>
-          </label>
+          </div>
           <label className="metadata-field">
             <span>Status</span>
             <select
@@ -234,5 +228,81 @@ export function MetadataEditor({
         </div>
       </div>
     </>
+  );
+}
+
+// Combobox editável do campo "Tipo". Substitui o <datalist> nativo, cuja
+// popup renderiza desalinhada (sobre outros campos) em alguns WebViews Android.
+// Aqui a lista é um dropdown próprio, ancorado logo abaixo do input, e o usuário
+// pode escolher uma sugestão ou digitar um tipo novo livremente.
+function TypeCombobox({
+  value,
+  onChange,
+  options,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+}) {
+  const [open, setOpen] = useState(false);
+  const wrapRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    function onPointerDown(e: MouseEvent) {
+      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false);
+    }
+    document.addEventListener('mousedown', onPointerDown);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', onPointerDown);
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [open]);
+
+  const q = value.trim().toLowerCase();
+  const filtered = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
+
+  return (
+    <div className="type-combobox" ref={wrapRef}>
+      <input
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        placeholder="ex.: Artigo, Livro, Tese…"
+        role="combobox"
+        aria-expanded={open}
+        aria-autocomplete="list"
+      />
+      {open && filtered.length > 0 && (
+        <ul className="type-combobox-list" role="listbox">
+          {filtered.map((o) => (
+            <li key={o}>
+              <button
+                type="button"
+                className={o.toLowerCase() === q ? 'active' : ''}
+                // preventDefault mantém o foco no input e evita que o mousedown
+                // externo feche a lista antes do clique registrar.
+                onMouseDown={(e) => e.preventDefault()}
+                onClick={() => {
+                  onChange(o);
+                  setOpen(false);
+                }}
+              >
+                {o}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
   );
 }
