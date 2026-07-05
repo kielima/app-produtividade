@@ -1,5 +1,7 @@
 package com.kielima.produtividade;
 
+import android.content.Intent;
+import android.net.Uri;
 import android.os.Bundle;
 import android.view.MotionEvent;
 import android.view.View;
@@ -30,6 +32,51 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(AtualizadorPlugin.class);
         super.onCreate(savedInstanceState);
         fixWebViewTextScale();
+        handleShareIntent(getIntent());
+    }
+
+    // O app roda em singleTask: se já estiver aberto, um novo compartilhamento
+    // chega aqui em vez de onCreate.
+    @Override
+    public void onNewIntent(Intent intent) {
+        super.onNewIntent(intent);
+        setIntent(intent);
+        handleShareIntent(intent);
+    }
+
+    /**
+     * Recebe links/texto compartilhados de outros apps via o menu
+     * "Compartilhar" do Android (ACTION_SEND, registrado no
+     * AndroidManifest.xml) e repassa pro app web navegando o WebView pra URL
+     * atual com os dados na query string. O app web já lê esse formato — é o
+     * mesmo fluxo legado do Web Share Target (ver src/main.tsx).
+     */
+    private void handleShareIntent(Intent intent) {
+        if (intent == null) return;
+        String type = intent.getType();
+        if (!Intent.ACTION_SEND.equals(intent.getAction())
+                || type == null || !type.startsWith("text/")) {
+            return;
+        }
+
+        String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+        if (text == null || text.isEmpty()) return;
+        String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+
+        if (getBridge() == null) return;
+        final WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+
+        String current = webView.getUrl();
+        Uri base = Uri.parse(current != null && !current.isEmpty() ? current : "https://localhost/");
+        Uri.Builder target = base.buildUpon().path("/").clearQuery();
+        target.appendQueryParameter("native_share", "1");
+        target.appendQueryParameter("text", text);
+        if (subject != null && !subject.isEmpty()) {
+            target.appendQueryParameter("title", subject);
+        }
+        final String url = target.build().toString();
+        webView.post(() -> webView.loadUrl(url));
     }
 
     /**
