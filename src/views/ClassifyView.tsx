@@ -3,7 +3,8 @@ import Confetti from '../components/Confetti';
 import TrashIcon from '../components/TrashIcon';
 import { hapticCelebrate, hapticSuccess, hapticTap } from '../lib/haptics';
 import { getDisplayTitle } from '../lib/parser';
-import { patchTask } from '../lib/taskMutations';
+import { orphanChildren, patchTask } from '../lib/taskMutations';
+import { getChildren } from '../lib/taskHierarchy';
 import { deleteTask } from '../repositories/tasksRepo';
 import type { Esforco, MoSCoW, Project, Task } from '../types';
 
@@ -172,9 +173,15 @@ export function ClassifyView({
   async function handleDelete() {
     if (!currentTask || busy) return;
     const display = getDisplayTitle(currentTask.title);
-    if (!window.confirm(`Apagar "${display}"?`)) return;
+    const children = getChildren(currentTask.id, tasks);
+    const msg =
+      children.length > 0
+        ? `Apagar "${display}"? As ${children.length} subtarefa(s) voltarão a ser tarefas normais.`
+        : `Apagar "${display}"?`;
+    if (!window.confirm(msg)) return;
     setBusy(true);
     try {
+      if (children.length > 0) await orphanChildren(uid, currentTask.id, tasks);
       await deleteTask(uid, currentTask);
       advance();
     } catch (err) {

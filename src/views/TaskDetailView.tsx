@@ -344,6 +344,7 @@ export function TaskDetailView({
 
   async function moveToSection(newSectionId: string) {
     await patchTask(uid, task, { section: newSectionId });
+    await Promise.all(children.map((c) => patchTask(uid, c, { section: newSectionId })));
   }
 
   function openDatePicker() {
