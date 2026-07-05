@@ -24,6 +24,15 @@ export function getDescendantIds(parentId: string, allTasks: Task[]): Set<string
   return out;
 }
 
+/**
+ * Indica se `t` tem `parentId` apontando para uma tarefa que não existe mais
+ * (pai apagado sem passar por `orphanChildren`). Tratamos essas tarefas como
+ * de topo, já que na prática não há mais pai para agrupá-las.
+ */
+export function isOrphaned(t: Task, allTasks: Task[]): boolean {
+  return !!t.parentId && !allTasks.some((p) => p.id === t.parentId);
+}
+
 /** Indica se a tarefa tem ao menos uma filha (direta) ainda não concluída. */
 export function hasIncompleteChildren(taskId: string, allTasks: Task[]): boolean {
   return allTasks.some((t) => t.parentId === taskId && !t.checked);

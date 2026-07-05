@@ -4,6 +4,7 @@ import {
   getChildren,
   getDescendantIds,
   hasIncompleteChildren,
+  isOrphaned,
 } from './taskHierarchy';
 import type { Task } from '../types';
 
@@ -57,5 +58,12 @@ describe('taskHierarchy', () => {
     expect(map['1']).toEqual({ total: 2, done: 1 });
     expect(map['3']).toEqual({ total: 1, done: 0 });
     expect(map['5']).toBeUndefined();
+  });
+
+  it('isOrphaned detecta parentId apontando para tarefa inexistente', () => {
+    const withZombie = [...tasks, mk('6', 'pai-apagado')];
+    expect(isOrphaned(withZombie.find((t) => t.id === '6')!, withZombie)).toBe(true);
+    expect(isOrphaned(withZombie.find((t) => t.id === '2')!, withZombie)).toBe(false);
+    expect(isOrphaned(withZombie.find((t) => t.id === '1')!, withZombie)).toBe(false);
   });
 });
