@@ -39,6 +39,7 @@ import {
 } from './components/ShareTargetDialog';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
+import { isTopLevel } from './lib/taskHierarchy';
 import { auth } from './lib/firebase';
 import { NotesFiltersBar } from './components/NotesFiltersBar';
 import {
@@ -690,7 +691,9 @@ function AppShell({
 
   const selectedProjectTaskCount = useMemo(() => {
     if (!selectedProject) return 0;
-    return data.tasks.filter((t) => t.section === selectedProject.id).length;
+    return data.tasks.filter(
+      (t) => t.section === selectedProject.id && isTopLevel(t, data.tasks),
+    ).length;
   }, [selectedProject, data.tasks]);
 
   const selectedProjectNotes = useMemo(() => {
@@ -701,7 +704,8 @@ function AppShell({
   const classifyCount = useMemo(
     () =>
       data.tasks.filter(
-        (t) => !t.checked && !t.parentId && (t.moscow === '' || t.esforco === ''),
+        (t) =>
+          !t.checked && isTopLevel(t, data.tasks) && (t.moscow === '' || t.esforco === ''),
       ).length,
     [data.tasks],
   );
