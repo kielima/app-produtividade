@@ -442,6 +442,27 @@ export function PdfPageView({
     const colLeft = Math.min(sSeg.l, eSeg.l);
     const colRight = Math.max(sSeg.r, eSeg.r);
 
+    // Uma linha CHEIA da coluna (que ocupa a largura toda, ponta a ponta) tem
+    // sempre um span começando perto de colLeft. Uma célula de tabela da
+    // coluna VIZINHA que apenas encavala verticalmente com a linha da âncora/
+    // foco não tem esse companheiro — ela é a única coisa nessa faixa de
+    // altura. Isso separa a última palavra de uma linha justificada (que só
+    // por coincidência termina perto de colRight, ex.: "every" antes de
+    // "stakeholder" quebrar de linha — dump real) de uma célula de tabela de
+    // fato estranha à coluna (dump anterior: "sheet", "Copper"...).
+    const rowStartTol = Math.max(10, 0.03 * (colRight - colLeft));
+    function rowHasColumnStart(i: number): boolean {
+      const bi = boxes[i];
+      for (let j = 0; j < boxes.length; j++) {
+        if (j === i) continue;
+        const bj = boxes[j];
+        if (bj.top >= bi.bottom || bj.bottom <= bi.top) continue; // outra linha
+        const segs = spanSegments(j);
+        if (segs.length && Math.abs(segs[0].l - colLeft) <= rowStartTol) return true;
+      }
+      return false;
+    }
+
     const picked: Array<{ index: number; left: number; right: number; cy: number }> = [];
     for (let i = 0; i < boxes.length; i++) {
       const b = boxes[i];
@@ -451,19 +472,15 @@ export function PdfPageView({
       if (!onStart && !onEnd && (cy <= sMid || cy >= eMid)) continue; // fora do intervalo
       // Testes horizontais POR SEGMENTO de glifos: imune a spans com espaços
       // enormes internos ou caixas que atravessam o corredor entre colunas.
-      // Segmento que COMEÇA na beirada final da banda não é continuação de
-      // linha da coluna — é conteúdo da coluna vizinha (dump real: células
-      // estreitas de tabela da coluna direita, começando ~93% adentro da
-      // banda, com centro ainda dentro dela). Fragmentos legítimos de linha
-      // (ex.: subscrito do CO2 e o resto da linha após ele) começam no meio.
+      // Segmento que COMEÇA na beirada final da banda só é excluído se a
+      // linha dele NÃO tiver companheiro começando em colLeft (ver
+      // rowHasColumnStart) — senão é célula de tabela da coluna vizinha.
       const nearEdge = colRight - Math.max(40, 0.12 * (colRight - colLeft));
+      const edgeExempt = i === s.index || i === e.index || rowHasColumnStart(i);
       for (const sg of spanSegments(i)) {
         const cx = (sg.l + sg.r) / 2;
         if (cx < colLeft - 2 || cx > colRight + 2) continue; // fora da coluna
-        // Vale para TODAS as linhas (células de tabela podem encavalar
-        // verticalmente com a linha da âncora/foco); só os spans da âncora e
-        // do foco em si ficam isentos.
-        if (i !== s.index && i !== e.index && sg.l > nearEdge) continue;
+        if (!edgeExempt && sg.l > nearEdge) continue;
         if (onStart && sg.r <= sx) continue; // antes do início, mesma linha
         if (onEnd && sg.l >= ex) continue; // depois do fim, mesma linha
         const left = onStart ? Math.max(sg.l, sx) : sg.l;
