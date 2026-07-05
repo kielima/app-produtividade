@@ -311,9 +311,22 @@ export function PdfPageView({
       s = f;
       e = a;
     }
+    // Faixa horizontal (coluna) da seleção: em PDFs de duas colunas, a ordem
+    // interna dos trechos às vezes intercala as colunas — sem este filtro,
+    // "tudo entre âncora e foco" arrasta pedaços da OUTRA coluna para o
+    // realce. Trechos intermediários só entram se o centro deles estiver na
+    // faixa horizontal coberta pelos trechos de início/fim.
+    const sBox = boxes[s.index];
+    const eBox = boxes[e.index];
+    const colLeft = Math.min(sBox.left, eBox.left);
+    const colRight = Math.max(sBox.right, eBox.right);
     const out: Array<{ index: number; left: number; right: number }> = [];
     for (let i = s.index; i <= e.index; i++) {
       const b = boxes[i];
+      if (i !== s.index && i !== e.index) {
+        const cx = (b.left + b.right) / 2;
+        if (cx < colLeft - 2 || cx > colRight + 2) continue; // outra coluna
+      }
       const left = i === s.index ? Math.max(b.left, s.x) : b.left;
       const right = i === e.index ? Math.min(b.right, e.x) : b.right;
       if (right - left < 1) continue;
