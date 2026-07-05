@@ -134,38 +134,23 @@ export function PdfPageView({
       viewport,
     });
 
-    // Pina cada span da camada de texto na largura REAL do PDF. Nos aparelhos
-    // o texto do DOM sai uniformemente mais LARGO que os glifos desenhados no
-    // canvas (dump real: linhas cheias ~14% mais largas, bordas esquerdas
-    // exatas) — a correção de scaleX do próprio pdf.js mede com canvas 2D e
-    // não bate com o layout do WebView. Aqui medimos a largura USADA de cada
-    // span (getComputedStyle: sem transform, com subpixel) e aplicamos o
-    // scaleX que o leva à largura declarada no PDF (item.width × escala), que
-    // é a mesma que o canvas desenha. Com isso caret, segmentos, retângulos e
-    // precisão por letra passam a coincidir com o texto visível.
-    const fitTextLayerWidths = async () => {
-      if (viewport.rotation % 360 !== 0) return; // página rotacionada: manter pdf.js
-      const content = await page.getTextContent();
-      if (cancelled) return;
-      const items = content.items.filter(
-        (it) => 'str' in it,
-      ) as Array<{ str: string; width: number; transform: number[] }>;
-      const spans = Array.from(textLayerDiv.children).filter(
-        (el): el is HTMLElement => el.tagName === 'SPAN',
-      );
-      // Um span por item de texto; se a estrutura não bater, não mexemos
-      // (a geometria do pdf.js segue valendo, com o effRight de rede).
-      if (spans.length !== items.length) return;
-      for (let i = 0; i < items.length; i++) {
-        const it = items[i];
-        // Texto rotacionado/oblíquo: largura da caixa não é largura do texto.
-        if (Math.abs(it.transform[1]) > 0.01 || Math.abs(it.transform[2]) > 0.01) continue;
-        if (!it.str.trim() || !(it.width > 0)) continue;
-        const w0 = parseFloat(getComputedStyle(spans[i]).width);
-        if (!Number.isFinite(w0) || w0 < 8) continue; // muito curto: ruído > ganho
-        spans[i].style.transform = `scaleX(${(it.width * viewport.scale) / w0})`;
-      }
-    };
+    // Itens de texto do PDF para o ajuste de largura (fitTextLayerWidths).
+    fitStateRef.current = { done: false, adjusted: 0, spans: 0, reason: 'pendente' };
+    textItemsRef.current = null;
+    if (viewport.rotation % 360 === 0) {
+      page.getTextContent().then((content) => {
+        if (cancelled) return;
+        textItemsRef.current = content.items.filter((it) => 'str' in it) as Array<{
+          str: string;
+          width: number;
+          transform: number[];
+        }>;
+        // Se o textLayer.render() terminou antes dos itens chegarem, ajusta já.
+        fitTextLayerWidths();
+      });
+    } else {
+      fitStateRef.current.reason = 'página rotacionada'; // manter geometria do pdf.js
+    }
 
     renderTask.promise
       .then(() => {
@@ -174,7 +159,7 @@ export function PdfPageView({
       })
       .then(() => {
         if (cancelled) return;
-        return fitTextLayerWidths();
+        fitTextLayerWidths();
       })
       .catch((err: unknown) => {
         if (
@@ -295,8 +280,68 @@ export function PdfPageView({
   // ----------------------------------------------------------------
   const spanBoxes = useRef<SpanBox[]>([]);
 
+  // Pina cada span da camada de texto na largura REAL do PDF. Nos aparelhos o
+  // texto do DOM sai uniformemente mais LARGO que os glifos desenhados no
+  // canvas (dump real: linhas cheias ~14% mais largas, bordas esquerdas
+  // exatas) — a correção de scaleX do próprio pdf.js mede com canvas 2D e não
+  // bate com o layout de texto do WebView. Medimos a largura USADA de cada
+  // span (getComputedStyle: sem transform, com subpixel; offsetWidth de
+  // reserva) e aplicamos o scaleX que o leva à largura declarada no PDF
+  // (item.width × escala — a mesma que o canvas desenha).
+  //
+  // Pareamento item↔span espelha o #appendText do pdf.js 4.10: todo item com
+  // str !== '' vira um span no DOM, NA ORDEM; itens com str === '' (só quebra
+  // de linha) criam <br> sem span — a 1ª versão comparava contagens e abortava
+  // à toa por causa deles. Cada par é validado pelo texto; dessincronizou,
+  // paramos (o que já foi ajustado é válido). Roda após o render e, se ainda
+  // não concluiu (camada oculta no modo página, corrida com getTextContent),
+  // de novo no início de cada gesto — é idempotente (medidas pré-transform).
+  // O resultado vai no dump 🔬 (campo fit) para nunca mais falhar mudo.
+  const textItemsRef = useRef<Array<{ str: string; width: number; transform: number[] }> | null>(
+    null,
+  );
+  const fitStateRef = useRef({ done: false, adjusted: 0, spans: 0, reason: 'pendente' });
+
+  function fitTextLayerWidths() {
+    const st = fitStateRef.current;
+    if (st.done) return;
+    const layer = textLayerRef.current;
+    const items = textItemsRef.current;
+    if (!layer || !items) {
+      st.reason = 'itens do PDF ainda não chegaram';
+      return;
+    }
+    const spans = Array.from(layer.children).filter(
+      (el): el is HTMLElement => el.tagName === 'SPAN',
+    );
+    st.spans = spans.length;
+    let k = 0;
+    let adjusted = 0;
+    for (const it of items) {
+      if (it.str === '') continue; // só quebra de linha: não vira span no DOM
+      const span = spans[k++];
+      if (!span || span.textContent !== it.str) {
+        st.reason = `dessincronizou no span ${k - 1}`;
+        return;
+      }
+      // Texto rotacionado/oblíquo: largura da caixa não é largura do texto.
+      if (Math.abs(it.transform[1]) > 0.01 || Math.abs(it.transform[2]) > 0.01) continue;
+      if (!it.str.trim() || !(it.width > 0)) continue;
+      const w0 = parseFloat(getComputedStyle(span).width) || span.offsetWidth;
+      if (!Number.isFinite(w0) || w0 < 8) continue; // muito curto: ruído > ganho
+      span.style.transform = `scaleX(${(it.width * scale) / w0})`;
+      adjusted++;
+    }
+    st.adjusted = adjusted;
+    st.done = adjusted > 0;
+    st.reason = st.done ? 'ok' : 'nada ajustado (camada sem layout?)';
+  }
+
   function snapshotSpans() {
     const textLayer = textLayerRef.current;
+    // Garante a geometria corrigida antes de fotografar as caixas (cobre a
+    // página que renderizou oculta e a corrida com o getTextContent).
+    fitTextLayerWidths();
     spanBoxes.current = [];
     segCache.current.clear();
     effRightCache.current.clear();
@@ -600,6 +645,7 @@ export function PdfPageView({
       (window as unknown as { __lastSelDebug?: unknown }).__lastSelDebug = {
         page: pageNumber,
         dpr: window.devicePixelRatio,
+        fit: { ...fitStateRef.current },
         start: { x: Math.round(g.startX), y: Math.round(g.startY) },
         cur: { x: Math.round(g.curX), y: Math.round(g.curY) },
         picked: picked.map((p) => ({
