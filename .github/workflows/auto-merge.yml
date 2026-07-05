@@ -77,3 +77,21 @@ jobs:
             });
 
             core.info('Deploy disparado em main.');
+
+      # Mesma regra anti-loop do GitHub: o android.yml (que escuta `push: main`
+      # para publicar o APK no Hosting + gravar a versão no Firestore, o canal
+      # de atualização in-app) NÃO roda em PRs auto-mesclados. Disparamos aqui
+      # explicitamente, senão o APK novo nunca chega ao verificador do app.
+      - name: Trigger Android APK (publicar atualização in-app)
+        if: steps.find-pr.outputs.found == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.actions.createWorkflowDispatch({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              workflow_id: 'android.yml',
+              ref: 'main',
+            });
+
+            core.info('Android APK disparado em main.');
