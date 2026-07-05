@@ -19,6 +19,7 @@ import {
 import { CSS } from '@dnd-kit/utilities';
 import type { ReadingItem } from '../types';
 import { readingTypeLabel } from '../lib/readingTypes';
+import { driveFolderLink } from '../lib/googleDrive';
 import { Popover } from './Popover';
 
 // ---- Definição das colunas disponíveis ----
@@ -36,7 +37,8 @@ export type ReadingColumnKey =
   | 'status'
   | 'page'
   | 'added'
-  | 'lastOpened';
+  | 'lastOpened'
+  | 'folder';
 
 interface ColumnDef {
   key: ReadingColumnKey;
@@ -153,6 +155,30 @@ const ALL_COLUMNS: ColumnDef[] = [
     label: 'Última leitura',
     defaultVisible: false,
     render: (it) => dateOnly(it.lastOpenedAt),
+  },
+  {
+    key: 'folder',
+    label: 'Pasta (Drive)',
+    defaultVisible: false,
+    render: (it) => {
+      if (!it.folderId && !it.folderPath) return '';
+      const path = it.folderPath || 'Pasta';
+      // Com id, o caminho vira link direto para a pasta no Drive; sem id (dados
+      // antigos), mostra só o texto do caminho.
+      return it.folderId ? (
+        <a
+          className="reading-table-folder-link"
+          href={driveFolderLink(it.folderId)}
+          target="_blank"
+          rel="noopener noreferrer"
+          title={path}
+        >
+          {path}
+        </a>
+      ) : (
+        <span title={path}>{path}</span>
+      );
+    },
   },
 ];
 
