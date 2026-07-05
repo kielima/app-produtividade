@@ -23,6 +23,20 @@ if (window.location.pathname === '/share-target') {
   window.history.replaceState(null, '', '/');
 }
 
+// Partilha nativa (APK): MainActivity intercepta ACTION_SEND de outros apps
+// e navega o WebView pra cá com os extras do Intent na query string (ver
+// android/.../MainActivity.java#handleShareIntent). Reaproveita o mesmo
+// formato de payload do fluxo legado acima.
+if (window.location.search.includes('native_share=1')) {
+  const p = new URLSearchParams(window.location.search);
+  sessionStorage.setItem('pendingShare', JSON.stringify({
+    title: p.get('title') ?? '',
+    text: p.get('text') ?? '',
+    url: p.get('url') ?? '',
+  }));
+  window.history.replaceState(null, '', '/');
+}
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
