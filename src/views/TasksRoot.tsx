@@ -120,7 +120,13 @@ export function TasksRoot({
   return (
     <>
       {filters.viewMode === 'matrix' ? (
-        <TaskMoscowMatrix uid={uid} tasks={filteredTasks} ctx={data.ctx} />
+        <TaskMoscowMatrix
+          uid={uid}
+          tasks={filteredTasks}
+          projectMap={data.projectMap}
+          ctx={data.ctx}
+          hideZero={filters.hideZero}
+        />
       ) : (
         <PrioridadeView
           uid={uid}
