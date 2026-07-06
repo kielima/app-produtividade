@@ -5168,48 +5168,46 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   color: var(--fg);
   font: inherit;
 }
-/* ---- Combobox do campo "Tipo" (dropdown próprio, substitui o datalist) ---- */
+/* ---- Seletor do campo "Tipo": select + botão de limpar / criar nova estante ---- */
 .type-combobox {
-  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
 }
-.type-combobox > input {
-  width: 100%;
-  box-sizing: border-box;
+.type-combobox select,
+.type-combobox--creating input {
+  flex: 1;
+  min-width: 0;
 }
-.type-combobox-list {
-  position: absolute;
-  top: calc(100% + 2px);
-  left: 0;
-  right: 0;
-  z-index: 5;
-  margin: 0;
-  padding: 0.2rem;
-  list-style: none;
-  max-height: 11rem;
-  overflow-y: auto;
-  background: var(--surface);
+.type-combobox-clear,
+.type-combobox-confirm,
+.type-combobox-cancel {
+  flex: none;
+  width: 1.9rem;
+  height: 1.9rem;
+  padding: 0;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.25);
-}
-.type-combobox-list li {
-  margin: 0;
-}
-.type-combobox-list button {
-  display: block;
-  width: 100%;
-  text-align: left;
-  padding: 0.4rem 0.5rem;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
+  border-radius: 5px;
+  background: var(--surface-2);
   color: var(--fg);
   font: inherit;
+  line-height: 1;
   cursor: pointer;
 }
-.type-combobox-list button:hover,
-.type-combobox-list button.active {
-  background: var(--surface-2);
+.type-combobox-clear:hover,
+.type-combobox-cancel:hover {
+  background: var(--surface);
+  border-color: var(--accent);
+}
+.type-combobox-confirm {
+  color: var(--accent);
+}
+.type-combobox-confirm:hover {
+  background: var(--surface);
+}
+.type-combobox-confirm:disabled {
+  opacity: 0.5;
+  cursor: default;
 }
 
 .metadata-row {
