@@ -2901,6 +2901,17 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .task-detail-section-header h3 {
   margin: 0;
 }
+.task-detail-note-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.task-detail-note-actions .link-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  white-space: nowrap;
+}
 .copy-markdown-btn {
   display: inline-flex;
   align-items: center;
@@ -5554,6 +5565,18 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   cursor: pointer;
   font-size: 0.9rem;
   padding: 0.1rem;
+}
+.reader-annotation-linked {
+  font-size: 0.8rem;
+}
+
+/* Pulso visual sobre a anotação-alvo ao chegar via vínculo tarefa/nota → PDF */
+.pdf-annot-pulse {
+  animation: pdf-annot-pulse 1s ease-in-out infinite;
+}
+@keyframes pdf-annot-pulse {
+  0%, 100% { opacity: 0.9; }
+  50% { opacity: 0.35; }
 }
 .reader-comment-input {
   width: 100%;

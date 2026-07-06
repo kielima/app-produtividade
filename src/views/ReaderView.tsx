@@ -15,6 +15,7 @@ import { MetadataEditor } from '../components/MetadataEditor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createNoteFromText, createTaskFromText, pickDefaultProjectId } from '../lib/createFromText';
+import { formatAbntCitation } from '../lib/citation';
 import type { Annotation, NormRect, Project, ReadingItem } from '../types';
 
 const HIGHLIGHT_COLORS = ['#ffd54a', '#a5d6a7', '#90caf9', '#f48fb1', '#ce93d8'];
@@ -32,18 +33,31 @@ export function ReaderView({
   projects,
   onClose,
   onConverted,
+  focusAnnotationId,
+  onFocusHandled,
 }: {
   uid: string;
   item: ReadingItem;
   projects: Project[];
   onClose: () => void;
   onConverted: (dest: 'note' | 'task', id: string) => void;
+  // Anotação para a qual rolar/pular ao abrir (vínculo tarefa/nota → PDF).
+  focusAnnotationId?: string | null;
+  onFocusHandled?: () => void;
 }) {
   const [load, setLoad] = useState<LoadState>({ status: 'loading' });
   const docRef = useRef<PDFDocumentProxy | null>(null);
   const [numPages, setNumPages] = useState(0);
   const [baseAspect, setBaseAspect] = useState(1.414); // h/w; A4 retrato como palpite
   const [annotations, setAnnotations] = useState<Annotation[]>([]);
+  // Refs dos "slots" de cada página (modo rolagem), para rolar até a página
+  // certa quando chegamos aqui a partir do vínculo tarefa/nota → PDF.
+  const pageSlotRefs = useRef(new Map<number, HTMLDivElement | null>());
+  const registerPageSlot = useCallback((n: number, el: HTMLDivElement | null) => {
+    pageSlotRefs.current.set(n, el);
+  }, []);
+  // Anotação destacada com um pulso visual momentâneo (após navegar até ela).
+  const [pulseAnnotationId, setPulseAnnotationId] = useState<string | null>(null);
 
   // Padrão: marca-texto já ativo ao abrir o PDF — é só passar a caneta/dedo
   // sobre o texto para realçar (rolagem vertical continua funcionando).
@@ -153,6 +167,33 @@ export function ReaderView({
   useEffect(() => {
     return subscribeToAnnotations(uid, item.id, setAnnotations);
   }, [uid, item.id]);
+
+  // -------- Foco numa anotação ao chegar via vínculo tarefa/nota → PDF --------
+  useEffect(() => {
+    if (!focusAnnotationId || load.status !== 'ready' || annotations.length === 0) return;
+    const target = annotations.find((a) => a.id === focusAnnotationId);
+    if (!target) return;
+    let retryTimer: number | null = null;
+    if (viewMode === 'page') {
+      setPageIndex(target.page - 1);
+    } else {
+      pageSlotRefs.current.get(target.page)?.scrollIntoView({ block: 'center' });
+      // A página pode entrar em vista só depois de renderizada de verdade
+      // (o slot some do placeholder estimado para a altura real) — corrige a
+      // posição um instante depois.
+      retryTimer = window.setTimeout(() => {
+        pageSlotRefs.current.get(target.page)?.scrollIntoView({ block: 'center' });
+      }, 400);
+    }
+    setPulseAnnotationId(target.id);
+    const clearPulse = window.setTimeout(() => setPulseAnnotationId(null), 2500);
+    onFocusHandled?.();
+    return () => {
+      window.clearTimeout(clearPulse);
+      if (retryTimer != null) window.clearTimeout(retryTimer);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [focusAnnotationId, load.status, annotations, viewMode]);
 
   // -------- Dimensões do container ativo (responsivo) --------
   useEffect(() => {
@@ -352,29 +393,41 @@ export function ReaderView({
     const headline = item.title ? `${item.title} (p.${a.page})` : `p.${a.page}`;
     const title = commentTitle.trim() || a.title?.trim() || headline;
     const cite = a.text ? quoteMarkdown(a.text) : '';
-    const body = [cite, commentText.trim()].filter(Boolean).join('\n\n');
+    const citation = formatAbntCitation(item, a.page);
+    const body = [cite, commentText.trim(), citation].filter(Boolean).join('\n\n');
     return { title, body };
   }
 
   // Converte a anotação aberta no editor em nota (Keep) ou tarefa (Tasks),
-  // persistindo antes o título/comentário para não se perderem.
+  // persistindo antes o título/comentário para não se perderem, e grava o
+  // vínculo bidirecional: a anotação passa a apontar para a nota/tarefa
+  // criada (linkedNoteId/linkedTaskId) e esta guarda a anotação de origem
+  // (sourceItemId/sourceAnnotationId), para poder abrir o PDF direto nela.
   async function convertFromEditor(dest: 'note' | 'task') {
     if (commentTarget?.mode !== 'edit') return;
     const a = commentTarget.annotation;
-    await upsertAnnotation(uid, {
-      ...a,
-      title: commentTitle.trim(),
-      comment: commentText,
-    });
+    const title_ = commentTitle.trim();
+    await upsertAnnotation(uid, { ...a, title: title_, comment: commentText });
     const { title, body } = composeConvert(a);
     setCommentTarget(null);
+    const source = { itemId: item.id, annotationId: a.id };
     if (dest === 'note') {
-      const noteId = await createNoteFromText(uid, title, body);
+      const noteId = await createNoteFromText(uid, title, body, source);
+      await upsertAnnotation(uid, { ...a, title: title_, comment: commentText, linkedNoteId: noteId });
       onConverted('note', noteId);
     } else {
-      const taskId = await createTaskFromText(uid, projects, title, body);
-      if (taskId) onConverted('task', taskId);
+      const taskId = await createTaskFromText(uid, projects, title, body, source);
+      if (taskId) {
+        await upsertAnnotation(uid, { ...a, title: title_, comment: commentText, linkedTaskId: taskId });
+        onConverted('task', taskId);
+      }
     }
+  }
+
+  // Abre a tarefa/nota já vinculada a esta anotação, fechando o leitor.
+  function openLinked(dest: 'task' | 'note', id: string) {
+    setCommentTarget(null);
+    onConverted(dest, id);
   }
 
   async function reconnectDrive() {
@@ -548,6 +601,7 @@ export function ReaderView({
             onCreateComment={(anchor) => handleCreateComment(n, anchor)}
             onSelectAnnotation={handleSelectAnnotation}
             onEraseAnnotation={handleErase}
+            pulseAnnotationId={pulseAnnotationId}
           />
           {flipping && <div className="book-shade" style={{ opacity: shade }} />}
         </div>
@@ -678,6 +732,8 @@ export function ReaderView({
                     onCreateComment={(anchor) => handleCreateComment(pageNumber, anchor)}
                     onSelectAnnotation={handleSelectAnnotation}
                     onEraseAnnotation={handleErase}
+                    pulseAnnotationId={pulseAnnotationId}
+                    registerSlot={registerPageSlot}
                   />
                 ))}
               </div>
@@ -736,6 +792,11 @@ export function ReaderView({
                   <span className="reader-annotation-text">
                     {a.title || a.text || a.comment || (a.type === 'ink' ? '(manuscrito)' : '')}
                   </span>
+                  {(a.linkedTaskId || a.linkedNoteId) && (
+                    <span className="reader-annotation-linked" title="Vinculada a uma tarefa/nota">
+                      🔗
+                    </span>
+                  )}
                   {a.type === 'highlight' && (
                     <button
                       type="button"
@@ -795,16 +856,34 @@ export function ReaderView({
               </button>
               {commentTarget.mode === 'edit' && commentTarget.annotation.text?.trim() && (
                 <>
-                  <button
-                    type="button"
-                    onClick={() => void convertFromEditor('task')}
-                    disabled={pickDefaultProjectId(projects) === null}
-                  >
-                    → Tarefa
-                  </button>
-                  <button type="button" onClick={() => void convertFromEditor('note')}>
-                    → Anotação
-                  </button>
+                  {commentTarget.annotation.linkedTaskId ? (
+                    <button
+                      type="button"
+                      onClick={() => openLinked('task', commentTarget.annotation.linkedTaskId!)}
+                    >
+                      Abrir tarefa ↗
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => void convertFromEditor('task')}
+                      disabled={pickDefaultProjectId(projects) === null}
+                    >
+                      → Tarefa
+                    </button>
+                  )}
+                  {commentTarget.annotation.linkedNoteId ? (
+                    <button
+                      type="button"
+                      onClick={() => openLinked('note', commentTarget.annotation.linkedNoteId!)}
+                    >
+                      Abrir nota ↗
+                    </button>
+                  ) : (
+                    <button type="button" onClick={() => void convertFromEditor('note')}>
+                      → Anotação
+                    </button>
+                  )}
                 </>
               )}
               {commentTarget.mode === 'edit' && (
@@ -846,6 +925,8 @@ function LazyPdfPage({
   onCreateComment,
   onSelectAnnotation,
   onEraseAnnotation,
+  pulseAnnotationId,
+  registerSlot,
 }: {
   getDoc: () => PDFDocumentProxy | null;
   pageNumber: number;
@@ -858,8 +939,10 @@ function LazyPdfPage({
   onCreateComment: (anchor: { x: number; y: number }) => void;
   onSelectAnnotation: (a: Annotation) => void;
   onEraseAnnotation: (a: Annotation) => void;
+  pulseAnnotationId?: string | null;
+  registerSlot?: (pageNumber: number, el: HTMLDivElement | null) => void;
 }) {
-  const slotRef = useRef<HTMLDivElement>(null);
+  const slotRef = useRef<HTMLDivElement | null>(null);
   const [visible, setVisible] = useState(pageNumber <= 2);
   const [page, setPage] = useState<PDFPageProxy | null>(null);
   const [scale, setScale] = useState(1);
@@ -907,7 +990,10 @@ function LazyPdfPage({
 
   return (
     <div
-      ref={slotRef}
+      ref={(el) => {
+        slotRef.current = el;
+        registerSlot?.(pageNumber, el);
+      }}
       className="pdf-page-slot"
       style={page ? undefined : { height: targetWidth * baseAspect, width: targetWidth }}
     >
@@ -919,6 +1005,7 @@ function LazyPdfPage({
           annotations={annotations}
           tool={tool}
           color={color}
+          pulseAnnotationId={pulseAnnotationId}
           onCreateHighlight={onCreateHighlight}
           onCreateComment={onCreateComment}
           onSelectAnnotation={onSelectAnnotation}
