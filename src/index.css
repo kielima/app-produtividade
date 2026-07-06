@@ -4844,6 +4844,19 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   opacity: 0.6;
   cursor: progress;
 }
+.leitura-sync-progress {
+  width: 220px;
+  max-width: 220px;
+  margin: 0;
+  padding: 0;
+}
+@media (max-width: 640px) {
+  .leitura-sync-progress {
+    width: 100%;
+    max-width: none;
+    order: 1;
+  }
+}
 
 
 .leitura-empty {
