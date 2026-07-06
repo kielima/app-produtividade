@@ -4826,6 +4826,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.75rem;
   margin-bottom: 0.75rem;
 }
+@media (max-width: 640px) {
+  .leitura-toolbar {
+    flex-wrap: wrap;
+  }
+}
 .leitura-connect,
 .leitura-sync {
   padding: 0.5rem 0.9rem;
