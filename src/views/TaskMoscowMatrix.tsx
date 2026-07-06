@@ -12,9 +12,9 @@ import { useMemo, useState } from 'react';
 import { DraggableTaskCard } from '../components/DraggableTaskCard';
 import { DroppableSection } from '../components/DroppableSection';
 import { TaskCard } from '../components/TaskCard';
-import { isTaskBlocked } from '../lib/score';
+import { calcScore, isTaskBlocked } from '../lib/score';
 import { patchTask } from '../lib/taskMutations';
-import type { MoSCoW, ScoreContext, Task } from '../types';
+import type { MoSCoW, Project, ScoreContext, Task } from '../types';
 
 const DROP_PREFIX = 'tmoscow:';
 
@@ -37,11 +37,15 @@ const QUADRANTS: QuadrantSpec[] = [
 export function TaskMoscowMatrix({
   uid,
   tasks,
+  projectMap,
   ctx,
+  hideZero,
 }: {
   uid: string;
   tasks: Task[];
+  projectMap: Record<string, Project>;
   ctx: ScoreContext;
+  hideZero: boolean;
 }) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
@@ -50,7 +54,13 @@ export function TaskMoscowMatrix({
     useSensor(TouchSensor, { activationConstraint: { delay: 200, tolerance: 6 } }),
   );
 
-  const visible = useMemo(() => tasks.filter((t) => !t.checked), [tasks]);
+  const visible = useMemo(() => {
+    return tasks.filter((t) => {
+      if (t.checked) return false;
+      if (hideZero && calcScore(t, projectMap[t.section] ?? null, ctx) <= 0) return false;
+      return true;
+    });
+  }, [tasks, projectMap, ctx, hideZero]);
 
   const taskMap = useMemo(() => {
     const m: Record<string, Task> = {};
