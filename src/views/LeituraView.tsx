@@ -47,6 +47,8 @@ export function LeituraView({
   projects,
   filters,
   onOptionsChange,
+  pendingTarget,
+  onPendingTargetHandled,
 }: {
   uid: string;
   projects: Project[];
@@ -56,6 +58,10 @@ export function LeituraView({
     tags: string[];
     types: string[];
   }) => void;
+  // Vínculo tarefa/nota → PDF: item + anotação para abrir direto ao entrar
+  // nesta aba (ver `useReadingNavigation`).
+  pendingTarget?: { itemId: string; annotationId: string } | null;
+  onPendingTargetHandled?: () => void;
 }) {
   const noteNav = useNoteNavigation();
   const taskNav = useTaskNavigation();
@@ -69,8 +75,16 @@ export function LeituraView({
   const [metaItemId, setMetaItemId] = useState<string | null>(null);
   const [layout, setLayout] = useState<LeituraLayout>(loadLeituraLayout);
   const [columns, setColumns] = useState<ReadingColumnConfig[]>(loadReadingColumns);
+  const [focusAnnotationId, setFocusAnnotationId] = useState<string | null>(null);
 
   useEffect(() => subscribeToReadingItems(uid, setItems), [uid]);
+
+  useEffect(() => {
+    if (!pendingTarget) return;
+    setOpenItemId(pendingTarget.itemId);
+    setFocusAnnotationId(pendingTarget.annotationId);
+    onPendingTargetHandled?.();
+  }, [pendingTarget, onPendingTargetHandled]);
 
   useEffect(() => {
     localStorage.setItem(LEITURA_LAYOUT_KEY, layout);
@@ -192,6 +206,8 @@ export function LeituraView({
           if (dest === 'note') noteNav.openNote(id);
           else taskNav.openTask(id);
         }}
+        focusAnnotationId={focusAnnotationId}
+        onFocusHandled={() => setFocusAnnotationId(null)}
       />
     );
   }
