@@ -47,6 +47,12 @@ export interface Task {
   // tarefa ativa (não adiada). Não é serializado no título — campo puro do
   // Firestore, como `inProgress`/`completedAt`/`parentId`.
   snoozedUntil?: string | null;
+  // Preenchidos quando a tarefa nasce de uma anotação da aba Leitura: apontam
+  // de volta para o item/anotação de origem, permitindo abrir o PDF direto na
+  // marcação (ver `useReadingNavigation`). Ausentes em tarefas criadas de
+  // outra forma.
+  sourceItemId?: string;
+  sourceAnnotationId?: string;
 }
 
 export interface Section {
@@ -105,6 +111,12 @@ export interface Note {
   pinned: boolean;
   projectId?: string;
   color?: string;
+  // Preenchidos quando a nota nasce de uma anotação da aba Leitura: apontam
+  // de volta para o item/anotação de origem, permitindo abrir o PDF direto na
+  // marcação (ver `useReadingNavigation`). Ausentes em notas criadas de outra
+  // forma.
+  sourceItemId?: string;
+  sourceAnnotationId?: string;
 }
 
 // =============================================================
@@ -200,6 +212,11 @@ export interface Annotation {
   // Posição do pin do comentário (0–1), para type 'comment'.
   anchor?: { x: number; y: number };
   createdAt: string; // ISO datetime
+  // Id da tarefa/nota criada a partir desta anotação (vínculo bidirecional:
+  // a tarefa/nota guarda `sourceItemId`/`sourceAnnotationId` de volta para
+  // cá). Preenchido ao converter pelo editor de anotação da aba Leitura.
+  linkedTaskId?: string;
+  linkedNoteId?: string;
 }
 
 export interface DependencyEntry {

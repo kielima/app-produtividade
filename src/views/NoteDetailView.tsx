@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
 import { InlineEdit } from '../components/InlineEdit';
+import LinkIcon from '../components/LinkIcon';
 import { MarkdownNote } from '../components/MarkdownNote';
 import { SubtaskList } from '../components/SubtaskList';
 import { TagsEditor } from '../components/TagsEditor';
 import TrashIcon from '../components/TrashIcon';
 import { serializeTitle } from '../lib/parser';
 import { normalizeTags } from '../lib/tags';
+import { useReadingNavigation } from '../lib/readingNavigation';
 import { deleteNote, patchNote } from '../repositories/notesRepo';
 import { nextTaskId, upsertTask } from '../repositories/tasksRepo';
+import { deleteField } from 'firebase/firestore';
+import { patchAnnotation } from '../repositories/annotationsRepo';
 import type { Note, Project, Subtask, Task } from '../types';
 
 function isHiddenProject(p: Project): boolean {
@@ -45,6 +49,7 @@ export function NoteDetailView({
   const [converting, setConverting] = useState(false);
   const [showColorPicker, setShowColorPicker] = useState(false);
   const colorPickerRef = useRef<HTMLDivElement>(null);
+  const readingNav = useReadingNavigation();
 
   const NOTE_COLORS = [
     { label: 'Padrão', value: '' },
@@ -155,6 +160,9 @@ export function NoteDetailView({
         subtasks: [],
         section: sectionId,
         completedAt: null,
+        ...(note.sourceItemId && note.sourceAnnotationId
+          ? { sourceItemId: note.sourceItemId, sourceAnnotationId: note.sourceAnnotationId }
+          : {}),
       };
 
       const children: Task[] = note.items.map((item, i) => {
@@ -196,6 +204,14 @@ export function NoteDetailView({
       await Promise.all(children.map((child) => upsertTask(uid, child)));
       await deleteNote(uid, note.id);
       const taskId = baseId;
+      // A nota de origem some — repassa o vínculo pra anotação apontar para
+      // a tarefa recém-criada em vez da nota apagada.
+      if (note.sourceItemId && note.sourceAnnotationId) {
+        await patchAnnotation(uid, note.sourceItemId, note.sourceAnnotationId, {
+          linkedNoteId: deleteField(),
+          linkedTaskId: String(taskId),
+        });
+      }
       if (onConvertedToTask) onConvertedToTask(String(taskId));
       else onClose();
     } finally {
@@ -320,7 +336,21 @@ export function NoteDetailView({
         <section className="task-detail-section">
           <div className="task-detail-section-header">
             <h3>Nota</h3>
-            <CopyMarkdownButton value={note.note} ariaLabel="copiar nota em markdown" />
+            <div className="task-detail-note-actions">
+              {note.sourceItemId && note.sourceAnnotationId && (
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() =>
+                    readingNav.openAnnotation(note.sourceItemId!, note.sourceAnnotationId!)
+                  }
+                  title="Abrir a anotação de origem no PDF"
+                >
+                  <LinkIcon size={14} /> Ver no PDF
+                </button>
+              )}
+              <CopyMarkdownButton value={note.note} ariaLabel="copiar nota em markdown" />
+            </div>
           </div>
           <MarkdownNote
             value={note.note}

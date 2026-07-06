@@ -49,6 +49,7 @@ import {
 } from '../lib/taskMutations';
 import { getChildren, hasIncompleteChildren } from '../lib/taskHierarchy';
 import { useTaskNavigation } from '../lib/taskNavigation';
+import { useReadingNavigation } from '../lib/readingNavigation';
 import { deleteTask } from '../repositories/tasksRepo';
 import type {
   Esforco,
@@ -124,6 +125,7 @@ export function TaskDetailView({
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
+  const readingNav = useReadingNavigation();
   const [depModalOpen, setDepModalOpen] = useState(false);
   const [parentModalOpen, setParentModalOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
@@ -917,7 +919,21 @@ export function TaskDetailView({
         <section className="task-detail-section">
           <div className="task-detail-section-header">
             <h3>Nota</h3>
-            <CopyMarkdownButton value={task.note} ariaLabel="copiar nota em markdown" />
+            <div className="task-detail-note-actions">
+              {task.sourceItemId && task.sourceAnnotationId && (
+                <button
+                  type="button"
+                  className="link-btn"
+                  onClick={() =>
+                    readingNav.openAnnotation(task.sourceItemId!, task.sourceAnnotationId!)
+                  }
+                  title="Abrir a anotação de origem no PDF"
+                >
+                  <LinkIcon size={14} /> Ver no PDF
+                </button>
+              )}
+              <CopyMarkdownButton value={task.note} ariaLabel="copiar nota em markdown" />
+            </div>
           </div>
           <MarkdownNote
             value={task.note}

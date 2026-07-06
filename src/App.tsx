@@ -52,6 +52,7 @@ import { SearchInput, SearchToggle } from './components/SearchBar';
 import { NoteNavigationContext } from './lib/noteNavigation';
 import { ProjectNavigationContext } from './lib/projectNavigation';
 import { TaskNavigationContext } from './lib/taskNavigation';
+import { ReadingNavigationContext } from './lib/readingNavigation';
 import { useUserData } from './lib/useUserData';
 import { ProjectDetailView } from './views/ProjectDetailView';
 import { ProjectDuelView } from './views/ProjectDuelView';
@@ -329,6 +330,12 @@ function AppShell({
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [selectedProjectId, setSelectedProjectId] = useState<string | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
+  // Vínculo tarefa/nota → PDF: item + anotação a abrir ao entrar na aba
+  // Leitura (ver `useReadingNavigation`/`LeituraView`).
+  const [pendingReadingTarget, setPendingReadingTarget] = useState<{
+    itemId: string;
+    annotationId: string;
+  } | null>(null);
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteTags, setSelectedNoteTags] = useState<string[]>([]);
   const [noteProjectFilter, setNoteProjectFilter] = useState<string | null>(null);
@@ -610,6 +617,17 @@ function AppShell({
     () => ({ openNote: (noteId: string) => setSelectedNoteId(noteId) }),
     [],
   );
+  const readingNavValue = useMemo(
+    () => ({
+      openAnnotation: (itemId: string, annotationId: string) => {
+        setSelectedTaskId(null);
+        setSelectedNoteId(null);
+        setPendingReadingTarget({ itemId, annotationId });
+        setTab('leitura');
+      },
+    }),
+    [setTab],
+  );
 
   const allNoteTags = useMemo(() => {
     const counts = new Map<string, number>();
@@ -741,52 +759,56 @@ function AppShell({
 
   if (selectedNote) {
     return (
-      <NoteNavigationContext.Provider value={noteNavValue}>
-        <TaskNavigationContext.Provider value={taskNavValue}>
-          <div className="app app--detail">
-            <main role="main">
-              <NoteDetailView
-                uid={uid}
-                note={selectedNote}
-                allTags={allNoteTags}
-                projects={data.projects}
-                onConvertedToTask={(taskId) => {
-                  setSelectedNoteId(null);
-                  setTab('tasks');
-                  setSelectedTaskId(taskId);
-                }}
-                onClose={goBack}
-              />
-            </main>
-            <UpdatePrompt />
-            {shareDialogEl}
-          </div>
-        </TaskNavigationContext.Provider>
-      </NoteNavigationContext.Provider>
+      <ReadingNavigationContext.Provider value={readingNavValue}>
+        <NoteNavigationContext.Provider value={noteNavValue}>
+          <TaskNavigationContext.Provider value={taskNavValue}>
+            <div className="app app--detail">
+              <main role="main">
+                <NoteDetailView
+                  uid={uid}
+                  note={selectedNote}
+                  allTags={allNoteTags}
+                  projects={data.projects}
+                  onConvertedToTask={(taskId) => {
+                    setSelectedNoteId(null);
+                    setTab('tasks');
+                    setSelectedTaskId(taskId);
+                  }}
+                  onClose={goBack}
+                />
+              </main>
+              <UpdatePrompt />
+              {shareDialogEl}
+            </div>
+          </TaskNavigationContext.Provider>
+        </NoteNavigationContext.Provider>
+      </ReadingNavigationContext.Provider>
     );
   }
 
   if (selectedTask) {
     return (
-      <TaskNavigationContext.Provider value={taskNavValue}>
-        <ProjectNavigationContext.Provider value={projectNavValue}>
-          <div className="app app--detail">
-            <main role="main">
-              <TaskDetailView
-                uid={uid}
-                task={selectedTask}
-                allTasks={data.tasks}
-                projects={data.projects}
-                projectMap={data.projectMap}
-                ctx={data.ctx}
-                onClose={goBack}
-              />
-            </main>
-            <UpdatePrompt />
-            {shareDialogEl}
-          </div>
-        </ProjectNavigationContext.Provider>
-      </TaskNavigationContext.Provider>
+      <ReadingNavigationContext.Provider value={readingNavValue}>
+        <TaskNavigationContext.Provider value={taskNavValue}>
+          <ProjectNavigationContext.Provider value={projectNavValue}>
+            <div className="app app--detail">
+              <main role="main">
+                <TaskDetailView
+                  uid={uid}
+                  task={selectedTask}
+                  allTasks={data.tasks}
+                  projects={data.projects}
+                  projectMap={data.projectMap}
+                  ctx={data.ctx}
+                  onClose={goBack}
+                />
+              </main>
+              <UpdatePrompt />
+              {shareDialogEl}
+            </div>
+          </ProjectNavigationContext.Provider>
+        </TaskNavigationContext.Provider>
+      </ReadingNavigationContext.Provider>
     );
   }
 
@@ -1062,6 +1084,8 @@ function AppShell({
               projects={data.projects}
               filters={readingFilters}
               onOptionsChange={setReadingOptions}
+              pendingTarget={pendingReadingTarget}
+              onPendingTargetHandled={() => setPendingReadingTarget(null)}
             />
           </Suspense>
         )}

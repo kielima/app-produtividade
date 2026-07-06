@@ -6,6 +6,7 @@ import {
   setDoc,
   type Unsubscribe,
 } from 'firebase/firestore';
+import type { FieldValue } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import type { Annotation } from '../types';
 
@@ -28,6 +29,8 @@ function normalize(id: string, itemId: string, data: Partial<Annotation>): Annot
     ...(data.comment != null ? { comment: data.comment } : {}),
     ...(Array.isArray(data.strokes) ? { strokes: data.strokes } : {}),
     ...(data.anchor != null ? { anchor: data.anchor } : {}),
+    ...(data.linkedTaskId != null ? { linkedTaskId: data.linkedTaskId } : {}),
+    ...(data.linkedNoteId != null ? { linkedNoteId: data.linkedNoteId } : {}),
   };
 }
 
@@ -72,6 +75,24 @@ export async function upsertAnnotation(
   await setDoc(
     doc(db, 'users', uid, 'readingItems', annotation.itemId, 'annotations', annotation.id),
     annotation,
+    { merge: true },
+  );
+}
+
+// Atualiza campos pontuais de uma anotação sem precisar do objeto inteiro
+// (ex.: linkedTaskId/linkedNoteId ao vincular/revincular a partir de fora do
+// leitor, como na conversão nota → tarefa).
+export async function patchAnnotation(
+  uid: string,
+  itemId: string,
+  annotationId: string,
+  // Aceita `deleteField()` como valor (ex.: limpar linkedNoteId ao revincular
+  // para uma tarefa), por isso o tipo é mais solto que `Partial<Annotation>`.
+  patch: { [K in keyof Annotation]?: Annotation[K] | FieldValue },
+): Promise<void> {
+  await setDoc(
+    doc(db, 'users', uid, 'readingItems', itemId, 'annotations', annotationId),
+    patch,
     { merge: true },
   );
 }

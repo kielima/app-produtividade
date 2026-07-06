@@ -14,14 +14,26 @@ export function pickDefaultProjectId(projects: Project[]): string | null {
   return available[0]?.id ?? null;
 }
 
+// Origem opcional de uma anotação da aba Leitura: guardada na nota/tarefa
+// criada para permitir voltar direto ao PDF (ver `useReadingNavigation`).
+export interface TextSource {
+  itemId: string;
+  annotationId: string;
+}
+
 // Cria uma nota com título e corpo. Retorna o id da nota criada.
 export async function createNoteFromText(
   uid: string,
   title: string,
   text: string,
+  source?: TextSource,
 ): Promise<string> {
   const note = await createNote(uid);
-  await patchNote(uid, note.id, { title, note: text });
+  await patchNote(uid, note.id, {
+    title,
+    note: text,
+    ...(source ? { sourceItemId: source.itemId, sourceAnnotationId: source.annotationId } : {}),
+  });
   return note.id;
 }
 
@@ -32,6 +44,7 @@ export async function createTaskFromText(
   projects: Project[],
   title: string,
   text: string,
+  source?: TextSource,
 ): Promise<string | null> {
   const sectionId = pickDefaultProjectId(projects);
   if (!sectionId) return null;
@@ -61,6 +74,7 @@ export async function createTaskFromText(
     subtasks: [],
     section: sectionId,
     completedAt: null,
+    ...(source ? { sourceItemId: source.itemId, sourceAnnotationId: source.annotationId } : {}),
   };
   await upsertTask(uid, newTask);
   return String(taskId);

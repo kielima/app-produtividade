@@ -68,6 +68,7 @@ export function PdfPageView({
   annotations,
   tool,
   color,
+  pulseAnnotationId,
   onCreateHighlight,
   onCreateComment,
   onSelectAnnotation,
@@ -79,6 +80,9 @@ export function PdfPageView({
   annotations: Annotation[];
   tool: ReaderTool;
   color: string;
+  // Anotação destacada com um pulso visual momentâneo (chegada via vínculo
+  // tarefa/nota → PDF), para o usuário achar a marcação certa na página.
+  pulseAnnotationId?: string | null;
   onCreateHighlight: (rects: NormRect[], text: string) => void;
   onCreateComment: (anchor: { x: number; y: number }) => void;
   onSelectAnnotation: (a: Annotation) => void;
@@ -859,15 +863,19 @@ export function PdfPageView({
             ));
           }
           if (a.rects) {
+            const pulsing = a.id === pulseAnnotationId;
             return a.rects.map((r, i) => (
               <rect
                 key={`${a.id}-${i}`}
+                className={pulsing ? 'pdf-annot-pulse' : undefined}
                 x={r.x * w}
                 y={r.y * h}
                 width={r.w * w}
                 height={r.h * h}
                 fill={a.color}
                 opacity={a.comment ? 0.5 : 0.32}
+                stroke={pulsing ? '#ff5722' : undefined}
+                strokeWidth={pulsing ? 3 : undefined}
               />
             ));
           }

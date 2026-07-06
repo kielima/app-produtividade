@@ -33,6 +33,10 @@ export function subscribeToNotes(
           pinned: data.pinned === true,
           ...(data.projectId != null ? { projectId: data.projectId } : {}),
           ...(data.color != null ? { color: data.color } : {}),
+          ...(data.sourceItemId != null ? { sourceItemId: data.sourceItemId } : {}),
+          ...(data.sourceAnnotationId != null
+            ? { sourceAnnotationId: data.sourceAnnotationId }
+            : {}),
         };
       });
       notes.sort((a, b) => {
