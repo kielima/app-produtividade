@@ -169,7 +169,7 @@ export function MetadataEditor({
         <div className="metadata-row">
           <div className="metadata-field">
             <span>Tipo (estante)</span>
-            <TypeCombobox
+            <ShelfTypeSelect
               value={typeInput}
               onChange={setTypeInput}
               options={typeOptions}
@@ -253,11 +253,12 @@ export function MetadataEditor({
   );
 }
 
-// Combobox editável do campo "Tipo". Substitui o <datalist> nativo, cuja
-// popup renderiza desalinhada (sobre outros campos) em alguns WebViews Android.
-// Aqui a lista é um dropdown próprio, ancorado logo abaixo do input, e o usuário
-// pode escolher uma sugestão ou digitar um tipo novo livremente.
-function TypeCombobox({
+// Seletor do campo "Tipo": lista suspensa nativa com as estantes existentes,
+// uma opção para criar uma estante nova e um X para limpar a marcação atual
+// (o item volta a cair em "Outro" ao salvar, como qualquer tipo vazio).
+const CREATE_NEW_TYPE = '__create-new-type__';
+
+function ShelfTypeSelect({
   value,
   onChange,
   options,
@@ -266,64 +267,99 @@ function TypeCombobox({
   onChange: (v: string) => void;
   options: string[];
 }) {
-  const [open, setOpen] = useState(false);
-  const wrapRef = useRef<HTMLDivElement>(null);
+  const [creating, setCreating] = useState(false);
+  const [draft, setDraft] = useState('');
+  const draftInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    if (!open) return;
-    function onPointerDown(e: MouseEvent) {
-      if (wrapRef.current && !wrapRef.current.contains(e.target as Node)) {
-        setOpen(false);
-      }
-    }
-    function onKey(e: KeyboardEvent) {
-      if (e.key === 'Escape') setOpen(false);
-    }
-    document.addEventListener('mousedown', onPointerDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('mousedown', onPointerDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, [open]);
+    if (creating) draftInputRef.current?.focus();
+  }, [creating]);
 
-  const q = value.trim().toLowerCase();
-  const filtered = q ? options.filter((o) => o.toLowerCase().includes(q)) : options;
+  // Garante que o valor atual apareça na lista mesmo que ainda não conste em
+  // `options` (ex.: valor vindo de metadados buscados por DOI/ISBN/ISSN).
+  const allOptions =
+    value && !options.includes(value) ? [...options, value].sort((a, b) => a.localeCompare(b)) : options;
+
+  function handleSelectChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const v = e.target.value;
+    if (v === CREATE_NEW_TYPE) {
+      setDraft('');
+      setCreating(true);
+      return;
+    }
+    onChange(v);
+  }
+
+  function confirmDraft() {
+    const trimmed = draft.trim();
+    if (trimmed) onChange(trimmed);
+    setCreating(false);
+  }
+
+  if (creating) {
+    return (
+      <div className="type-combobox type-combobox--creating">
+        <input
+          ref={draftInputRef}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Nome da nova estante…"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              e.preventDefault();
+              confirmDraft();
+            } else if (e.key === 'Escape') {
+              e.preventDefault();
+              setCreating(false);
+            }
+          }}
+        />
+        <button
+          type="button"
+          className="type-combobox-confirm"
+          onClick={confirmDraft}
+          disabled={!draft.trim()}
+          title="Confirmar nova estante"
+          aria-label="Confirmar nova estante"
+        >
+          ✓
+        </button>
+        <button
+          type="button"
+          className="type-combobox-cancel"
+          onClick={() => setCreating(false)}
+          title="Cancelar"
+          aria-label="Cancelar"
+        >
+          ✕
+        </button>
+      </div>
+    );
+  }
 
   return (
-    <div className="type-combobox" ref={wrapRef}>
-      <input
-        value={value}
-        onChange={(e) => {
-          onChange(e.target.value);
-          setOpen(true);
-        }}
-        onFocus={() => setOpen(true)}
-        placeholder="ex.: Artigo, Livro, Tese…"
-        role="combobox"
-        aria-expanded={open}
-        aria-autocomplete="list"
-      />
-      {open && filtered.length > 0 && (
-        <ul className="type-combobox-list" role="listbox">
-          {filtered.map((o) => (
-            <li key={o}>
-              <button
-                type="button"
-                className={o.toLowerCase() === q ? 'active' : ''}
-                // preventDefault mantém o foco no input e evita que o mousedown
-                // externo feche a lista antes do clique registrar.
-                onMouseDown={(e) => e.preventDefault()}
-                onClick={() => {
-                  onChange(o);
-                  setOpen(false);
-                }}
-              >
-                {o}
-              </button>
-            </li>
-          ))}
-        </ul>
+    <div className="type-combobox">
+      <select value={value && allOptions.includes(value) ? value : ''} onChange={handleSelectChange}>
+        <option value="" disabled hidden>
+          Selecione…
+        </option>
+        {allOptions.map((o) => (
+          <option key={o} value={o}>
+            {o}
+          </option>
+        ))}
+        <option value={CREATE_NEW_TYPE}>+ Criar nova estante…</option>
+      </select>
+      {value && (
+        <button
+          type="button"
+          className="type-combobox-clear"
+          onClick={() => onChange('')}
+          title="Remover marcação atual"
+          aria-label="Remover marcação atual"
+        >
+          ✕
+        </button>
       )}
     </div>
   );
