@@ -31,7 +31,7 @@ import { useTaskNavigation } from '../lib/taskNavigation';
 
 type SyncState =
   | { status: 'idle' }
-  | { status: 'syncing'; found: number }
+  | { status: 'syncing'; found: number; processed: number }
   | { status: 'error'; message: string };
 
 type LeituraLayout = 'shelf' | 'table';
@@ -112,15 +112,16 @@ export function LeituraView({
   }
 
   async function syncDrive() {
-    setSync({ status: 'syncing', found: 0 });
+    setSync({ status: 'syncing', found: 0, processed: 0 });
     try {
       const token = await ensureDriveToken(uid);
       setConnected(true);
       const files = await listDrivePdfs(token);
-      setSync({ status: 'syncing', found: files.length });
+      setSync({ status: 'syncing', found: files.length, processed: 0 });
       // Cache de pastas compartilhado por toda a sincronização: muitas PDFs
       // dividem as mesmas pastas, então cada uma só é resolvida uma vez.
       const folderCache = new Map<string, DriveFolderMeta | null>();
+      let processed = 0;
       for (const f of files) {
         let folderId: string | undefined;
         let folderPath: string | undefined;
@@ -136,6 +137,8 @@ export function LeituraView({
           folderId,
           folderPath,
         });
+        processed += 1;
+        setSync({ status: 'syncing', found: files.length, processed });
       }
       setSync({ status: 'idle' });
     } catch (e) {
@@ -191,6 +194,11 @@ export function LeituraView({
 
   const shelves = useMemo(() => groupIntoShelves(filtered), [filtered]);
 
+  const syncProgressPct =
+    sync.status === 'syncing' && sync.found > 0
+      ? Math.round((sync.processed / sync.found) * 100)
+      : 0;
+
   const openItem = openItemId ? items.find((i) => i.id === openItemId) ?? null : null;
   const metaItem = metaItemId ? items.find((i) => i.id === metaItemId) ?? null : null;
 
@@ -226,12 +234,32 @@ export function LeituraView({
             onClick={() => void syncDrive()}
             disabled={sync.status === 'syncing'}
           >
-            {sync.status === 'syncing'
-              ? `Sincronizando… (${sync.found})`
-              : 'Sincronizar Drive'}
+            {sync.status === 'syncing' ? 'Sincronizando…' : 'Sincronizar Drive'}
           </button>
         )}
         {sync.status === 'error' && <span className="error">{sync.message}</span>}
+
+        {sync.status === 'syncing' && (
+          <div
+            className="classify-progress leitura-sync-progress"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={syncProgressPct}
+            aria-label="progresso da sincronização"
+          >
+            <div className="classify-progress-track">
+              <div
+                className="classify-progress-fill"
+                style={{ width: `${syncProgressPct}%` }}
+              />
+            </div>
+            <span className="classify-progress-label">
+              {sync.processed} de {sync.found} arquivo{sync.found === 1 ? '' : 's'} ·{' '}
+              {syncProgressPct}%
+            </span>
+          </div>
+        )}
 
         <div className="leitura-layout-toggle" role="group" aria-label="Modo de visualização">
           <button
