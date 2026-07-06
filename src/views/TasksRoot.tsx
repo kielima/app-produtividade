@@ -14,6 +14,7 @@ import type { UserData } from '../lib/useUserData';
 import { migrateCompletedTasksIntoTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
 import { PrioridadeView } from './PrioridadeView';
+import { TaskMoscowMatrix } from './TaskMoscowMatrix';
 
 export type TaskView = 'prioridade';
 
@@ -118,14 +119,18 @@ export function TasksRoot({
 
   return (
     <>
-      <PrioridadeView
-        uid={uid}
-        tasks={filteredTasks}
-        projectMap={data.projectMap}
-        ctx={data.ctx}
-        hideZero={filters.hideZero}
-        childStats={childStats}
-      />
+      {filters.viewMode === 'matrix' ? (
+        <TaskMoscowMatrix uid={uid} tasks={filteredTasks} ctx={data.ctx} />
+      ) : (
+        <PrioridadeView
+          uid={uid}
+          tasks={filteredTasks}
+          projectMap={data.projectMap}
+          ctx={data.ctx}
+          hideZero={filters.hideZero}
+          childStats={childStats}
+        />
+      )}
       <NewTaskFab
         uid={uid}
         projects={data.projects}

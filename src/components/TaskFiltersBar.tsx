@@ -45,6 +45,13 @@ const STATUS_LABEL: Record<StatusKey, string> = {
 
 export const STATUS_VALUES: StatusKey[] = ['todo', 'doing', 'done'];
 
+export type TaskViewMode = 'list' | 'matrix';
+
+export const TASK_VIEW_LABEL: Record<TaskViewMode, string> = {
+  list: 'Lista',
+  matrix: 'Matriz MoSCoW',
+};
+
 export interface TaskFiltersState {
   hideZero: boolean;
   hideCompleted: boolean;
@@ -55,6 +62,7 @@ export interface TaskFiltersState {
   moscowFilter: Set<MoSCoW>;
   esforcoFilter: Set<Esforco>;
   statusFilter: Set<StatusKey>;
+  viewMode: TaskViewMode;
 }
 
 export function defaultFiltersState(): TaskFiltersState {
@@ -68,6 +76,7 @@ export function defaultFiltersState(): TaskFiltersState {
     moscowFilter: new Set<MoSCoW>(MOSCOW_VALUES),
     esforcoFilter: new Set<Esforco>(ESFORCO_VALUES),
     statusFilter: new Set<StatusKey>(STATUS_VALUES),
+    viewMode: 'list',
   };
 }
 
@@ -81,6 +90,7 @@ interface SerializedTaskFilters {
   moscowFilter: MoSCoW[];
   esforcoFilter: Esforco[];
   statusFilter: StatusKey[];
+  viewMode: TaskViewMode;
 }
 
 export function serializeFiltersState(
@@ -96,6 +106,7 @@ export function serializeFiltersState(
     moscowFilter: [...state.moscowFilter],
     esforcoFilter: [...state.esforcoFilter],
     statusFilter: [...state.statusFilter],
+    viewMode: state.viewMode,
   };
 }
 
@@ -126,6 +137,7 @@ export function deserializeFiltersState(raw: unknown): TaskFiltersState {
     moscowFilter: allowed(v.moscowFilter, MOSCOW_VALUES),
     esforcoFilter: allowed(v.esforcoFilter, ESFORCO_VALUES),
     statusFilter: allowed(v.statusFilter, STATUS_VALUES),
+    viewMode: v.viewMode === 'matrix' ? 'matrix' : base.viewMode,
   };
 }
 
@@ -347,6 +359,23 @@ export function TaskFiltersBar({
               />
               &nbsp;sem data
             </label>
+          </fieldset>
+
+          <fieldset>
+            <legend>Visualização</legend>
+            <div className="chip-group">
+              {(Object.keys(TASK_VIEW_LABEL) as TaskViewMode[]).map((m) => (
+                <button
+                  key={m}
+                  type="button"
+                  className={`chip${state.viewMode === m ? ' active' : ''}`}
+                  onClick={() => setState({ ...state, viewMode: m })}
+                  aria-pressed={state.viewMode === m}
+                >
+                  {TASK_VIEW_LABEL[m]}
+                </button>
+              ))}
+            </div>
           </fieldset>
 
           <fieldset>
