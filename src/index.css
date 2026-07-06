@@ -4826,6 +4826,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.75rem;
   margin-bottom: 0.75rem;
 }
+@media (max-width: 640px) {
+  .leitura-toolbar {
+    flex-wrap: wrap;
+  }
+}
 .leitura-connect,
 .leitura-sync {
   padding: 0.5rem 0.9rem;
@@ -4843,6 +4848,19 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .leitura-sync:disabled {
   opacity: 0.6;
   cursor: progress;
+}
+.leitura-sync-progress {
+  width: 220px;
+  max-width: 220px;
+  margin: 0;
+  padding: 0;
+}
+@media (max-width: 640px) {
+  .leitura-sync-progress {
+    width: 100%;
+    max-width: none;
+    order: 1;
+  }
 }
 
 
