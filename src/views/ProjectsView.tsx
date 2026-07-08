@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
 import type { ProjectFiltersState } from '../components/ProjectFiltersBar';
 import { computeVolatilityBands } from '../lib/glicko2';
+import { normalizeForSearch } from '../lib/searchNormalize';
 import { buildTaskCountByProject } from '../lib/taskHierarchy';
 import { subscribeToGlickoRatings, type GlickoMap } from '../repositories/glickoRepo';
 import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
@@ -26,9 +27,11 @@ function loadCollapsedCategories(): Set<string> {
 export function ProjectsView({
   uid,
   filters,
+  searchQuery = '',
 }: {
   uid: string;
   filters: ProjectFiltersState;
+  searchQuery?: string;
 }) {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -85,7 +88,17 @@ export function ProjectsView({
   }, [projects, taskCountByProject]);
 
   const filtered = useMemo(() => {
-    const list = projects.filter((p) => filters.statusFilter.has(p.status));
+    const q = normalizeForSearch(searchQuery.trim());
+    const list = projects.filter((p) => {
+      if (!filters.statusFilter.has(p.status)) return false;
+      if (q) {
+        const haystack = normalizeForSearch(
+          [p.name, ...p.categories].join('\n'),
+        );
+        if (!haystack.includes(q)) return false;
+      }
+      return true;
+    });
     if (filters.sortMode === 'progress') {
       // Maior conclusão primeiro. Projetos sem tarefas (null) vão para o fim,
       // preservando entre empates a ordem manual (por nota) original.
@@ -103,7 +116,7 @@ export function ProjectsView({
     }
     // 'score': mantém a ordem manual (maior nota primeiro), já vinda do repo.
     return list;
-  }, [projects, filters, progressByProject]);
+  }, [projects, filters, progressByProject, searchQuery]);
 
   // Agrupamento por categoria para a visualização "Por categoria". Um projeto
   // com várias categorias aparece em cada grupo correspondente; sem categorias

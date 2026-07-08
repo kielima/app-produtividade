@@ -344,6 +344,7 @@ function AppShell({
   const [searchOpen, setSearchOpen] = useState(false);
   const [taskSearchQuery, setTaskSearchQuery] = useState('');
   const [noteSearchQuery, setNoteSearchQuery] = useState('');
+  const [projectSearchQuery, setProjectSearchQuery] = useState('');
   const [readingFilters, setReadingFilters] =
     useState<ReadingFiltersState>(loadReadingFilters);
   const [readingOptions, setReadingOptions] = useState<{
@@ -888,21 +889,26 @@ function AppShell({
         className="topbar"
         role="banner"
       >
-        {searchOpen && (tab === 'notes' || tab === 'tasks' || tab === 'leitura') ? (
+        {searchOpen &&
+        (tab === 'notes' || tab === 'tasks' || tab === 'leitura' || tab === 'projects') ? (
           <SearchInput
             query={
               tab === 'notes'
                 ? noteSearchQuery
                 : tab === 'tasks'
                   ? taskSearchQuery
-                  : readingFilters.search
+                  : tab === 'projects'
+                    ? projectSearchQuery
+                    : readingFilters.search
             }
             setQuery={
               tab === 'notes'
                 ? setNoteSearchQuery
                 : tab === 'tasks'
                   ? setTaskSearchQuery
-                  : (q) => setReadingFilters({ ...readingFilters, search: q })
+                  : tab === 'projects'
+                    ? setProjectSearchQuery
+                    : (q) => setReadingFilters({ ...readingFilters, search: q })
             }
             onClose={() => setSearchOpen(false)}
             placeholder={
@@ -910,7 +916,9 @@ function AppShell({
                 ? 'Pesquisar anotações...'
                 : tab === 'tasks'
                   ? 'Pesquisar tarefas...'
-                  : 'Pesquisar título, autor, DOI…'
+                  : tab === 'projects'
+                    ? 'Pesquisar projetos...'
+                    : 'Pesquisar título, autor, DOI…'
             }
           />
         ) : (
@@ -1036,9 +1044,15 @@ function AppShell({
                 <line x1="3" x2="5" y1="19" y2="21" />
               </svg>
             </button>
+            <SearchToggle
+              active={projectSearchQuery.length > 0}
+              onClick={() => setSearchOpen(true)}
+            />
             <ProjectFiltersBar
               state={projectFilters}
               setState={setProjectFilters}
+              searchQuery={projectSearchQuery}
+              onClearSearch={() => setProjectSearchQuery('')}
             />
           </>
         )}
@@ -1098,7 +1112,11 @@ function AppShell({
           />
         )}
         {tab === 'projects' && (
-          <ProjectsView uid={uid} filters={projectFilters} />
+          <ProjectsView
+            uid={uid}
+            filters={projectFilters}
+            searchQuery={projectSearchQuery}
+          />
         )}
         {tab === 'countdown' && <CountdownView uid={uid} />}
         {tab === 'stats' && (

@@ -97,9 +97,13 @@ export function isAllProjectStatuses(state: ProjectFiltersState): boolean {
 export function ProjectFiltersBar({
   state,
   setState,
+  searchQuery,
+  onClearSearch,
 }: {
   state: ProjectFiltersState;
   setState: (next: ProjectFiltersState) => void;
+  searchQuery?: string;
+  onClearSearch?: () => void;
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -131,12 +135,14 @@ export function ProjectFiltersBar({
 
   function clearFilters() {
     setState(defaultProjectFiltersState());
+    onClearSearch?.();
     setOpen(false);
   }
 
   const count = activeProjectFilterCount(state);
+  const hasSearch = !!searchQuery;
   const isDefault =
-    count === 0 && state.sortMode === 'score' && state.viewMode === 'list';
+    count === 0 && !hasSearch && state.sortMode === 'score' && state.viewMode === 'list';
 
   return (
     <div className="topbar-filter" ref={wrapRef}>
