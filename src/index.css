@@ -608,8 +608,11 @@ a:focus-visible {
 }
 .duel-toggle:hover { background: var(--surface-2); color: var(--accent, var(--fg)); }
 .duel-toggle svg { display: block; }
-/* Quando o duel está presente, o filtro deixa de empurrar pra direita */
-.topbar:not(.topbar--with-subtabs) .duel-toggle + .topbar-filter {
+/* Quando o duel está presente, ele é quem empurra o grupo de ícones pra
+   direita — os irmãos seguintes (pesquisa/filtro) usam o gap padrão do
+   topbar em vez de também empurrarem com margin-left:auto. */
+.topbar:not(.topbar--with-subtabs) .duel-toggle + .topbar-filter,
+.topbar:not(.topbar--with-subtabs) .duel-toggle + .topbar-search {
   margin-left: 0;
 }
 
