@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Project, ReadingItem } from '../types';
 import {
   ensureReadingItemFromDrive,
@@ -15,6 +15,11 @@ import {
   resolveDriveFolderPath,
   type DriveFolderMeta,
 } from '../lib/googleDrive';
+import {
+  loadSyncCheckpoint,
+  saveSyncCheckpoint,
+  clearSyncCheckpoint,
+} from '../lib/driveSyncCheckpoint';
 import { type ReadingFiltersState } from '../components/LeituraFiltersBar';
 import { ReadingCard } from '../components/ReadingCard';
 import {
@@ -101,6 +106,23 @@ export function LeituraView({
     }
   }, [uid]);
 
+  // IDs já sincronizados na sincronização em curso. Fica em ref (não state)
+  // porque é atualizado por arquivo e só precisa ser lido, não re-renderizar.
+  const syncDoneIdsRef = useRef<Set<string> | null>(null);
+
+  // Ao minimizar o app no meio de uma sincronização grande, o SO pode
+  // suspender/matar o WebView e perder todo o progresso em memória. Salva um
+  // checkpoint assim que a aba/app sai de foco, pra retomar dali depois.
+  useEffect(() => {
+    function onVisibilityChange() {
+      if (document.visibilityState === 'hidden' && syncDoneIdsRef.current) {
+        saveSyncCheckpoint(uid, syncDoneIdsRef.current);
+      }
+    }
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    return () => document.removeEventListener('visibilitychange', onVisibilityChange);
+  }, [uid]);
+
   async function connect() {
     try {
       await grantDriveAccess(uid);
@@ -114,34 +136,64 @@ export function LeituraView({
   async function syncDrive() {
     setSync({ status: 'syncing', found: 0, processed: 0 });
     try {
-      const token = await ensureDriveToken(uid);
+      let token = await ensureDriveToken(uid);
       setConnected(true);
       const files = await listDrivePdfs(token);
-      setSync({ status: 'syncing', found: files.length, processed: 0 });
+      const currentIds = new Set(files.map((f) => f.id));
+      // Retoma de onde parou se a sincronização anterior foi interrompida
+      // (app minimizado/fechado pelo SO no meio do processo) em vez de
+      // reprocessar milhares de arquivos que já tinham sido sincronizados.
+      const doneIds = new Set(
+        [...loadSyncCheckpoint(uid)].filter((id) => currentIds.has(id)),
+      );
+      syncDoneIdsRef.current = doneIds;
+      const pending = files.filter((f) => !doneIds.has(f.id));
+      setSync({ status: 'syncing', found: files.length, processed: doneIds.size });
       // Cache de pastas compartilhado por toda a sincronização: muitas PDFs
       // dividem as mesmas pastas, então cada uma só é resolvida uma vez.
       const folderCache = new Map<string, DriveFolderMeta | null>();
-      let processed = 0;
-      for (const f of files) {
-        let folderId: string | undefined;
-        let folderPath: string | undefined;
-        const parent = f.parents?.[0];
-        if (parent) {
-          const resolved = await resolveDriveFolderPath(token, parent, folderCache);
-          folderId = resolved.folderId;
-          folderPath = resolved.folderPath;
+      for (const f of pending) {
+        // Sincronizações grandes podem passar da validade do token (ou o app
+        // pode ter voltado de segundo plano com ele expirado); ensureDriveToken
+        // usa o cache e só renova quando necessário. Fora do try/catch abaixo
+        // de propósito: se o token não puder ser renovado (ex.: precisa de
+        // consentimento interativo, impossível em segundo plano), é melhor
+        // parar a sincronização do que tentar de novo em cada arquivo restante.
+        token = await ensureDriveToken(uid);
+        try {
+          let folderId: string | undefined;
+          let folderPath: string | undefined;
+          const parent = f.parents?.[0];
+          if (parent) {
+            const resolved = await resolveDriveFolderPath(token, parent, folderCache);
+            folderId = resolved.folderId;
+            folderPath = resolved.folderPath;
+          }
+          await ensureReadingItemFromDrive(uid, {
+            id: f.id,
+            name: f.name,
+            folderId,
+            folderPath,
+          });
+          doneIds.add(f.id);
+        } catch (err) {
+          // Um arquivo com problema não deve abortar os outros milhares;
+          // como ele não entra em doneIds, a próxima sincronização tenta de novo.
+          console.warn('[leitura] falha ao sincronizar arquivo do Drive:', f.id, err);
         }
-        await ensureReadingItemFromDrive(uid, {
-          id: f.id,
-          name: f.name,
-          folderId,
-          folderPath,
-        });
-        processed += 1;
-        setSync({ status: 'syncing', found: files.length, processed });
+        if (doneIds.size % 50 === 0) saveSyncCheckpoint(uid, doneIds);
+        setSync({ status: 'syncing', found: files.length, processed: doneIds.size });
       }
+      if (doneIds.size >= files.length) {
+        clearSyncCheckpoint(uid);
+      } else {
+        saveSyncCheckpoint(uid, doneIds);
+      }
+      syncDoneIdsRef.current = null;
       setSync({ status: 'idle' });
     } catch (e) {
+      if (syncDoneIdsRef.current) saveSyncCheckpoint(uid, syncDoneIdsRef.current);
+      syncDoneIdsRef.current = null;
       setSync({ status: 'error', message: e instanceof Error ? e.message : String(e) });
     }
   }
