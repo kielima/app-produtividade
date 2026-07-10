@@ -1,4 +1,5 @@
 import { parseWikilinks, normalizeNoteName } from './obsidianWikilink';
+import type { DriveNode } from './obsidianNode';
 
 // Lógica pura de resolução de wikilinks e backlinks — sem React, sem Drive.
 // Opera sobre estruturas simples (não sobre VaultState diretamente) para
@@ -25,6 +26,16 @@ export function resolveWikilinkTarget(
   target: string,
 ): string | undefined {
   return nameIndex.get(normalizeNoteName(target));
+}
+
+// Dentre resultados de uma busca por nome no Drive (spec item 5), filtra os
+// que batem EXATAMENTE com o alvo (não só "contém", que é o que a busca por
+// nome do Drive já faz) — pastas nunca contam como alvo de wikilink.
+// Compartilhado entre a resolução de clique em link (Fase 2) e a resolução
+// de nó fantasma no grafo (Fase 3), pra não duplicar o mesmo critério.
+export function filterExactNameMatches(results: DriveNode[], target: string): DriveNode[] {
+  const normalizedTarget = normalizeNoteName(target);
+  return results.filter((node) => !node.isFolder && normalizeNoteName(node.name) === normalizedTarget);
 }
 
 // Notas (dentre as já carregadas nesta sessão) cujo conteúdo cita `targetName`
