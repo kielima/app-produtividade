@@ -7,7 +7,17 @@ import ForceGraph2D, {
 import { buildGraphData, type GraphLink, type GraphNode } from '../lib/obsidianGraph';
 import { filterExactNameMatches } from '../lib/obsidianBacklinks';
 import type { useObsidianVault } from '../lib/obsidianTree';
-import { ObsidianNotePreviewPage } from './ObsidianNotePreviewPage';
+import { ObsidianNoteGraphCard } from './ObsidianNoteGraphCard';
+
+// Tamanho-base do cartão de preview em "unidades de mundo" do grafo (mesma
+// unidade de `x`/`y` dos nós e da distância configurada em
+// `d3Force('link').distance(70)`) — multiplicado pelo zoom atual
+// (`globalScale`) a cada frame pra virar pixels de tela, fazendo o cartão
+// crescer/encolher junto com o resto do grafo. Ponto de partida razoável,
+// não validado com o grafo real (sandbox sem sessão do Drive) — ajustar se
+// ficar grande/pequeno demais na prática.
+const CARD_BASE_WIDTH = 70;
+const CARD_BASE_FONT_SIZE = 4.5;
 
 type Vault = ReturnType<typeof useObsidianVault>;
 type GNode = NodeObject<GraphNode>;
@@ -71,6 +81,19 @@ export function ObsidianGraphView({
   const [ghostWarning, setGhostWarning] = useState<string | null>(null);
   const colors = useGraphColors();
   const didInitialFitRef = useRef(false);
+
+  // Posição (mundo) do nó em preview, atualizada a cada frame dentro de
+  // `nodeCanvasObject` — lida logo em seguida por `syncPreviewOverlay`
+  // (mesmo frame) pra posicionar o cartão HTML. Fica numa ref (não state)
+  // porque muda a ~60fps durante pan/zoom; um `setState` nessa frequência
+  // re-renderizaria a árvore React inteira sem necessidade.
+  const previewNodePosRef = useRef<{ x: number; y: number } | null>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
+  const actionsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!previewNoteId) previewNodePosRef.current = null;
+  }, [previewNoteId]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -143,6 +166,13 @@ export function ObsidianGraphView({
     (node: GNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as GraphNode & { x?: number; y?: number };
       if (n.x == null || n.y == null) return;
+      // Nota em preview: em vez do círculo, guarda a posição pro cartão HTML
+      // (`ObsidianNoteGraphCard`) ser posicionado em cima dela logo em
+      // seguida, em `syncPreviewOverlay` — o cartão ocupa o lugar do nó.
+      if (n.id === previewNoteId) {
+        previewNodePosRef.current = { x: n.x, y: n.y };
+        return;
+      }
       // Círculos menores que antes — com o espaçamento maior entre nós
       // (d3Force abaixo), reduzem a sobreposição que dificultava tocar no nó
       // certo no celular.
@@ -166,8 +196,34 @@ export function ObsidianGraphView({
         ctx.fillText(n.name, n.x, n.y + radius + 2);
       }
     },
-    [colors],
+    [colors, previewNoteId],
   );
+
+  // Sincroniza a posição/escala do cartão de preview com o zoom/pan atuais —
+  // roda a cada frame, DEPOIS de `nodeCanvasObject` já ter guardado a
+  // posição do nó (mesmo frame). Escreve direto no `style` via ref, sem
+  // `setState`, pra não re-renderizar React a cada frame (~60fps durante um
+  // gesto de pan/zoom).
+  const syncPreviewOverlay = useCallback((_ctx: CanvasRenderingContext2D, globalScale: number) => {
+    const pos = previewNodePosRef.current;
+    const g = graphRef.current;
+    if (!pos || !g) return;
+    const screen = g.graph2ScreenCoords(pos.x, pos.y);
+    const width = CARD_BASE_WIDTH * globalScale;
+    const fontSize = CARD_BASE_FONT_SIZE * globalScale;
+    const card = cardRef.current;
+    if (card) {
+      card.style.left = `${screen.x - width / 2}px`;
+      card.style.top = `${screen.y}px`;
+      card.style.width = `${width}px`;
+      card.style.fontSize = `${fontSize}px`;
+    }
+    const actions = actionsRef.current;
+    if (actions) {
+      actions.style.left = `${screen.x + width / 2}px`;
+      actions.style.top = `${screen.y}px`;
+    }
+  }, []);
 
   const linkColor = useCallback(
     (link: GLink) => {
@@ -195,6 +251,7 @@ export function ObsidianGraphView({
         linkLineDash={(l) => ((l as GraphLink).kind === 'summary' ? [4, 4] : null)}
         onNodeClick={handleNodeClick}
         onEngineStop={handleEngineStop}
+        onRenderFramePost={syncPreviewOverlay}
         cooldownTicks={100}
       />
 
@@ -221,16 +278,24 @@ export function ObsidianGraphView({
       {ghostWarning && <p className="error obsidian-status-line obsidian-graph-warning">{ghostWarning}</p>}
 
       {previewNoteId && (
-        <ObsidianNotePreviewPage
-          key={previewNoteId}
-          name={vault.state.notes.get(previewNoteId)?.name || previewNoteId}
-          note={vault.state.notes.get(previewNoteId)}
-          onClose={() => setPreviewNoteId(null)}
-          onEdit={() => {
-            onEditNote(previewNoteId);
-            setPreviewNoteId(null);
-          }}
-        />
+        <>
+          <ObsidianNoteGraphCard ref={cardRef} note={vault.state.notes.get(previewNoteId)} />
+          <div ref={actionsRef} className="obsidian-note-graph-card-actions">
+            <button type="button" onClick={() => setPreviewNoteId(null)} aria-label="Fechar preview">
+              ×
+            </button>
+            <button
+              type="button"
+              className="btn-secondary"
+              onClick={() => {
+                onEditNote(previewNoteId);
+                setPreviewNoteId(null);
+              }}
+            >
+              Editar
+            </button>
+          </div>
+        </>
       )}
     </div>
   );
