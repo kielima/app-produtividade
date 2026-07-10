@@ -7,9 +7,13 @@ import ForceGraph2D, {
 import { buildGraphData, type GraphLink, type GraphNode, type GraphNodeKind } from '../lib/obsidianGraph';
 import { filterExactNameMatches } from '../lib/obsidianBacklinks';
 import { driveIconKind } from '../lib/driveFileIcons';
+import { buildRenamedFileName, stripMdExtension } from '../lib/obsidianWikilink';
 import type { useObsidianVault } from '../lib/obsidianTree';
+import { findParentFolderId } from '../lib/obsidianTreeState';
 import { ObsidianNoteGraphCard } from './ObsidianNoteGraphCard';
 import { ObsidianFilePreviewCard } from './ObsidianFilePreviewCard';
+import { ObsidianRenameDialog } from './ObsidianRenameDialog';
+import { ObsidianMoveDialog } from './ObsidianMoveDialog';
 
 // Tamanho-base do cartão de preview em "unidades de mundo" do grafo (mesma
 // unidade de `x`/`y` dos nós e da distância configurada em
@@ -85,15 +89,25 @@ function useGraphColors(): GraphColors {
 export function ObsidianGraphView({
   vault,
   onEditNote,
+  onNodeDeleted,
 }: {
   vault: Vault;
   onEditNote: (fileId: string) => void;
+  // Chamado depois de excluir com sucesso — a árvore (ObsidianView.tsx) usa
+  // isto pra limpar `selectedNoteId` se o item excluído era a nota aberta no
+  // editor (o editor não fica visível ao mesmo tempo que o grafo, mas a
+  // seleção sobrevive à troca de modo).
+  onNodeDeleted?: (fileId: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphLink>>();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [ghostWarning, setGhostWarning] = useState<string | null>(null);
+  const [actionNode, setActionNode] = useState<GraphNode | null>(null);
+  const [renameTarget, setRenameTarget] = useState<GraphNode | null>(null);
+  const [moveTarget, setMoveTarget] = useState<GraphNode | null>(null);
+  const [actionStatus, setActionStatus] = useState<string | null>(null);
   const colors = useGraphColors();
   const didInitialFitRef = useRef(false);
 
@@ -247,6 +261,76 @@ export function ObsidianGraphView({
     [vault],
   );
 
+  // Segurar em cima de um nó (touch) dispara o evento nativo `contextmenu`
+  // do navegador (long-press ~500ms no Android WebView/Chrome, igual clique-
+  // direito no desktop) — `onNodeRightClick` já é o hook que a biblioteca
+  // expõe pra isso, sem precisar de nenhum timer/gesto próprio. Raiz do
+  // vault e nós fantasma (não são itens reais do Drive) não têm menu.
+  const handleNodeRightClick = useCallback(
+    (node: GNode, event: MouseEvent) => {
+      const n = node as GraphNode;
+      if (n.kind === 'ghost') return;
+      if (n.kind === 'folder' && n.id === vault.state.rootId) return;
+      event.preventDefault?.();
+      setActionNode(n);
+    },
+    [vault.state.rootId],
+  );
+
+  // Notas mantêm o comportamento já existente de `renameNote` (corrige
+  // wikilinks que citam o nome antigo em qualquer lugar do Drive); pasta/
+  // arquivo usam o rename genérico (sem link a corrigir).
+  const handleRenameNode = useCallback(
+    async (node: GraphNode, newDisplayName: string) => {
+      setRenameTarget(null);
+      try {
+        if (node.kind === 'note') {
+          const finalName = buildRenamedFileName(node.name, newDisplayName);
+          if (finalName === node.name) return;
+          await vault.renameNote(node.id, node.name, finalName);
+        } else {
+          if (newDisplayName === node.name) return;
+          await vault.renameFolderOrFile(node.id, newDisplayName);
+        }
+      } catch (e) {
+        setActionStatus(`Erro ao renomear: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+    [vault],
+  );
+
+  const handleMoveNode = useCallback(
+    async (node: GraphNode, destFolderId: string) => {
+      setMoveTarget(null);
+      const oldParentId =
+        vault.state.notes.get(node.id)?.parentFolderId ?? findParentFolderId(vault.state.folders, node.id);
+      if (!oldParentId || oldParentId === destFolderId) return;
+      try {
+        await vault.moveNode(node.id, oldParentId, destFolderId);
+      } catch (e) {
+        setActionStatus(`Erro ao mover: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+    [vault],
+  );
+
+  // Só oferecido pra nota/arquivo (nunca pasta, ver menu abaixo) — evita
+  // apagar uma subárvore inteira sem querer a partir de um toque no grafo.
+  const handleDeleteNode = useCallback(
+    async (node: GraphNode) => {
+      setActionNode(null);
+      if (!window.confirm(`Excluir "${node.name}"? O item vai para a lixeira do Google Drive.`)) return;
+      try {
+        await vault.deleteFile(node.id);
+        if (node.id === previewId) setPreviewId(null);
+        onNodeDeleted?.(node.id);
+      } catch (e) {
+        setActionStatus(`Erro ao excluir: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    },
+    [vault, previewId, onNodeDeleted],
+  );
+
   const nodeCanvasObject = useCallback(
     (node: GNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as GraphNode & { x?: number; y?: number };
@@ -339,6 +423,7 @@ export function ObsidianGraphView({
         linkWidth={(l) => ((l as GraphLink).kind === 'summary' ? 1.5 : 1)}
         linkLineDash={(l) => ((l as GraphLink).kind === 'summary' ? [4, 4] : null)}
         onNodeClick={handleNodeClick}
+        onNodeRightClick={handleNodeRightClick}
         onEngineStop={handleEngineStop}
         onRenderFramePost={syncPreviewOverlay}
         cooldownTicks={100}
@@ -396,6 +481,66 @@ export function ObsidianGraphView({
             )}
           </div>
         </>
+      )}
+
+      {/* Menu de contexto (segurar em cima de um nó) — ver handleNodeRightClick */}
+      {actionNode && (
+        <>
+          <div className="obsidian-conflict-backdrop" aria-hidden="true" onClick={() => setActionNode(null)} />
+          <div className="obsidian-node-menu" role="menu" aria-label={`Ações para ${actionNode.name}`}>
+            <p className="obsidian-node-menu-title">{actionNode.name}</p>
+            <button
+              type="button"
+              onClick={() => {
+                setRenameTarget(actionNode);
+                setActionNode(null);
+              }}
+            >
+              Renomear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setMoveTarget(actionNode);
+                setActionNode(null);
+              }}
+            >
+              Mover para pasta…
+            </button>
+            {/* Excluir só pra nota/arquivo — nunca pasta, ver handleDeleteNode */}
+            {actionNode.kind !== 'folder' && (
+              <button type="button" className="danger" onClick={() => void handleDeleteNode(actionNode)}>
+                Excluir
+              </button>
+            )}
+            <button type="button" className="btn-secondary" onClick={() => setActionNode(null)}>
+              Cancelar
+            </button>
+          </div>
+        </>
+      )}
+
+      {renameTarget && (
+        <ObsidianRenameDialog
+          title={`Renomear "${renameTarget.name}"`}
+          initialValue={renameTarget.kind === 'note' ? stripMdExtension(renameTarget.name) : renameTarget.name}
+          onCancel={() => setRenameTarget(null)}
+          onSave={(newValue) => void handleRenameNode(renameTarget, newValue)}
+        />
+      )}
+
+      {moveTarget && (
+        <ObsidianMoveDialog
+          vault={vault}
+          itemName={moveTarget.name}
+          excludeFolderId={moveTarget.id}
+          onCancel={() => setMoveTarget(null)}
+          onMoveTo={(destFolderId) => void handleMoveNode(moveTarget, destFolderId)}
+        />
+      )}
+
+      {actionStatus && (
+        <p className="error obsidian-status-line obsidian-graph-warning">{actionStatus}</p>
       )}
     </div>
   );
