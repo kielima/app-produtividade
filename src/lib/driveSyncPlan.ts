@@ -1,4 +1,5 @@
 import type { ReadingItem } from '../types';
+import { classifyByFileName } from './classifyByFilename';
 
 export type DriveSyncPlan =
   | { kind: 'create'; item: ReadingItem }
@@ -18,6 +19,9 @@ export function planDriveSyncItem(
 ): DriveSyncPlan {
   if (!existing) {
     const today = new Date().toISOString().slice(0, 10);
+    // Nome no estilo de citação ABNT ("SOBRENOME, 2020...") já classifica
+    // como artigo na hora, sem esperar o usuário abrir o PDF nem chamar IA.
+    const byName = classifyByFileName(file.name);
     return {
       kind: 'create',
       item: {
@@ -29,10 +33,11 @@ export function planDriveSyncItem(
         format: 'pdf',
         title: file.name.replace(/\.pdf$/i, ''),
         authors: [],
-        itemType: 'other',
+        itemType: byName ?? 'other',
         tags: [],
         addedDate: today,
         readingStatus: 'to-read',
+        ...(byName ? { autoClassifiedAt: new Date().toISOString() } : {}),
       },
     };
   }
@@ -48,6 +53,15 @@ export function planDriveSyncItem(
   }
   if (file.folderPath != null && existing.folderPath !== file.folderPath) {
     patch.folderPath = file.folderPath;
+  }
+  // Item antigo, ainda sem tipo definido: aproveita a resincronização para
+  // classificar pelo nome, sem esperar o usuário abrir o PDF um por um.
+  if (existing.itemType === 'other' && !existing.autoClassifiedAt) {
+    const byName = classifyByFileName(file.name);
+    if (byName) {
+      patch.itemType = byName;
+      patch.autoClassifiedAt = new Date().toISOString();
+    }
   }
   if (Object.keys(patch).length === 0) return { kind: 'skip' };
   return { kind: 'update', patch };
