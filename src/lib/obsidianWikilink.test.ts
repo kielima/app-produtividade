@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { normalizeNoteName, parseWikilinks } from './obsidianWikilink';
+import { buildRenamedFileName, normalizeNoteName, parseWikilinks } from './obsidianWikilink';
 
 describe('parseWikilinks', () => {
   it('não encontra nada em texto sem wikilinks', () => {
@@ -52,5 +52,24 @@ describe('normalizeNoteName', () => {
 
   it('não afeta nomes sem extensão', () => {
     expect(normalizeNoteName('Sem Extensão')).toBe('sem extensão');
+  });
+});
+
+describe('buildRenamedFileName', () => {
+  it('preserva a extensão .md', () => {
+    expect(buildRenamedFileName('Nota Antiga.md', 'Nota Nova')).toBe('Nota Nova.md');
+  });
+
+  it('preserva outras extensões (imagem, pdf)', () => {
+    expect(buildRenamedFileName('foto.jpg', 'foto-editada')).toBe('foto-editada.jpg');
+    expect(buildRenamedFileName('Recibo.PDF', 'Recibo 2024')).toBe('Recibo 2024.PDF');
+  });
+
+  it('sem extensão (pasta): usa o nome novo como está', () => {
+    expect(buildRenamedFileName('Projetos', 'Projetos Antigos')).toBe('Projetos Antigos');
+  });
+
+  it('nome com pontos no meio, sem extensão no final, não confunde', () => {
+    expect(buildRenamedFileName('v1.2 rascunho', 'v1.3 rascunho')).toBe('v1.3 rascunho');
   });
 });

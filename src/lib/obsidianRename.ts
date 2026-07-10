@@ -6,8 +6,14 @@ import {
   searchFilesContainingText,
   writeMarkdownContent,
 } from './obsidianDrive';
-import { stripMdExtension } from './obsidianWikilink';
+import { buildRenamedFileName, stripMdExtension } from './obsidianWikilink';
 import { replaceWikilinkTarget } from './obsidianWikilinkReplace';
+
+// Reexportado por conveniência: quem só precisa desta função pura (sem tocar
+// Drive/Firebase, ex. testes ou o diálogo de renomear do grafo) pode importar
+// direto de obsidianWikilink.ts — mesma convenção de DriveNode/isMarkdownFile
+// em obsidianDrive.ts.
+export { buildRenamedFileName };
 
 export type RenameOutcome = { updatedCount: number; failedIds: string[] };
 

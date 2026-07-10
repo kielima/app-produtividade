@@ -6120,3 +6120,112 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   padding: 0.6em 0.75em;
 }
 
+/* Menu de contexto do grafo (segurar em cima de um nó) — folha de ações
+   ancorada embaixo (mesma convenção de controles do grafo ficarem na parte
+   inferior), não presa à posição de tela do nó: some/reaparece com qualquer
+   toque fora dele, então não precisa acompanhar pan/zoom em tempo real. */
+.obsidian-node-menu {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  border-radius: 10px 10px 0 0;
+  padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
+  box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.25);
+}
+.obsidian-node-menu-title {
+  margin: 0 0 0.2rem;
+  font-weight: 600;
+  overflow-wrap: break-word;
+}
+.obsidian-node-menu button {
+  width: 100%;
+  text-align: left;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+.obsidian-node-menu button:hover {
+  background: var(--surface-2);
+}
+.obsidian-node-menu button.danger {
+  color: var(--danger);
+}
+.obsidian-node-menu button.danger:hover {
+  background: var(--danger-bg);
+}
+
+/* Diálogo de renomear (pasta/nota/arquivo) — mesmo backdrop/painel-base de
+   .obsidian-conflict-dialog, só mais estreito (é só um campo de texto). */
+.obsidian-rename-dialog {
+  width: min(94vw, 420px);
+}
+.obsidian-rename-input {
+  width: 100%;
+  padding: 0.5rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  font: inherit;
+  box-sizing: border-box;
+}
+
+/* Diálogo "mover para pasta" — navega a mesma árvore de pastas do vault
+   (lazy-load reaproveitado de vault.expandFolder/collapseFolder). */
+.obsidian-move-dialog {
+  width: min(94vw, 480px);
+}
+.obsidian-move-tree {
+  max-height: 50vh;
+  overflow-y: auto;
+  margin: 0.5rem 0 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem;
+}
+.obsidian-move-row-group + .obsidian-move-row-group {
+  margin-top: 0.15rem;
+}
+.obsidian-move-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.2rem 0.4rem;
+}
+.obsidian-move-row-toggle {
+  /* Ocupa a linha inteira (empurra o botão "Mover para cá" pra linha de
+     baixo, sempre — não só quando o nome é longo) — evita o botão ficar
+     "flutuando" ao lado da primeira linha de um nome que quebra em duas. */
+  flex: 1 1 100%;
+  min-width: 0;
+  text-align: left;
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  font: inherit;
+  padding: 0.35rem 0.2rem;
+  cursor: pointer;
+  overflow-wrap: break-word;
+}
+.obsidian-move-row-toggle:hover {
+  background: var(--surface-2);
+}
+.obsidian-move-row-pick {
+  flex-shrink: 0;
+  margin-left: auto;
+  font-size: 0.8rem;
+  padding: 0.3rem 0.6rem;
+}
+

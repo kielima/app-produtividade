@@ -171,4 +171,43 @@ describe('obsidianTreeReducer', () => {
     });
     expect(state.conflict).toEqual({ status: 'none' });
   });
+
+  it('NOTE_REMOVED tira a nota do mapa (excluída no Drive)', () => {
+    let state = initialVaultState();
+    state = obsidianTreeReducer(state, {
+      type: 'NOTE_LOADED',
+      fileId: 'f1',
+      content: 'conteúdo',
+      modifiedTime: 't1',
+    });
+    expect(state.notes.has('f1')).toBe(true);
+    state = obsidianTreeReducer(state, { type: 'NOTE_REMOVED', fileId: 'f1' });
+    expect(state.notes.has('f1')).toBe(false);
+  });
+
+  it('NOTE_PARENT_UPDATED atualiza só o parentFolderId (movida no Drive)', () => {
+    let state = initialVaultState();
+    state = obsidianTreeReducer(state, {
+      type: 'NOTE_LOAD_START',
+      fileId: 'f1',
+      name: 'Nota.md',
+      parentFolderId: 'pastaA',
+    });
+    state = obsidianTreeReducer(state, {
+      type: 'NOTE_LOADED',
+      fileId: 'f1',
+      content: 'conteúdo',
+      modifiedTime: 't1',
+    });
+    state = obsidianTreeReducer(state, {
+      type: 'NOTE_PARENT_UPDATED',
+      fileId: 'f1',
+      parentFolderId: 'pastaB',
+    });
+    expect(state.notes.get('f1')).toMatchObject({
+      parentFolderId: 'pastaB',
+      content: 'conteúdo',
+      name: 'Nota.md',
+    });
+  });
 });
