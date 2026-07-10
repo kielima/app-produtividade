@@ -19,6 +19,13 @@ export type GraphData = { nodes: GraphNode[]; links: GraphLink[] };
 
 const ROOT_LABEL = 'Meu Drive';
 
+// Pastas/arquivos que nunca aparecem no grafo, mesmo carregados/expandidos —
+// ruído estrutural (config do próprio Obsidian, índices auto-gerados) que
+// não ajuda a visualizar as ligações reais entre notas. Casamento por nome
+// exato; uma pasta excluída esconde tudo dentro dela (nenhum filho seu chega
+// a virar nó, então nada "solto" aparece por baixo dela).
+const EXCLUDED_NAMES = new Set(['.obsidian', '00_AVALIACOES', 'CLAUDE.md', '_MOC.md']);
+
 export function buildGraphData(state: VaultState): GraphData {
   const nodes = new Map<string, GraphNode>();
   const links: GraphLink[] = [];
@@ -38,13 +45,31 @@ export function buildGraphData(state: VaultState): GraphData {
 
   if (state.rootId) addNode(state.rootId, ROOT_LABEL, 'folder');
 
+  // Ids de pastas excluídas — descoberto varrendo TODAS as pastas já
+  // listadas nesta sessão (não só as expandidas agora), pra que a exclusão
+  // funcione independente da ordem de iteração de `expandedIds` a seguir.
+  const excludedFolderIds = new Set<string>();
+  for (const folder of state.folders.values()) {
+    for (const child of folder.children) {
+      if (child.isFolder && EXCLUDED_NAMES.has(child.name)) excludedFolderIds.add(child.id);
+    }
+  }
+  // Ids de QUALQUER coisa excluída (pasta ou nota) — usado a seguir pra não
+  // criar arestas de wikilink apontando pra um nó que nunca foi adicionado.
+  const excludedIds = new Set(excludedFolderIds);
+
   // 1. Contenção — filhos de toda pasta atualmente expandida E carregada.
   //    `expandedIds` é um conjunto plano cobrindo qualquer profundidade, então
   //    isto cobre a árvore inteira sem precisar de recursão.
   for (const folderId of state.expandedIds) {
+    if (excludedFolderIds.has(folderId)) continue; // não desce dentro de pasta excluída
     const folder = state.folders.get(folderId);
     if (!folder || folder.status !== 'loaded') continue;
     for (const child of folder.children) {
+      if (EXCLUDED_NAMES.has(child.name)) {
+        if (!child.isFolder) excludedIds.add(child.id);
+        continue;
+      }
       const kind: GraphNodeKind = child.isFolder ? 'folder' : isMarkdownFile(child) ? 'note' : 'file';
       addNode(child.id, child.name, kind);
       addLink(folderId, child.id, 'containment');
@@ -56,6 +81,10 @@ export function buildGraphData(state: VaultState): GraphData {
   for (const [noteId, note] of state.notes.entries()) {
     if (note.parentFolderId !== undefined) continue;
     if (note.status !== 'loaded' && note.status !== 'saving') continue;
+    if (EXCLUDED_NAMES.has(note.name)) {
+      excludedIds.add(noteId);
+      continue;
+    }
     addNode(noteId, note.name || noteId, 'note');
   }
 
@@ -100,6 +129,7 @@ export function buildGraphData(state: VaultState): GraphData {
       }
 
       if (targetId === noteId) continue; // auto-link: sem auto-aresta
+      if (excludedIds.has(targetId)) continue; // alvo escondido: nem aresta nem fantasma
 
       const targetParentId = resolveParent(targetId);
       // Direto quando: fonte solta, OU alvo solto, OU mesma pasta, OU ambas
