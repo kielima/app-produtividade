@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Project, ReadingItem } from '../types';
 import {
-  ensureReadingItemFromDrive,
+  commitDriveSyncBatch,
   saveReadingMetadata,
   subscribeToReadingItems,
 } from '../repositories/readingItemsRepo';
@@ -20,6 +20,7 @@ import {
   saveSyncCheckpoint,
   clearSyncCheckpoint,
 } from '../lib/driveSyncCheckpoint';
+import { planDriveSyncItem, type DriveSyncPlan } from '../lib/driveSyncPlan';
 import { type ReadingFiltersState } from '../components/LeituraFiltersBar';
 import { ReadingCard } from '../components/ReadingCard';
 import {
@@ -82,7 +83,23 @@ export function LeituraView({
   const [columns, setColumns] = useState<ReadingColumnConfig[]>(loadReadingColumns);
   const [focusAnnotationId, setFocusAnnotationId] = useState<string | null>(null);
 
-  useEffect(() => subscribeToReadingItems(uid, setItems), [uid]);
+  // Sincronizar o Drive decide em memória (sem getDoc por arquivo) se cada
+  // PDF é novo ou já existe. Usa uma ref (não o `items` do state) porque
+  // `syncDrive` roda numa closure de um render específico — se lesse `items`
+  // direto, poderia ficar presa numa versão desatualizada mesmo depois do
+  // snapshot mais recente já ter chegado. A ref também indica se o primeiro
+  // snapshot do listener já chegou, senão todo item existente pareceria novo.
+  const itemsRef = useRef<ReadingItem[]>([]);
+  const itemsLoadedRef = useRef(false);
+  useEffect(
+    () =>
+      subscribeToReadingItems(uid, (its) => {
+        itemsRef.current = its;
+        itemsLoadedRef.current = true;
+        setItems(its);
+      }),
+    [uid],
+  );
 
   useEffect(() => {
     if (!pendingTarget) return;
@@ -133,6 +150,9 @@ export function LeituraView({
     }
   }
 
+  // Máximo de operações por commit do Firestore é 500; fica com folga.
+  const SYNC_BATCH_SIZE = 400;
+
   async function syncDrive() {
     setSync({ status: 'syncing', found: 0, processed: 0 });
     try {
@@ -149,9 +169,35 @@ export function LeituraView({
       syncDoneIdsRef.current = doneIds;
       const pending = files.filter((f) => !doneIds.has(f.id));
       setSync({ status: 'syncing', found: files.length, processed: doneIds.size });
+
+      // Decidir create/update em memória (abaixo) só é seguro depois que o
+      // primeiro snapshot do Firestore chegou — senão todo item existente
+      // pareceria novo e seria recriado, perdendo metadados já editados.
+      for (let i = 0; i < 40 && !itemsLoadedRef.current; i++) {
+        await new Promise((resolve) => setTimeout(resolve, 125));
+      }
+      const itemsById = new Map(itemsRef.current.map((it) => [it.id, it]));
+
       // Cache de pastas compartilhado por toda a sincronização: muitas PDFs
       // dividem as mesmas pastas, então cada uma só é resolvida uma vez.
       const folderCache = new Map<string, DriveFolderMeta | null>();
+      let batch: Array<{ id: string; plan: DriveSyncPlan }> = [];
+
+      async function flushBatch() {
+        if (batch.length === 0) return;
+        const toCommit = batch;
+        batch = [];
+        try {
+          await commitDriveSyncBatch(uid, toCommit);
+          for (const e of toCommit) doneIds.add(e.id);
+        } catch (err) {
+          // Um lote com problema não deve abortar os outros; como os IDs não
+          // entram em doneIds, a próxima sincronização tenta de novo.
+          console.warn('[leitura] falha ao gravar lote de sincronização do Drive:', err);
+        }
+        saveSyncCheckpoint(uid, doneIds);
+      }
+
       for (const f of pending) {
         // Sincronizações grandes podem passar da validade do token (ou o app
         // pode ter voltado de segundo plano com ele expirado); ensureDriveToken
@@ -169,21 +215,27 @@ export function LeituraView({
             folderId = resolved.folderId;
             folderPath = resolved.folderPath;
           }
-          await ensureReadingItemFromDrive(uid, {
+          const plan = planDriveSyncItem(itemsById.get(f.id), {
             id: f.id,
             name: f.name,
             folderId,
             folderPath,
           });
-          doneIds.add(f.id);
+          batch.push({ id: f.id, plan });
         } catch (err) {
-          // Um arquivo com problema não deve abortar os outros milhares;
-          // como ele não entra em doneIds, a próxima sincronização tenta de novo.
-          console.warn('[leitura] falha ao sincronizar arquivo do Drive:', f.id, err);
+          console.warn('[leitura] falha ao preparar arquivo do Drive:', f.id, err);
         }
-        if (doneIds.size % 50 === 0) saveSyncCheckpoint(uid, doneIds);
-        setSync({ status: 'syncing', found: files.length, processed: doneIds.size });
+        // Progresso otimista (inclui o lote ainda não commitado) pra a barra
+        // andar por arquivo mesmo com a escrita real acontecendo em lote.
+        setSync({
+          status: 'syncing',
+          found: files.length,
+          processed: doneIds.size + batch.length,
+        });
+        if (batch.length >= SYNC_BATCH_SIZE) await flushBatch();
       }
+      await flushBatch();
+
       if (doneIds.size >= files.length) {
         clearSyncCheckpoint(uid);
       } else {
