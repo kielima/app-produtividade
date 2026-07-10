@@ -19,6 +19,7 @@ import { stripMdExtension } from '../lib/obsidianWikilink';
 import { useDebouncedCallback } from '../lib/useDebouncedCallback';
 import { ObsidianEditor } from '../components/ObsidianEditor';
 import { ObsidianConflictDialog } from '../components/ObsidianConflictDialog';
+import { ObsidianSearchBox } from '../components/ObsidianSearchBox';
 import { InlineEdit } from '../components/InlineEdit';
 
 // Carregado sob demanda: arrasta o react-force-graph-2d só quando o usuário
@@ -81,6 +82,7 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [linkWarning, setLinkWarning] = useState<string | null>(null);
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
+  const [searchStatus, setSearchStatus] = useState<string | null>(null);
 
   const selectedNote = selectedNoteId ? vault.state.notes.get(selectedNoteId) : null;
   const selectedNoteName =
@@ -165,6 +167,28 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
     [nameIndex, vault],
   );
 
+  // Clique em resultado de nota na busca geral (Fase 4) — mesmo caminho já
+  // usado pelo fallback de wikilink não resolvido (openNote sem pasta-mãe
+  // conhecida); troca pra árvore caso a busca tenha sido usada no grafo.
+  function handleOpenSearchNote(node: DriveNode) {
+    setSearchStatus(null);
+    setSelectedNoteId(node.id);
+    setMode('tree');
+    void vault.openNote(node.id, { name: node.name });
+  }
+
+  // Pastas achadas pela busca geral podem estar em qualquer lugar do Drive,
+  // não só sob a raiz — a árvore só mostra o que é alcançável a partir dela,
+  // então não tenta navegar até lá. O grafo já mostra qualquer pasta
+  // carregada+expandida como cluster próprio, alcançável ou não (mesmo
+  // mecanismo que já exibe a pasta "Computadores" desconectada), sem precisar
+  // de nenhuma lógica nova.
+  function handleOpenSearchFolder(node: DriveNode) {
+    setSearchStatus(`Pasta "${node.name}" aberta no grafo.`);
+    setMode('graph');
+    void vault.expandFolder(node.id);
+  }
+
   async function handleRename(newDisplayName: string) {
     if (!selectedNoteId || !selectedNoteName) return;
     const newFullName = buildRenamedFileName(selectedNoteName, newDisplayName);
@@ -186,26 +210,34 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
 
   return (
     <div className="obsidian-view">
-      <div className="obsidian-mode-toggle" role="tablist" aria-label="Modo de visualização">
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'tree'}
-          className={`obsidian-mode-toggle-btn${mode === 'tree' ? ' is-active' : ''}`}
-          onClick={() => setMode('tree')}
-        >
-          Árvore
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={mode === 'graph'}
-          className={`obsidian-mode-toggle-btn${mode === 'graph' ? ' is-active' : ''}`}
-          onClick={() => setMode('graph')}
-        >
-          Grafo
-        </button>
+      <div className="obsidian-toolbar">
+        <div className="obsidian-mode-toggle" role="tablist" aria-label="Modo de visualização">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'tree'}
+            className={`obsidian-mode-toggle-btn${mode === 'tree' ? ' is-active' : ''}`}
+            onClick={() => setMode('tree')}
+          >
+            Árvore
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={mode === 'graph'}
+            className={`obsidian-mode-toggle-btn${mode === 'graph' ? ' is-active' : ''}`}
+            onClick={() => setMode('graph')}
+          >
+            Grafo
+          </button>
+        </div>
+        <ObsidianSearchBox
+          searchVaultWide={vault.searchVaultWide}
+          onOpenNote={handleOpenSearchNote}
+          onOpenFolder={handleOpenSearchFolder}
+        />
       </div>
+      {searchStatus && <p className="muted obsidian-status-line">{searchStatus}</p>}
 
       {mode === 'tree' ? (
         <div className="obsidian-view-body">
