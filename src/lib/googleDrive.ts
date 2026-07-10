@@ -349,7 +349,9 @@ type DriveListResponse = {
   error?: { code?: number; message?: string };
 };
 
-async function driveFetch(token: string, url: string, init?: RequestInit): Promise<Response> {
+// Exportado para ser reaproveitado por outros módulos de integração com o
+// Drive (ex.: src/lib/obsidianDrive.ts) sem duplicar o tratamento de 401/403.
+export async function driveFetch(token: string, url: string, init?: RequestInit): Promise<Response> {
   const res = await fetch(url, {
     ...init,
     headers: { Authorization: `Bearer ${token}`, ...(init?.headers ?? {}) },
