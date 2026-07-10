@@ -11,6 +11,7 @@ import {
   deleteAnnotation,
 } from '../repositories/annotationsRepo';
 import { patchReadingItem, saveReadingMetadata } from '../repositories/readingItemsRepo';
+import { retryWithBackoff } from '../lib/retry';
 import { PdfPageView, type ReaderTool } from '../components/PdfPageView';
 import { MetadataEditor } from '../components/MetadataEditor';
 import ReactMarkdown from 'react-markdown';
@@ -122,6 +123,11 @@ export function ReaderView({
   const [commentText, setCommentText] = useState('');
   const [commentTitle, setCommentTitle] = useState('');
 
+  // Aviso quando uma escrita automática em segundo plano (DOI/classificação
+  // por IA) não conseguiu ser salva mesmo após retentativas — importante no
+  // APK, onde essas escritas podem se perder silenciosamente (ver retry.ts).
+  const [autoTaskWarning, setAutoTaskWarning] = useState<string | null>(null);
+
   // -------- Carregamento do PDF --------
   useEffect(() => {
     let cancelled = false;
@@ -145,12 +151,12 @@ export function ReaderView({
         });
         // Tenta autodetectar DOI se ainda não há metadados.
         if (!item.doi && item.authors.length === 0) {
-          void autoDetectDoi(doc, uid, item);
+          void autoDetectDoi(doc, uid, item, setAutoTaskWarning);
         }
         // Tenta classificar automaticamente (artigo/livro) via IA, uma única
         // vez, se o item ainda estiver sem tipo definido.
         if (item.itemType === 'other' && !item.autoClassifiedAt) {
-          void autoClassifyType(doc, uid, item);
+          void autoClassifyType(doc, uid, item, setAutoTaskWarning);
         }
       } catch (err) {
         if (cancelled) return;
@@ -709,6 +715,19 @@ export function ReaderView({
         </button>
       </header>
 
+      {autoTaskWarning && (
+        <div className="toast reader-auto-warning" role="status">
+          <span>{autoTaskWarning}</span>
+          <button
+            type="button"
+            className="btn-link"
+            onClick={() => setAutoTaskWarning(null)}
+          >
+            Ok
+          </button>
+        </div>
+      )}
+
       <div className="reader-body" ref={bodyRef}>
         {viewMode === 'scroll' ? (
           <div className="reader-scroll" ref={scrollRef}>
@@ -1022,19 +1041,28 @@ function LazyPdfPage({
   );
 }
 
-// Autodetecção de DOI: checa texto e links das primeiras páginas.
+// Autodetecção de DOI: checa texto e links das primeiras páginas. A escrita
+// no Firestore usa retentativa com timeout porque, no APK, uma escrita que
+// nunca é confirmada pelo servidor (rede instável do WebView, cache em
+// memória) fica pendurada e se perde em silêncio se o app for
+// minimizado/fechado — `onSyncFail` avisa o usuário quando isso acontece.
 async function autoDetectDoi(
   doc: PDFDocumentProxy,
   uid: string,
   item: ReadingItem,
+  onSyncFail: (message: string) => void,
 ): Promise<void> {
+  let doi: string | null;
   try {
-    const doi = await findDoiInPdf(doc);
-    if (doi) {
-      void patchReadingItem(uid, item.id, { doi });
-    }
+    doi = await findDoiInPdf(doc);
   } catch {
-    // ignora — autodetecção é best-effort
+    return; // varredura do PDF falhou — best-effort, não incomoda o usuário
+  }
+  if (!doi) return;
+  try {
+    await retryWithBackoff(() => patchReadingItem(uid, item.id, { doi }));
+  } catch {
+    onSyncFail('Não foi possível salvar o DOI detectado automaticamente. Verifique sua conexão.');
   }
 }
 
@@ -1047,16 +1075,19 @@ async function autoClassifyType(
   doc: PDFDocumentProxy,
   uid: string,
   item: ReadingItem,
+  onSyncFail: (message: string) => void,
 ): Promise<void> {
+  let patch: Partial<ReadingItem>;
   try {
     const { itemType } = await classifyReadingItem(doc);
-    void patchReadingItem(uid, item.id, {
-      itemType,
-      autoClassifiedAt: new Date().toISOString(),
-    });
+    patch = { itemType, autoClassifiedAt: new Date().toISOString() };
   } catch (err) {
-    if (!(err instanceof MissingApiKeyError)) {
-      void patchReadingItem(uid, item.id, { autoClassifiedAt: new Date().toISOString() });
-    }
+    if (err instanceof MissingApiKeyError) return;
+    patch = { autoClassifiedAt: new Date().toISOString() };
+  }
+  try {
+    await retryWithBackoff(() => patchReadingItem(uid, item.id, patch));
+  } catch {
+    onSyncFail('A classificação automática não foi salva. Verifique sua conexão.');
   }
 }
