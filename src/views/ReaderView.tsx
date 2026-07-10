@@ -2,7 +2,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadPdfDocument, type PDFDocumentProxy, type PDFPageProxy } from '../lib/pdf';
 import { fetchPdfBytes } from '../lib/readingDocs';
 import { DriveAuthError, ensureDriveToken } from '../lib/googleDrive';
-import { extractDoiFromText } from '../lib/readingMetadata';
+import { findDoiInPdf } from '../lib/readingMetadata';
+import { classifyReadingItem, MissingApiKeyError } from '../lib/aiClassifyReading';
 import {
   newAnnotationId,
   subscribeToAnnotations,
@@ -145,6 +146,11 @@ export function ReaderView({
         // Tenta autodetectar DOI se ainda não há metadados.
         if (!item.doi && item.authors.length === 0) {
           void autoDetectDoi(doc, uid, item);
+        }
+        // Tenta classificar automaticamente (artigo/livro) via IA, uma única
+        // vez, se o item ainda estiver sem tipo definido.
+        if (item.itemType === 'other' && !item.autoClassifiedAt) {
+          void autoClassifyType(doc, uid, item);
         }
       } catch (err) {
         if (cancelled) return;
@@ -1016,23 +1022,41 @@ function LazyPdfPage({
   );
 }
 
-// Autodetecção de DOI a partir do texto da 1ª página.
+// Autodetecção de DOI: checa texto e links das primeiras páginas.
 async function autoDetectDoi(
   doc: PDFDocumentProxy,
   uid: string,
   item: ReadingItem,
 ): Promise<void> {
   try {
-    const page = await doc.getPage(1);
-    const content = await page.getTextContent();
-    const text = content.items
-      .map((it) => ('str' in it ? it.str : ''))
-      .join(' ');
-    const doi = extractDoiFromText(text);
+    const doi = await findDoiInPdf(doc);
     if (doi) {
       void patchReadingItem(uid, item.id, { doi });
     }
   } catch {
     // ignora — autodetecção é best-effort
+  }
+}
+
+// Classificação automática (artigo/livro/outro) via IA, uma única tentativa
+// por item — marcada em `autoClassifiedAt` para não bater na API a cada
+// abertura. Exceção: se ainda não há chave Gemini configurada, não marca
+// como tentado, para classificar sozinho assim que o usuário configurar a
+// chave (sem precisar reabrir/reclassificar manualmente).
+async function autoClassifyType(
+  doc: PDFDocumentProxy,
+  uid: string,
+  item: ReadingItem,
+): Promise<void> {
+  try {
+    const { itemType } = await classifyReadingItem(doc);
+    void patchReadingItem(uid, item.id, {
+      itemType,
+      autoClassifiedAt: new Date().toISOString(),
+    });
+  } catch (err) {
+    if (!(err instanceof MissingApiKeyError)) {
+      void patchReadingItem(uid, item.id, { autoClassifiedAt: new Date().toISOString() });
+    }
   }
 }

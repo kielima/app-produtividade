@@ -162,6 +162,9 @@ export interface ReadingItem {
   addedDate: string; // YYYY-MM-DD
   // ISO datetime da última abertura no leitor (para ordenar "recentes").
   lastOpenedAt?: string | null;
+  // ISO datetime da última tentativa de classificação automática (IA) do
+  // tipo. Evita reclassificar a cada abertura; ausente = nunca tentado.
+  autoClassifiedAt?: string | null;
   readingStatus: ReadingStatus;
   // Última página lida (1-based) para retomar a leitura.
   currentPage?: number;
