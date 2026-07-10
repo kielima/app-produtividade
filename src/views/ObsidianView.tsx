@@ -20,7 +20,50 @@ import { useDebouncedCallback } from '../lib/useDebouncedCallback';
 import { ObsidianEditor } from '../components/ObsidianEditor';
 import { ObsidianConflictDialog } from '../components/ObsidianConflictDialog';
 import { ObsidianSearchBox } from '../components/ObsidianSearchBox';
+import { SearchToggle } from '../components/SearchBar';
 import { InlineEdit } from '../components/InlineEdit';
+
+// Ícones do botão de alternância árvore/grafo — mostram o modo pra ONDE o
+// toque leva (não o atual), igual a um botão "ver como X".
+function TreeIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <path d="M4 4v16M4 5h6M4 12h6M4 19h6M12 5h8M12 12h8M12 19h8" />
+    </svg>
+  );
+}
+function GraphIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="6" cy="6" r="2.3" />
+      <circle cx="18" cy="6" r="2.3" />
+      <circle cx="12" cy="18" r="2.3" />
+      <path d="M8 6.6h8M7.2 8.2l3.7 8M16.8 8.2l-3.7 8" />
+    </svg>
+  );
+}
 
 // Carregado sob demanda: arrasta o react-force-graph-2d só quando o usuário
 // troca pra "Grafo" — o modo árvore (padrão) não paga esse custo.
@@ -83,6 +126,7 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
   const [linkWarning, setLinkWarning] = useState<string | null>(null);
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
+  const [searchExpanded, setSearchExpanded] = useState(false);
 
   const selectedNote = selectedNoteId ? vault.state.notes.get(selectedNoteId) : null;
   const selectedNoteName =
@@ -211,31 +255,28 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
   return (
     <div className="obsidian-view">
       <div className="obsidian-toolbar">
-        <div className="obsidian-mode-toggle" role="tablist" aria-label="Modo de visualização">
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'tree'}
-            className={`obsidian-mode-toggle-btn${mode === 'tree' ? ' is-active' : ''}`}
-            onClick={() => setMode('tree')}
-          >
-            Árvore
-          </button>
-          <button
-            type="button"
-            role="tab"
-            aria-selected={mode === 'graph'}
-            className={`obsidian-mode-toggle-btn${mode === 'graph' ? ' is-active' : ''}`}
-            onClick={() => setMode('graph')}
-          >
-            Grafo
-          </button>
-        </div>
-        <ObsidianSearchBox
-          searchVaultWide={vault.searchVaultWide}
-          onOpenNote={handleOpenSearchNote}
-          onOpenFolder={handleOpenSearchFolder}
-        />
+        {searchExpanded ? (
+          <ObsidianSearchBox
+            searchVaultWide={vault.searchVaultWide}
+            onOpenNote={handleOpenSearchNote}
+            onOpenFolder={handleOpenSearchFolder}
+            onClose={() => setSearchExpanded(false)}
+          />
+        ) : (
+          <>
+            <button
+              type="button"
+              className="obsidian-mode-toggle-btn"
+              onClick={() => setMode(mode === 'tree' ? 'graph' : 'tree')}
+              aria-label={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
+              title={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
+            >
+              {mode === 'tree' ? <GraphIcon /> : <TreeIcon />}
+              <span>{mode === 'tree' ? 'Grafo' : 'Árvore'}</span>
+            </button>
+            <SearchToggle active={false} onClick={() => setSearchExpanded(true)} />
+          </>
+        )}
       </div>
       {searchStatus && <p className="muted obsidian-status-line">{searchStatus}</p>}
 
