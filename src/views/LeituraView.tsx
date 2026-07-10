@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from 'react';
 import type { Project, ReadingItem } from '../types';
 import {
   commitDriveSyncBatch,
+  deleteReadingItemsBatch,
   saveReadingMetadata,
   subscribeToReadingItems,
 } from '../repositories/readingItemsRepo';
@@ -177,6 +178,20 @@ export function LeituraView({
         await new Promise((resolve) => setTimeout(resolve, 125));
       }
       const itemsById = new Map(itemsRef.current.map((it) => [it.id, it]));
+
+      // Itens cujo arquivo não está mais na listagem atual do Drive (apagado,
+      // movido pra lixeira, ou perdeu acesso): removidos da estante, senão a
+      // sincronização só cria/atualiza e nunca reflete exclusões feitas lá.
+      const removedIds = itemsRef.current
+        .filter((it) => it.driveFileId && !currentIds.has(it.driveFileId))
+        .map((it) => it.id);
+      for (let i = 0; i < removedIds.length; i += SYNC_BATCH_SIZE) {
+        try {
+          await deleteReadingItemsBatch(uid, removedIds.slice(i, i + SYNC_BATCH_SIZE));
+        } catch (err) {
+          console.warn('[leitura] falha ao remover itens apagados no Drive:', err);
+        }
+      }
 
       // Cache de pastas compartilhado por toda a sincronização: muitas PDFs
       // dividem as mesmas pastas, então cada uma só é resolvida uma vez.
