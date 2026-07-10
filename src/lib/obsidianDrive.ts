@@ -134,15 +134,19 @@ export async function searchFilesByName(token: string, query: string): Promise<D
   return runDriveQuery(token, q, { orderBy: 'name', maxResults: AUTOCOMPLETE_MAX_RESULTS });
 }
 
-// Busca por CONTEÚDO no Drive inteiro (spec item 6/7) — usada hoje só pela
-// correção de links ao renomear uma nota (precisa de TODOS os arquivos que
-// citam o nome antigo, sem limite); a Fase 4 (busca geral) reaproveita a
-// mesma função para a caixa de busca da aba.
-export async function searchFilesContainingText(token: string, text: string): Promise<DriveNode[]> {
+// Busca por CONTEÚDO no Drive inteiro (spec item 6/7). A correção de links ao
+// renomear uma nota precisa de TODOS os arquivos que citam o nome antigo (sem
+// `maxResults`); já a busca geral da Fase 4 passa um limite, pra não paginar
+// o Drive inteiro a cada tecla digitada na caixa de busca.
+export async function searchFilesContainingText(
+  token: string,
+  text: string,
+  maxResults?: number,
+): Promise<DriveNode[]> {
   const trimmed = text.trim();
   if (!trimmed) return [];
   const q = `fullText contains '${escapeDriveQueryValue(trimmed)}' and trashed=false`;
-  return runDriveQuery(token, q);
+  return runDriveQuery(token, q, maxResults != null ? { maxResults } : undefined);
 }
 
 // Conteúdo bruto de uma nota .md (alt=media assume texto simples/UTF-8).
