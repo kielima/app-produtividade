@@ -7,7 +7,7 @@ import ForceGraph2D, {
 import { buildGraphData, type GraphLink, type GraphNode } from '../lib/obsidianGraph';
 import { filterExactNameMatches } from '../lib/obsidianBacklinks';
 import type { useObsidianVault } from '../lib/obsidianTree';
-import { ObsidianNotePreviewOverlay } from './ObsidianNotePreviewOverlay';
+import { ObsidianNotePreviewPage } from './ObsidianNotePreviewPage';
 
 type Vault = ReturnType<typeof useObsidianVault>;
 type GNode = NodeObject<GraphNode>;
@@ -179,6 +179,9 @@ export function ObsidianGraphView({
 
   return (
     <div className="obsidian-graph-view" ref={containerRef}>
+      {/* Sempre montado (mesmo com o preview de nota por cima) — desmontar
+          perderia a posição/zoom do grafo e reiniciaria a simulação física
+          toda vez que o usuário fechasse um preview. */}
       <ForceGraph2D<GraphNode, GraphLink>
         ref={graphRef}
         graphData={graphData}
@@ -190,7 +193,6 @@ export function ObsidianGraphView({
         linkColor={linkColor}
         linkWidth={(l) => ((l as GraphLink).kind === 'summary' ? 1.5 : 1)}
         linkLineDash={(l) => ((l as GraphLink).kind === 'summary' ? [4, 4] : null)}
-        linkDirectionalArrowLength={(l) => ((l as GraphLink).kind === 'wikilink' ? 5 : 0)}
         onNodeClick={handleNodeClick}
         onEngineStop={handleEngineStop}
         cooldownTicks={100}
@@ -219,7 +221,8 @@ export function ObsidianGraphView({
       {ghostWarning && <p className="error obsidian-status-line obsidian-graph-warning">{ghostWarning}</p>}
 
       {previewNoteId && (
-        <ObsidianNotePreviewOverlay
+        <ObsidianNotePreviewPage
+          key={previewNoteId}
           name={vault.state.notes.get(previewNoteId)?.name || previewNoteId}
           note={vault.state.notes.get(previewNoteId)}
           onClose={() => setPreviewNoteId(null)}
