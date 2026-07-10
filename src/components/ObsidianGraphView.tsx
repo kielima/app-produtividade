@@ -15,23 +15,23 @@ import { ObsidianFilePreviewCard } from './ObsidianFilePreviewCard';
 // unidade de `x`/`y` dos nós e da distância configurada em
 // `d3Force('link').distance(...)`) — multiplicado pelo zoom atual
 // (`globalScale`) a cada frame pra virar pixels de tela, fazendo o cartão
-// crescer/encolher junto com o resto do grafo. Ponto de partida razoável,
-// não validado com o grafo real (sandbox sem sessão do Drive) — ajustar se
-// ficar grande/pequeno demais na prática.
-const CARD_BASE_WIDTH = 110;
-const CARD_BASE_FONT_SIZE = 5;
+// crescer/encolher junto com o resto do grafo. Usuário testou a versão
+// anterior (largura 110) e reportou que ainda ficava grande demais —
+// reduzido em 75% (110→27.5, 5→1.25). Ponto de partida ainda não validado
+// com o grafo real (sandbox sem sessão do Drive) — ajustar se precisar.
+const CARD_BASE_WIDTH = 27.5;
+const CARD_BASE_FONT_SIZE = 1.25;
 // Proporção de página A4 (297/210mm) — vira `min-height` do cartão (não
 // `height`): uma nota curta fica com cara de página de verdade; uma nota
 // longa ainda cresce além disso e é lida arrastando o grafo, sem cortar.
 const A4_RATIO = 297 / 210;
 
 const BASE_CHARGE_STRENGTH = -160;
-// O nó em preview vira um cartão bem maior que um círculo — sem uma
-// repulsão própria bem mais forte, os nós vizinhos (que só conhecem a
-// distância "normal" entre círculos) acabam desenhados por baixo do
-// cartão. Multiplicador aplicado só a ele, ponto de partida não validado
-// com o grafo real.
-const PREVIEW_CHARGE_STRENGTH = BASE_CHARGE_STRENGTH * 12;
+// O nó em preview vira um cartão maior que um círculo — sem uma repulsão
+// própria mais forte, os nós vizinhos (que só conhecem a distância "normal"
+// entre círculos) acabam desenhados por baixo do cartão. Multiplicador
+// reduzido junto com o tamanho do cartão acima (era 12x pro cartão maior).
+const PREVIEW_CHARGE_STRENGTH = BASE_CHARGE_STRENGTH * 4;
 const LINK_DISTANCE = 70;
 
 type Vault = ReturnType<typeof useObsidianVault>;
