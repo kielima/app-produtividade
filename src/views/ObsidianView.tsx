@@ -16,7 +16,7 @@ import {
   filterExactNameMatches,
   resolveWikilinkTarget,
 } from '../lib/obsidianBacklinks';
-import { stripMdExtension } from '../lib/obsidianWikilink';
+import { buildRenamedFileName, stripMdExtension } from '../lib/obsidianWikilink';
 import { useDebouncedCallback } from '../lib/useDebouncedCallback';
 import { ObsidianEditor } from '../components/ObsidianEditor';
 import { ObsidianConflictDialog } from '../components/ObsidianConflictDialog';
@@ -111,13 +111,6 @@ export function ObsidianView({ uid }: { uid: string }) {
   }
 
   return <ObsidianVaultBrowser uid={uid} />;
-}
-
-// Preserva o padrão de extensão do nome original (ex.: mantém ".md" se já
-// tinha) — o usuário só edita o "nome de exibição" no InlineEdit.
-function buildRenamedFileName(oldFullName: string, newDisplayName: string): string {
-  const match = oldFullName.match(/\.md$/i);
-  return match ? `${newDisplayName}${match[0]}` : newDisplayName;
 }
 
 function ObsidianVaultBrowser({ uid }: { uid: string }) {
@@ -378,6 +371,9 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
               onEditNote={(fileId) => {
                 setSelectedNoteId(fileId);
                 setMode('tree');
+              }}
+              onNodeDeleted={(fileId) => {
+                if (fileId === selectedNoteId) setSelectedNoteId(null);
               }}
             />
           </Suspense>

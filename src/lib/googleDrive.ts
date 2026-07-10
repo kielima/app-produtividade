@@ -499,21 +499,82 @@ async function patchDriveName(
   return json.name ?? newName;
 }
 
-// Renomeia um arquivo no Drive. Se o token em cache só tiver o escopo antigo de
-// leitura (usuário conectou antes desta funcionalidade), o PATCH devolve 401/403
-// e driveFetch lança DriveAuthError; aí forçamos um novo consentimento
-// interativo (já com o escopo de escrita) e tentamos uma vez mais.
+// Troca o pai de um arquivo/pasta (mover no Drive não tem operação própria —
+// é uma edição da lista de `parents`). `oldParentId`/`newParentId` aceitam o
+// alias especial 'root' (mesmo valor devolvido por getRootFolderId), que a
+// API do Drive já resolve como qualquer outro id de pasta.
+async function patchDriveParents(
+  token: string,
+  fileId: string,
+  oldParentId: string,
+  newParentId: string,
+): Promise<void> {
+  const params = new URLSearchParams({
+    addParents: newParentId,
+    removeParents: oldParentId,
+    supportsAllDrives: 'true',
+  });
+  await driveFetch(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params.toString()}`,
+    { method: 'PATCH' },
+  );
+}
+
+// Move um arquivo/pasta para a lixeira do Drive (recuperável por lá — não é
+// exclusão permanente). Consultas de listagem/busca já filtram
+// `trashed=false`, então o item some da árvore/grafo assim que a pasta-mãe
+// for recarregada.
+async function patchDriveTrashed(token: string, fileId: string): Promise<void> {
+  const params = new URLSearchParams({ supportsAllDrives: 'true' });
+  await driveFetch(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params.toString()}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ trashed: true }),
+    },
+  );
+}
+
+// Roda `fn` com o token em cache; se ele só tiver o escopo antigo de leitura
+// (usuário conectou antes de alguma funcionalidade de escrita), a chamada
+// devolve 401/403 e driveFetch lança DriveAuthError — aí forçamos um novo
+// consentimento interativo (já com o escopo de escrita) e tentamos uma vez
+// mais. Compartilhado por rename/mover/lixeira, que têm exatamente essa
+// mesma necessidade.
+async function withAuthRetry<T>(uid: string, fn: (token: string) => Promise<T>): Promise<T> {
+  const token = await ensureDriveToken(uid);
+  try {
+    return await fn(token);
+  } catch (e) {
+    if (!(e instanceof DriveAuthError)) throw e;
+  }
+  const fresh = await grantDriveAccess(uid);
+  return fn(fresh);
+}
+
+// Renomeia um arquivo no Drive. Devolve o nome efetivo gravado.
 export async function renameDriveFile(
   uid: string,
   fileId: string,
   newName: string,
 ): Promise<string> {
-  const token = await ensureDriveToken(uid);
-  try {
-    return await patchDriveName(token, fileId, newName);
-  } catch (e) {
-    if (!(e instanceof DriveAuthError)) throw e;
-  }
-  const fresh = await grantDriveAccess(uid);
-  return patchDriveName(fresh, fileId, newName);
+  return withAuthRetry(uid, (token) => patchDriveName(token, fileId, newName));
+}
+
+// Move um arquivo/pasta de uma pasta-mãe pra outra.
+export async function moveDriveFile(
+  uid: string,
+  fileId: string,
+  oldParentId: string,
+  newParentId: string,
+): Promise<void> {
+  await withAuthRetry(uid, (token) => patchDriveParents(token, fileId, oldParentId, newParentId));
+}
+
+// Manda um arquivo/pasta pra lixeira do Drive.
+export async function trashDriveFile(uid: string, fileId: string): Promise<void> {
+  await withAuthRetry(uid, (token) => patchDriveTrashed(token, fileId));
 }

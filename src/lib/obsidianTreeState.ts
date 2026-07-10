@@ -86,7 +86,9 @@ export type VaultAction =
       remoteModifiedTime: string;
     }
   | { type: 'CONFLICT_DISMISSED' }
-  | { type: 'NOTE_REPLACE_CONTENT'; fileId: string; content: string; modifiedTime: string };
+  | { type: 'NOTE_REPLACE_CONTENT'; fileId: string; content: string; modifiedTime: string }
+  | { type: 'NOTE_REMOVED'; fileId: string }
+  | { type: 'NOTE_PARENT_UPDATED'; fileId: string; parentFolderId: string };
 
 function updateFolder(
   folders: Map<string, FolderState>,
@@ -219,6 +221,16 @@ export function obsidianTreeReducer(state: VaultState, action: VaultAction): Vau
           dirty: false,
         }),
         conflict: { status: 'none' },
+      };
+    case 'NOTE_REMOVED': {
+      const next = new Map(state.notes);
+      next.delete(action.fileId);
+      return { ...state, notes: next };
+    }
+    case 'NOTE_PARENT_UPDATED':
+      return {
+        ...state,
+        notes: updateNote(state.notes, action.fileId, { parentFolderId: action.parentFolderId }),
       };
     default:
       return state;

@@ -44,3 +44,13 @@ export function stripMdExtension(name: string): string {
 export function normalizeNoteName(name: string): string {
   return stripMdExtension(name).toLowerCase();
 }
+
+// Preserva a extensão do nome original (ex.: ".md", ".jpg", ".pdf") — quem
+// chama só edita o "nome de exibição" (InlineEdit no editor, ou o diálogo de
+// renomear do grafo). Só reconhece extensão alfanumérica (sem espaço) no
+// final do nome — um nome como "v1.2 rascunho" não tem ".2 rascunho" tratado
+// como extensão. Itens sem extensão (pastas) usam o nome novo como está.
+export function buildRenamedFileName(oldFullName: string, newDisplayName: string): string {
+  const match = oldFullName.match(/\.[A-Za-z0-9]+$/);
+  return match ? `${newDisplayName}${match[0]}` : newDisplayName;
+}

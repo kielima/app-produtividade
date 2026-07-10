@@ -14,6 +14,7 @@ import {
   writeMarkdownContent,
   type DriveNode,
 } from './obsidianDrive';
+import { moveDriveFile, renameDriveFile, trashDriveFile } from './googleDrive';
 import { hasConflict } from './obsidianConflict';
 import { renameNoteAndFixLinks, type RenameOutcome } from './obsidianRename';
 import {
@@ -294,6 +295,54 @@ export function useObsidianVault(uid: string) {
     [uid, loadFolder],
   );
 
+  // Renomeia uma pasta ou um arquivo não-Markdown — sem corrigir wikilinks
+  // (só notas .md são citadas por `[[wikilinks]]`, ver renameNote acima).
+  // Usado pelo menu de contexto do grafo (segurar em cima de um nó).
+  const renameFolderOrFile = useCallback(
+    async (fileId: string, newName: string): Promise<void> => {
+      await renameDriveFile(uid, fileId, newName);
+      const parentFolderId = findParentFolderId(stateRef.current.folders, fileId);
+      if (parentFolderId) await loadFolder(parentFolderId, { fetchNoteContent: false });
+    },
+    [uid, loadFolder],
+  );
+
+  // Move uma pasta/nota/arquivo de uma pasta-mãe pra outra (menu de contexto
+  // do grafo). Recarrega as duas pastas — a antiga (pro item sumir de lá) e a
+  // nova (pro item aparecer lá, se ela já estiver carregada nesta sessão; se
+  // ainda não foi aberta, ela vai buscar tudo — inclusive o item movido — na
+  // próxima vez que for expandida, sem precisar de nenhum código extra aqui).
+  // Se o item movido for uma nota já carregada, seu `parentFolderId` em
+  // `state.notes` também precisa ser corrigido — do contrário um rename ou
+  // save posterior consultaria a pasta-mãe ERRADA (a antiga).
+  const moveNode = useCallback(
+    async (fileId: string, oldParentId: string, newParentId: string): Promise<void> => {
+      await moveDriveFile(uid, fileId, oldParentId, newParentId);
+      if (stateRef.current.notes.has(fileId)) {
+        dispatch({ type: 'NOTE_PARENT_UPDATED', fileId, parentFolderId: newParentId });
+      }
+      await Promise.all([
+        loadFolder(oldParentId, { fetchNoteContent: false }),
+        loadFolder(newParentId, { fetchNoteContent: false }),
+      ]);
+    },
+    [uid, loadFolder],
+  );
+
+  // Manda uma nota/arquivo pra lixeira do Drive (recuperável por lá) — menu
+  // de contexto do grafo só oferece isto pra nota/arquivo, nunca pra pasta
+  // (evita apagar uma subárvore inteira sem querer). Recarregar a pasta-mãe
+  // já basta pra ela sumir da árvore/grafo (consultas já filtram trashed).
+  const deleteFile = useCallback(
+    async (fileId: string): Promise<void> => {
+      await trashDriveFile(uid, fileId);
+      dispatch({ type: 'NOTE_REMOVED', fileId });
+      const parentFolderId = findParentFolderId(stateRef.current.folders, fileId);
+      if (parentFolderId) await loadFolder(parentFolderId, { fetchNoteContent: false });
+    },
+    [uid, loadFolder],
+  );
+
   return {
     state,
     expandFolder,
@@ -308,5 +357,8 @@ export function useObsidianVault(uid: string) {
     searchVaultWide,
     readFilePreview,
     renameNote,
+    renameFolderOrFile,
+    moveNode,
+    deleteFile,
   };
 }
