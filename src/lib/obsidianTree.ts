@@ -7,9 +7,12 @@ import {
   isMarkdownFile,
   listFolderChildren,
   readMarkdownContent,
+  searchFilesByName,
   writeMarkdownContent,
+  type DriveNode,
 } from './obsidianDrive';
 import { hasConflict } from './obsidianConflict';
+import { renameNoteAndFixLinks, type RenameOutcome } from './obsidianRename';
 import {
   findNodeName,
   findParentFolderId,
@@ -204,6 +207,29 @@ export function useObsidianVault(uid: string) {
     [getToken, loadFolder],
   );
 
+  // Busca por nome no Drive inteiro (spec item 5) — autocomplete de `[[` e
+  // resolução de clique num link ainda não carregado nesta sessão.
+  const searchNotes = useCallback(
+    async (query: string): Promise<DriveNode[]> => {
+      const token = await getToken();
+      return searchFilesByName(token, query);
+    },
+    [getToken],
+  );
+
+  // Renomeia a nota selecionada e corrige os wikilinks que a citam em
+  // qualquer lugar do Drive (spec item 7); depois recarrega a pasta-mãe pra
+  // a árvore refletir o nome novo.
+  const renameNote = useCallback(
+    async (fileId: string, oldName: string, newName: string): Promise<RenameOutcome> => {
+      const outcome = await renameNoteAndFixLinks(uid, fileId, oldName, newName);
+      const parentFolderId = findParentFolderId(stateRef.current.folders, fileId) ?? stateRef.current.rootId;
+      if (parentFolderId) await loadFolder(parentFolderId, { fetchNoteContent: false });
+      return outcome;
+    },
+    [uid, loadFolder],
+  );
+
   return {
     state,
     expandFolder,
@@ -214,5 +240,7 @@ export function useObsidianVault(uid: string) {
     resolveKeepMine,
     resolveUseRemote,
     resolveKeepBoth,
+    searchNotes,
+    renameNote,
   };
 }

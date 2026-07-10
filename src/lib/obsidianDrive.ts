@@ -56,25 +56,29 @@ type DriveListResponse = {
   nextPageToken?: string;
 };
 
-// Lista os filhos IMEDIATOS de uma pasta — todos os mimeTypes (spec item 3),
-// pastas primeiro e depois em ordem alfabética (orderBy composto do Drive).
-export async function listFolderChildren(
+// Helper de paginação/parsing compartilhado por toda consulta `files.list` —
+// listagem de pasta (Fase 1) e as duas buscas abaixo (Fase 2) reaproveitam o
+// mesmo "mecanismo" de chamar a API do Drive em tempo real, só variando a
+// cláusula `q` e, opcionalmente, limitando resultados (autocomplete não
+// precisa da lista inteira, a correção de links no rename precisa).
+async function runDriveQuery(
   token: string,
-  folderId: string,
+  q: string,
+  opts: { orderBy?: string; maxResults?: number } = {},
 ): Promise<DriveNode[]> {
   const nodes: DriveNode[] = [];
   let pageToken: string | undefined;
   do {
     const params = new URLSearchParams({
-      q: `'${folderId}' in parents and trashed=false`,
+      q,
       fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size)',
-      orderBy: 'folder,name',
       pageSize: '200',
       spaces: 'drive',
       includeItemsFromAllDrives: 'true',
       supportsAllDrives: 'true',
       corpora: 'allDrives',
     });
+    if (opts.orderBy) params.set('orderBy', opts.orderBy);
     if (pageToken) params.set('pageToken', pageToken);
     const res = await driveFetch(
       token,
@@ -83,8 +87,49 @@ export async function listFolderChildren(
     const json = (await res.json()) as DriveListResponse;
     if (json.files) nodes.push(...json.files.map(toDriveNode));
     pageToken = json.nextPageToken;
-  } while (pageToken);
-  return nodes;
+  } while (pageToken && (!opts.maxResults || nodes.length < opts.maxResults));
+  return opts.maxResults ? nodes.slice(0, opts.maxResults) : nodes;
+}
+
+// Aspas simples e barras invertidas precisam ser escapadas dentro de um
+// literal de string da sintaxe de busca do Drive (`q=...`).
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// Lista os filhos IMEDIATOS de uma pasta — todos os mimeTypes (spec item 3),
+// pastas primeiro e depois em ordem alfabética (orderBy composto do Drive).
+export async function listFolderChildren(
+  token: string,
+  folderId: string,
+): Promise<DriveNode[]> {
+  return runDriveQuery(token, `'${folderId}' in parents and trashed=false`, {
+    orderBy: 'folder,name',
+  });
+}
+
+// Busca por NOME em tempo real no Drive inteiro (spec item 5) — usada pelo
+// autocomplete de `[[` e pela resolução de clique num link ainda não
+// carregado nesta sessão. Limitada a poucos resultados: é uma busca
+// interativa, não precisa (nem deveria, por latência) trazer tudo.
+const AUTOCOMPLETE_MAX_RESULTS = 20;
+
+export async function searchFilesByName(token: string, query: string): Promise<DriveNode[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const q = `name contains '${escapeDriveQueryValue(trimmed)}' and trashed=false`;
+  return runDriveQuery(token, q, { orderBy: 'name', maxResults: AUTOCOMPLETE_MAX_RESULTS });
+}
+
+// Busca por CONTEÚDO no Drive inteiro (spec item 6/7) — usada hoje só pela
+// correção de links ao renomear uma nota (precisa de TODOS os arquivos que
+// citam o nome antigo, sem limite); a Fase 4 (busca geral) reaproveita a
+// mesma função para a caixa de busca da aba.
+export async function searchFilesContainingText(token: string, text: string): Promise<DriveNode[]> {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const q = `fullText contains '${escapeDriveQueryValue(trimmed)}' and trashed=false`;
+  return runDriveQuery(token, q);
 }
 
 // Conteúdo bruto de uma nota .md (alt=media assume texto simples/UTF-8).
