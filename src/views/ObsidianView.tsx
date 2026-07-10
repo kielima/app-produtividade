@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import {
   grantDriveAccess,
   hasDriveAccess,
@@ -9,12 +9,23 @@ import { isMarkdownFile, type DriveNode } from '../lib/obsidianDrive';
 import { DriveFileIcon } from '../lib/driveFileIcons';
 import { useObsidianVault } from '../lib/obsidianTree';
 import { findNodeName, type FolderState } from '../lib/obsidianTreeState';
-import { buildNameIndex, computeBacklinks, resolveWikilinkTarget } from '../lib/obsidianBacklinks';
-import { normalizeNoteName, stripMdExtension } from '../lib/obsidianWikilink';
+import {
+  buildNameIndex,
+  computeBacklinks,
+  filterExactNameMatches,
+  resolveWikilinkTarget,
+} from '../lib/obsidianBacklinks';
+import { stripMdExtension } from '../lib/obsidianWikilink';
 import { useDebouncedCallback } from '../lib/useDebouncedCallback';
 import { ObsidianEditor } from '../components/ObsidianEditor';
 import { ObsidianConflictDialog } from '../components/ObsidianConflictDialog';
 import { InlineEdit } from '../components/InlineEdit';
+
+// Carregado sob demanda: arrasta o react-force-graph-2d só quando o usuário
+// troca pra "Grafo" — o modo árvore (padrão) não paga esse custo.
+const ObsidianGraphView = lazy(() =>
+  import('../components/ObsidianGraphView').then((m) => ({ default: m.ObsidianGraphView })),
+);
 
 const AUTOSAVE_DELAY_MS = 2800;
 
@@ -66,12 +77,14 @@ function buildRenamedFileName(oldFullName: string, newDisplayName: string): stri
 
 function ObsidianVaultBrowser({ uid }: { uid: string }) {
   const vault = useObsidianVault(uid);
+  const [mode, setMode] = useState<'tree' | 'graph'>('tree');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [linkWarning, setLinkWarning] = useState<string | null>(null);
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
 
   const selectedNote = selectedNoteId ? vault.state.notes.get(selectedNoteId) : null;
-  const selectedNoteName = selectedNoteId ? findNodeName(vault.state.folders, selectedNoteId) : undefined;
+  const selectedNoteName =
+    selectedNote?.name || (selectedNoteId ? findNodeName(vault.state.folders, selectedNoteId) : undefined);
 
   useEffect(() => {
     setLinkWarning(null);
@@ -87,15 +100,19 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
   );
 
   // Nome normalizado → fileId, construído a partir de tudo já listado nesta
-  // sessão (todas as pastas abertas), usado pra resolver wikilinks sem
+  // sessão (todas as pastas abertas) mais as notas soltas já carregadas
+  // (sem pasta conhecida, mas com nome), usado pra resolver wikilinks sem
   // precisar de uma nova busca no Drive quando o alvo já é conhecido.
   const nameIndex = useMemo(() => {
     const allNodes: Array<{ id: string; name: string }> = [];
     for (const folder of vault.state.folders.values()) {
       allNodes.push(...folder.children);
     }
+    for (const [id, n] of vault.state.notes.entries()) {
+      if (n.parentFolderId === undefined && n.name) allNodes.push({ id, name: n.name });
+    }
     return buildNameIndex(allNodes);
-  }, [vault.state.folders]);
+  }, [vault.state.folders, vault.state.notes]);
 
   // Notas com conteúdo já carregado nesta sessão — base do índice de
   // backlinks (limitação consciente da Fase 2: só o que foi visualizado).
@@ -103,11 +120,11 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
     const refs: Array<{ id: string; name: string; content: string }> = [];
     for (const [id, note] of vault.state.notes.entries()) {
       if (note.status !== 'loaded' && note.status !== 'saving') continue;
-      const name = findNodeName(vault.state.folders, id);
-      if (name) refs.push({ id, name, content: note.content });
+      if (!note.name) continue;
+      refs.push({ id, name: note.name, content: note.content });
     }
     return refs;
-  }, [vault.state.notes, vault.state.folders]);
+  }, [vault.state.notes]);
 
   const backlinks = useMemo(() => {
     if (!selectedNoteName) return [];
@@ -133,12 +150,10 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
         return;
       }
       const results = await vault.searchNotes(target);
-      const exact = results.filter(
-        (node) => !node.isFolder && normalizeNoteName(node.name) === normalizeNoteName(target),
-      );
+      const exact = filterExactNameMatches(results, target);
       if (exact.length === 1) {
         setSelectedNoteId(exact[0].id);
-        await vault.openNote(exact[0].id);
+        await vault.openNote(exact[0].id, { name: exact[0].name });
         return;
       }
       setLinkWarning(
@@ -171,78 +186,115 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
 
   return (
     <div className="obsidian-view">
-      <aside className="obsidian-tree" aria-label="Pastas e notas do Drive">
-        {vault.state.rootId && (
-          <FolderChildren
-            folderId={vault.state.rootId}
-            depth={0}
-            folders={vault.state.folders}
-            expandedIds={vault.state.expandedIds}
-            selectedNoteId={selectedNoteId}
-            onToggleFolder={(id, expanded) =>
-              expanded ? vault.collapseFolder(id) : void vault.expandFolder(id)
-            }
-            onOpenNode={openNode}
-          />
-        )}
-      </aside>
+      <div className="obsidian-mode-toggle" role="tablist" aria-label="Modo de visualização">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'tree'}
+          className={`obsidian-mode-toggle-btn${mode === 'tree' ? ' is-active' : ''}`}
+          onClick={() => setMode('tree')}
+        >
+          Árvore
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={mode === 'graph'}
+          className={`obsidian-mode-toggle-btn${mode === 'graph' ? ' is-active' : ''}`}
+          onClick={() => setMode('graph')}
+        >
+          Grafo
+        </button>
+      </div>
 
-      <section className="obsidian-editor-pane">
-        {!selectedNoteId && <p className="muted">Selecione uma nota .md para editar.</p>}
-        {selectedNoteId && selectedNote?.status === 'loading' && <p className="muted">Carregando…</p>}
-        {selectedNoteId && selectedNote?.status === 'error' && (
-          <p className="error">{selectedNote.error}</p>
-        )}
-        {selectedNoteId && selectedNote && (selectedNote.status === 'loaded' || selectedNote.status === 'saving') && (
-          <>
-            <div className="obsidian-editor-toolbar">
-              <InlineEdit
-                value={stripMdExtension(selectedNoteName ?? '')}
-                onSave={(next) => void handleRename(next)}
-                className="obsidian-note-title"
-                ariaLabel="renomear nota"
+      {mode === 'tree' ? (
+        <div className="obsidian-view-body">
+          <aside className="obsidian-tree" aria-label="Pastas e notas do Drive">
+            {vault.state.rootId && (
+              <FolderChildren
+                folderId={vault.state.rootId}
+                depth={0}
+                folders={vault.state.folders}
+                expandedIds={vault.state.expandedIds}
+                selectedNoteId={selectedNoteId}
+                onToggleFolder={(id, expanded) =>
+                  expanded ? vault.collapseFolder(id) : void vault.expandFolder(id)
+                }
+                onOpenNode={openNode}
               />
-              <span className="muted">
-                {selectedNote.status === 'saving' ? 'Salvando…' : selectedNote.dirty ? 'Alterações não salvas' : 'Salvo'}
-              </span>
-            </div>
-            {renameStatus && <p className="muted obsidian-status-line">{renameStatus}</p>}
-            <ObsidianEditor
-              key={selectedNoteId}
-              value={selectedNote.content}
-              resetKey={`${selectedNoteId}:${selectedNote.loadedModifiedTime}`}
-              onChange={(value) => vault.editNote(selectedNoteId, value)}
-              onManualSave={() => void vault.saveNote(selectedNoteId)}
-              onSearchNotes={(query) => vault.searchNotes(query)}
-              onNavigateWikilink={(target) => void handleNavigateWikilink(target)}
+            )}
+          </aside>
+
+          <section className="obsidian-editor-pane">
+            {!selectedNoteId && <p className="muted">Selecione uma nota .md para editar.</p>}
+            {selectedNoteId && selectedNote?.status === 'loading' && <p className="muted">Carregando…</p>}
+            {selectedNoteId && selectedNote?.status === 'error' && (
+              <p className="error">{selectedNote.error}</p>
+            )}
+            {selectedNoteId && selectedNote && (selectedNote.status === 'loaded' || selectedNote.status === 'saving') && (
+              <>
+                <div className="obsidian-editor-toolbar">
+                  <InlineEdit
+                    value={stripMdExtension(selectedNoteName ?? '')}
+                    onSave={(next) => void handleRename(next)}
+                    className="obsidian-note-title"
+                    ariaLabel="renomear nota"
+                  />
+                  <span className="muted">
+                    {selectedNote.status === 'saving' ? 'Salvando…' : selectedNote.dirty ? 'Alterações não salvas' : 'Salvo'}
+                  </span>
+                </div>
+                {renameStatus && <p className="muted obsidian-status-line">{renameStatus}</p>}
+                <ObsidianEditor
+                  key={selectedNoteId}
+                  value={selectedNote.content}
+                  resetKey={`${selectedNoteId}:${selectedNote.loadedModifiedTime}`}
+                  onChange={(value) => vault.editNote(selectedNoteId, value)}
+                  onManualSave={() => void vault.saveNote(selectedNoteId)}
+                  onSearchNotes={(query) => vault.searchNotes(query)}
+                  onNavigateWikilink={(target) => void handleNavigateWikilink(target)}
+                />
+                {linkWarning && <p className="error obsidian-status-line">{linkWarning}</p>}
+                <section className="obsidian-backlinks" aria-label="Notas que citam esta nota">
+                  <h3>Backlinks</h3>
+                  {backlinks.length === 0 ? (
+                    <p className="muted">Nenhuma nota carregada nesta sessão cita esta.</p>
+                  ) : (
+                    <ul>
+                      {backlinks.map((b) => (
+                        <li key={b.id}>
+                          <button
+                            type="button"
+                            className="obsidian-backlink-item"
+                            onClick={() => {
+                              setSelectedNoteId(b.id);
+                              void vault.openNote(b.id);
+                            }}
+                          >
+                            {b.name}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                </section>
+              </>
+            )}
+          </section>
+        </div>
+      ) : (
+        <div className="obsidian-view-body">
+          <Suspense fallback={<p className="muted">Carregando grafo…</p>}>
+            <ObsidianGraphView
+              vault={vault}
+              onEditNote={(fileId) => {
+                setSelectedNoteId(fileId);
+                setMode('tree');
+              }}
             />
-            {linkWarning && <p className="error obsidian-status-line">{linkWarning}</p>}
-            <section className="obsidian-backlinks" aria-label="Notas que citam esta nota">
-              <h3>Backlinks</h3>
-              {backlinks.length === 0 ? (
-                <p className="muted">Nenhuma nota carregada nesta sessão cita esta.</p>
-              ) : (
-                <ul>
-                  {backlinks.map((b) => (
-                    <li key={b.id}>
-                      <button
-                        type="button"
-                        className="obsidian-backlink-item"
-                        onClick={() => {
-                          setSelectedNoteId(b.id);
-                          void vault.openNote(b.id);
-                        }}
-                      >
-                        {b.name}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </section>
-          </>
-        )}
-      </section>
+          </Suspense>
+        </div>
+      )}
 
       {conflict.status === 'comparing' && (
         <ObsidianConflictDialog

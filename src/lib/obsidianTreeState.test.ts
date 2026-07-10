@@ -103,6 +103,44 @@ describe('obsidianTreeReducer', () => {
     expect(state.conflict).toEqual({ status: 'none' });
   });
 
+  it('NOTE_LOAD_START seta name/parentFolderId e NOTE_LOADED preserva os dois', () => {
+    let state = initialVaultState();
+    state = obsidianTreeReducer(state, {
+      type: 'NOTE_LOAD_START',
+      fileId: 'f1',
+      name: 'Nota.md',
+      parentFolderId: 'p1',
+    });
+    expect(state.notes.get('f1')).toMatchObject({
+      status: 'loading',
+      name: 'Nota.md',
+      parentFolderId: 'p1',
+    });
+
+    state = obsidianTreeReducer(state, {
+      type: 'NOTE_LOADED',
+      fileId: 'f1',
+      content: '# Título',
+      modifiedTime: 't1',
+    });
+    expect(state.notes.get('f1')).toMatchObject({
+      status: 'loaded',
+      name: 'Nota.md',
+      parentFolderId: 'p1',
+      content: '# Título',
+    });
+  });
+
+  it('NOTE_LOAD_START sem parentFolderId marca a nota como "solta"', () => {
+    let state = initialVaultState();
+    state = obsidianTreeReducer(state, {
+      type: 'NOTE_LOAD_START',
+      fileId: 'f2',
+      name: 'Solta.md',
+    });
+    expect(state.notes.get('f2')).toMatchObject({ name: 'Solta.md', parentFolderId: undefined });
+  });
+
   it('NOTE_REPLACE_CONTENT substitui o conteúdo local e fecha o conflito', () => {
     let state = initialVaultState();
     state = obsidianTreeReducer(state, {
