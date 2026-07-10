@@ -2,13 +2,14 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   onSnapshot,
   setDoc,
+  writeBatch,
   type Unsubscribe,
 } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { renameDriveFile } from '../lib/googleDrive';
+import type { DriveSyncPlan } from '../lib/driveSyncPlan';
 import type { ReadingItem } from '../types';
 
 // Itens da estante de leitura: users/{uid}/readingItems/{id}
@@ -111,51 +112,20 @@ export async function saveReadingMetadata(
   await patchReadingItem(uid, item.id, next);
 }
 
-// Cria um item da estante a partir de um arquivo do Drive, SE ainda não
-// existir. O id do doc é o próprio driveFileId, então re-sincronizar o Drive
-// é idempotente: não duplica itens nem sobrescreve metadados/anotações que o
-// usuário já editou. Retorna true quando criou um item novo.
-export async function ensureReadingItemFromDrive(
+// Aplica um lote de planos (de `planDriveSyncItem`, em `lib/driveSyncPlan`)
+// num único commit do Firestore — até 500 operações por lote, limite da API.
+// Reduz milhares de idas-e-voltas individuais a poucas dezenas de commits.
+export async function commitDriveSyncBatch(
   uid: string,
-  file: { id: string; name: string; folderId?: string; folderPath?: string },
-): Promise<boolean> {
-  const ref = doc(db, 'users', uid, 'readingItems', file.id);
-  const existing = await getDoc(ref);
-  if (existing.exists()) {
-    // Item já existe: o Drive é a fonte de verdade do nome do arquivo e da pasta,
-    // então espelha o estado atual no app (cobre itens antigos sem fileName/pasta
-    // e arquivos renomeados ou movidos direto no Drive). Não toca em mais nenhum
-    // metadado editado.
-    const data = existing.data() as Partial<ReadingItem>;
-    const patch: Partial<ReadingItem> = {};
-    if (data.fileName !== file.name) patch.fileName = file.name;
-    if (file.folderId != null && data.folderId !== file.folderId) {
-      patch.folderId = file.folderId;
-    }
-    if (file.folderPath != null && data.folderPath !== file.folderPath) {
-      patch.folderPath = file.folderPath;
-    }
-    if (Object.keys(patch).length > 0) {
-      await setDoc(ref, patch, { merge: true });
-    }
-    return false;
+  entries: Array<{ id: string; plan: DriveSyncPlan }>,
+): Promise<void> {
+  const toWrite = entries.filter((e) => e.plan.kind !== 'skip');
+  if (toWrite.length === 0) return;
+  const batch = writeBatch(db);
+  for (const { id, plan } of toWrite) {
+    const ref = doc(db, 'users', uid, 'readingItems', id);
+    if (plan.kind === 'create') batch.set(ref, plan.item);
+    else if (plan.kind === 'update') batch.set(ref, plan.patch, { merge: true });
   }
-
-  const today = new Date().toISOString().slice(0, 10);
-  const item: ReadingItem = {
-    id: file.id,
-    driveFileId: file.id,
-    fileName: file.name,
-    ...(file.folderId != null ? { folderId: file.folderId } : {}),
-    ...(file.folderPath != null ? { folderPath: file.folderPath } : {}),
-    format: 'pdf',
-    title: file.name.replace(/\.pdf$/i, ''),
-    authors: [],
-    itemType: 'other',
-    tags: [],
-    addedDate: today,
-    readingStatus: 'to-read',
-  };
-  await setDoc(ref, item);
-  return true;
+  await batch.commit();
 }
