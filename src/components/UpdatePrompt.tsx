@@ -43,9 +43,20 @@ function WebUpdatePrompt() {
     needRefresh: [needRefresh, setNeedRefresh],
     updateServiceWorker,
   } = useRegisterSW({
-    onRegisteredSW(swUrl) {
+    onRegisteredSW(swUrl, registration) {
       // Log silencioso pra debugging (Console > Application > SW).
       console.info('[PWA] service worker registered:', swUrl);
+      if (!registration) return;
+      // Por padrão o navegador só checa por um SW novo na navegação/registro
+      // inicial — um PWA instalado que fica aberto/em segundo plano por dias
+      // (comum no celular) pode nunca chegar a ver o toast "nova versão
+      // disponível". Reforça a checagem ao voltar o foco (caso mais comum:
+      // reabrir o app) e periodicamente enquanto fica aberto.
+      const check = () => registration.update().catch(() => {});
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') check();
+      });
+      setInterval(check, 60 * 60 * 1000);
     },
     onRegisterError(err) {
       console.error('[PWA] SW registration error:', err);
