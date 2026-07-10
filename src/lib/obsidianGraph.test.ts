@@ -230,6 +230,83 @@ describe('buildGraphData', () => {
     expect(links.filter((l) => l.kind === 'wikilink')).toHaveLength(1);
   });
 
+  describe('exclusão de pastas/arquivos ruído', () => {
+    it('esconde a pasta ".obsidian" e tudo dentro dela', () => {
+      const state: VaultState = {
+        ...initialVaultState(),
+        rootId: 'root',
+        folders: new Map([
+          ['root', folder([file({ id: 'cfg', name: '.obsidian', mimeType: 'application/vnd.google-apps.folder', isFolder: true })])],
+          ['cfg', folder([file({ id: 'plug', name: 'plugins', mimeType: 'application/vnd.google-apps.folder', isFolder: true })])],
+        ]),
+        expandedIds: new Set(['root', 'cfg']),
+      };
+      const { nodes, links } = buildGraphData(state);
+      expect(nodes.find((n) => n.id === 'cfg')).toBeUndefined();
+      expect(nodes.find((n) => n.id === 'plug')).toBeUndefined();
+      expect(links.find((l) => l.target === 'cfg')).toBeUndefined();
+    });
+
+    it('esconde a pasta "00_AVALIACOES"', () => {
+      const state: VaultState = {
+        ...initialVaultState(),
+        rootId: 'root',
+        folders: new Map([
+          ['root', folder([file({ id: 'av', name: '00_AVALIACOES', mimeType: 'application/vnd.google-apps.folder', isFolder: true })])],
+        ]),
+        expandedIds: new Set(['root']),
+      };
+      const { nodes } = buildGraphData(state);
+      expect(nodes.find((n) => n.id === 'av')).toBeUndefined();
+    });
+
+    it('esconde arquivos "CLAUDE.md" e "_MOC.md"', () => {
+      const state: VaultState = {
+        ...initialVaultState(),
+        rootId: 'root',
+        folders: new Map([
+          ['root', folder([
+            file({ id: 'c1', name: 'CLAUDE.md' }),
+            file({ id: 'm1', name: '_MOC.md' }),
+            file({ id: 'n1', name: 'A.md' }),
+          ])],
+        ]),
+        expandedIds: new Set(['root']),
+      };
+      const { nodes } = buildGraphData(state);
+      expect(nodes.find((n) => n.id === 'c1')).toBeUndefined();
+      expect(nodes.find((n) => n.id === 'm1')).toBeUndefined();
+      expect(nodes.find((n) => n.id === 'n1')).toBeTruthy();
+    });
+
+    it('esconde nota solta com nome excluído', () => {
+      const state: VaultState = {
+        ...initialVaultState(),
+        rootId: 'root',
+        folders: new Map([['root', folder([])]]),
+        expandedIds: new Set(['root']),
+        notes: new Map([['m1', note({ name: '_MOC.md', parentFolderId: undefined, content: '' })]]),
+      };
+      const { nodes } = buildGraphData(state);
+      expect(nodes.find((n) => n.id === 'm1')).toBeUndefined();
+    });
+
+    it('wikilink pra um alvo excluído não vira aresta nem nó fantasma', () => {
+      const state: VaultState = {
+        ...initialVaultState(),
+        rootId: 'root',
+        folders: new Map([
+          ['root', folder([file({ id: 'n1', name: 'A.md' }), file({ id: 'm1', name: '_MOC.md' })])],
+        ]),
+        expandedIds: new Set(['root']),
+        notes: new Map([['n1', note({ name: 'A.md', parentFolderId: 'root', content: 'veja [[_MOC]]' })]]),
+      };
+      const { nodes, links } = buildGraphData(state);
+      expect(nodes.filter((n) => n.kind === 'ghost')).toHaveLength(0);
+      expect(links.filter((l) => l.kind === 'wikilink')).toHaveLength(0);
+    });
+  });
+
   it('link pra arquivo não-markdown resolve normalmente (nó tipo file)', () => {
     const state: VaultState = {
       ...initialVaultState(),
