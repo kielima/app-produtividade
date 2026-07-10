@@ -106,6 +106,15 @@ export function ObsidianGraphView({
   const cardRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
 
+  // Posição conhecida de cada PASTA, por id — pastas formam o "esqueleto" da
+  // árvore; abrir uma pasta ou um preview muda `vault.state` (então
+  // `graphData` é recalculado do zero, com objetos de nó novos) e sem isso o
+  // grafo inteiro se reacomodaria a cada clique. Notas/arquivos ficam de
+  // fora de propósito — continuam livres pra reagir à repulsão do preview
+  // (abaixo). Guardado numa ref (não recalculado a partir de `graphData`)
+  // justamente pra sobreviver a esses recálculos.
+  const folderPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
   useEffect(() => {
     if (!previewId) previewNodePosRef.current = null;
   }, [previewId]);
@@ -152,19 +161,49 @@ export function ObsidianGraphView({
     graphRef.current?.d3ReheatSimulation();
   }, [previewId]);
 
-  // Só na primeira vez que a simulação estabiliza: enquadra tudo na tela, pra
-  // não abrir numa parte aleatória do grafo. Não repete depois disso (ex.: ao
-  // expandir uma pasta) pra não "puxar o tapete" de onde o usuário estava
-  // navegando — pra isso o botão "Ajustar" já existe.
+  // Toda vez que a simulação estabiliza: memoriza onde cada pasta parou (pra
+  // reaplicar depois que `graphData` for recalculado — ver efeito abaixo).
+  // Só a primeira vez chama `zoomToFit`, pra não abrir numa parte aleatória
+  // do grafo sem "puxar o tapete" depois — pra isso o botão "Ajustar" existe.
   const handleEngineStop = useCallback(() => {
+    for (const node of graphData.nodes) {
+      const n = node as GraphNode & { x?: number; y?: number };
+      if (n.kind === 'folder' && n.x != null && n.y != null) {
+        folderPositionsRef.current.set(n.id, { x: n.x, y: n.y });
+      }
+    }
     if (didInitialFitRef.current) return;
     didInitialFitRef.current = true;
     graphRef.current?.zoomToFit(400, 60);
-  }, []);
+  }, [graphData]);
+
+  // Reaplica (e fixa) a posição conhecida de cada pasta sempre que
+  // `graphData` é recalculado — os objetos de nó são recriados do zero a
+  // cada mudança de `vault.state` (inclusive ao só abrir um preview), então
+  // sem isso as pastas perderiam a posição fixada e reacomodariam com o
+  // resto. `fx`/`fy` (não só `x`/`y`) tira a pasta da física: ela só volta a
+  // se mover se for removida daqui (não acontece hoje).
+  useEffect(() => {
+    for (const node of graphData.nodes) {
+      const n = node as GraphNode & { x?: number; y?: number; fx?: number; fy?: number };
+      if (n.kind !== 'folder') continue;
+      const known = folderPositionsRef.current.get(n.id);
+      if (!known) continue;
+      n.x = known.x;
+      n.y = known.y;
+      n.fx = known.x;
+      n.fy = known.y;
+    }
+  }, [graphData]);
 
   const handleNodeClick = useCallback(
     (node: GNode) => {
-      const n = node as GraphNode;
+      const n = node as GraphNode & { x?: number; y?: number };
+      // Centraliza o que foi tocado — pasta, nota ou arquivo — pra ficar
+      // fácil de reencontrar mesmo com o resto do grafo se reajustando ao
+      // redor (spec do usuário: "centraliza... com o que tem em volta se
+      // reajustando"). Só pan, sem mudar o zoom.
+      if (n.x != null && n.y != null) graphRef.current?.centerAt(n.x, n.y, 400);
       if (n.kind === 'folder') {
         if (n.id === vault.state.rootId) return;
         if (vault.state.expandedIds.has(n.id)) vault.collapseFolder(n.id);
