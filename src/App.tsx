@@ -65,6 +65,10 @@ import { NotesView } from './views/NotesView';
 const LeituraView = lazy(() =>
   import('./views/LeituraView').then((m) => ({ default: m.LeituraView })),
 );
+// Carregado sob demanda: arrasta o CodeMirror só quando a aba Obsidian abre.
+const ObsidianView = lazy(() =>
+  import('./views/ObsidianView').then((m) => ({ default: m.ObsidianView })),
+);
 import {
   hasEverConnectedCalendar,
   startCalendarTokenScheduler,
@@ -134,6 +138,7 @@ type Tab =
   | 'today'
   | 'notes'
   | 'leitura'
+  | 'obsidian'
   | 'tasks'
   | 'projects'
   | 'countdown'
@@ -144,6 +149,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'today', label: 'Hoje' },
   { key: 'notes', label: 'Keep' },
   { key: 'leitura', label: 'Leitura' },
+  { key: 'obsidian', label: 'Obsidian' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
   { key: 'countdown', label: 'Agenda' },
@@ -1101,6 +1107,11 @@ function AppShell({
               pendingTarget={pendingReadingTarget}
               onPendingTargetHandled={() => setPendingReadingTarget(null)}
             />
+          </Suspense>
+        )}
+        {tab === 'obsidian' && (
+          <Suspense fallback={<p className="reader-status">Carregando…</p>}>
+            <ObsidianView uid={uid} />
           </Suspense>
         )}
         {tab === 'tasks' && (

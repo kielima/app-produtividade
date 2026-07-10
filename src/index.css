@@ -5651,3 +5651,177 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   margin: 0.2rem 0;
 }
 
+/* =============================================================
+   Aba Obsidian — vault de notas Markdown com o Google Drive
+   ============================================================= */
+
+.obsidian-view--gate {
+  padding: 0.75rem 0;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.6rem;
+}
+
+.obsidian-view {
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 0 4rem;
+  min-height: 60vh;
+}
+@media (max-width: 720px) {
+  .obsidian-view {
+    flex-direction: column;
+  }
+}
+
+.obsidian-tree {
+  flex: 0 0 260px;
+  max-width: 260px;
+  overflow-y: auto;
+  border-right: 1px solid var(--border);
+  padding-right: 0.75rem;
+}
+@media (max-width: 720px) {
+  .obsidian-tree {
+    flex: none;
+    max-width: none;
+    max-height: 40vh;
+    border-right: none;
+    border-bottom: 1px solid var(--border);
+    padding-right: 0;
+    padding-bottom: 0.5rem;
+  }
+}
+
+.obsidian-tree-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.obsidian-tree-status {
+  padding: 0.3rem 0;
+  font-size: 0.85rem;
+}
+
+.obsidian-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  padding: 0.3rem 0.4rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--fg);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.obsidian-tree-row:hover:not(:disabled) {
+  background: var(--surface-2);
+}
+.obsidian-tree-row.active {
+  background: var(--surface-2);
+  font-weight: 600;
+}
+.obsidian-tree-row--readonly {
+  cursor: default;
+  opacity: 0.75;
+}
+.obsidian-tree-row--folder {
+  font-weight: 500;
+}
+
+.obsidian-editor-pane {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.obsidian-editor-toolbar {
+  margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+
+.obsidian-editor {
+  flex: 1;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: auto;
+}
+.obsidian-editor .cm-editor {
+  height: 100%;
+  min-height: 50vh;
+}
+.obsidian-editor .cm-obsidian-wikilink {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.obsidian-conflict-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 200;
+}
+.obsidian-conflict-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(94vw, 720px);
+  max-height: 86vh;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 1.25rem;
+  z-index: 201;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+}
+.obsidian-conflict-dialog h2 {
+  margin: 0 0 0.4rem;
+  font-size: 1.1rem;
+}
+.obsidian-conflict-panes {
+  display: flex;
+  gap: 0.75rem;
+  margin: 0.75rem 0;
+}
+@media (max-width: 640px) {
+  .obsidian-conflict-panes {
+    flex-direction: column;
+  }
+}
+.obsidian-conflict-pane {
+  flex: 1;
+  min-width: 0;
+}
+.obsidian-conflict-pane h3 {
+  margin: 0 0 0.3rem;
+  font-size: 0.9rem;
+}
+.obsidian-conflict-pane pre {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  max-height: 40vh;
+  overflow: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  font-family: inherit;
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+.obsidian-conflict-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
