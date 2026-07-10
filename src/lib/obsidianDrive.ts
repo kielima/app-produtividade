@@ -1,5 +1,5 @@
 import { DriveAuthError, driveFetch, ensureDriveToken, grantDriveAccess } from './googleDrive';
-import { isMarkdownFile, type DriveNode } from './obsidianNode';
+import { isMarkdownFile, isOrphanTopLevelFolder, type DriveNode } from './obsidianNode';
 
 // =========================================================================
 // Acesso ao Google Drive (aba Obsidian) — vault genérico, todos os
@@ -56,25 +56,29 @@ type DriveListResponse = {
   nextPageToken?: string;
 };
 
-// Lista os filhos IMEDIATOS de uma pasta — todos os mimeTypes (spec item 3),
-// pastas primeiro e depois em ordem alfabética (orderBy composto do Drive).
-export async function listFolderChildren(
+// Helper de paginação/parsing compartilhado por toda consulta `files.list` —
+// listagem de pasta (Fase 1) e as duas buscas abaixo (Fase 2) reaproveitam o
+// mesmo "mecanismo" de chamar a API do Drive em tempo real, só variando a
+// cláusula `q` e, opcionalmente, limitando resultados (autocomplete não
+// precisa da lista inteira, a correção de links no rename precisa).
+async function runDriveQuery(
   token: string,
-  folderId: string,
+  q: string,
+  opts: { orderBy?: string; maxResults?: number } = {},
 ): Promise<DriveNode[]> {
   const nodes: DriveNode[] = [];
   let pageToken: string | undefined;
   do {
     const params = new URLSearchParams({
-      q: `'${folderId}' in parents and trashed=false`,
+      q,
       fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size)',
-      orderBy: 'folder,name',
       pageSize: '200',
       spaces: 'drive',
       includeItemsFromAllDrives: 'true',
       supportsAllDrives: 'true',
       corpora: 'allDrives',
     });
+    if (opts.orderBy) params.set('orderBy', opts.orderBy);
     if (pageToken) params.set('pageToken', pageToken);
     const res = await driveFetch(
       token,
@@ -83,8 +87,92 @@ export async function listFolderChildren(
     const json = (await res.json()) as DriveListResponse;
     if (json.files) nodes.push(...json.files.map(toDriveNode));
     pageToken = json.nextPageToken;
+  } while (pageToken && (!opts.maxResults || nodes.length < opts.maxResults));
+  return opts.maxResults ? nodes.slice(0, opts.maxResults) : nodes;
+}
+
+// Aspas simples e barras invertidas precisam ser escapadas dentro de um
+// literal de string da sintaxe de busca do Drive (`q=...`).
+function escapeDriveQueryValue(value: string): string {
+  return value.replace(/\\/g, '\\\\').replace(/'/g, "\\'");
+}
+
+// Lista os filhos IMEDIATOS de uma pasta — todos os mimeTypes (spec item 3),
+// pastas primeiro e depois em ordem alfabética (orderBy composto do Drive).
+export async function listFolderChildren(
+  token: string,
+  folderId: string,
+): Promise<DriveNode[]> {
+  return runDriveQuery(token, `'${folderId}' in parents and trashed=false`, {
+    orderBy: 'folder,name',
+  });
+}
+
+type RawFolderWithParents = {
+  id?: string;
+  name?: string;
+  mimeType?: string;
+  modifiedTime?: string;
+  size?: string;
+  parents?: string[];
+};
+
+// Pastas "órfãs" (sem `parents`) não aparecem em `'root' in parents` — é
+// assim que a seção "Computadores" do Drive (backup do Google Drive para
+// desktop) se comporta: a API não expõe nenhum jeito de descobrir o id
+// dessas pastas a partir da raiz, mesmo que o usuário as veja normalmente na
+// interface do Drive. Uma vez que se conhece o id, listar o conteúdo delas
+// funciona normalmente (listFolderChildren) — só a descoberta que falha. Por
+// isso, ao carregar a raiz, também rodamos esta busca (todas as pastas que o
+// usuário possui, sem filtro de `parents`) e filtramos client-side as sem
+// pai, pra mostrá-las junto na árvore como se fossem filhas da raiz.
+export async function listOrphanTopLevelFolders(token: string, rootId: string): Promise<DriveNode[]> {
+  const nodes: DriveNode[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({
+      q: `mimeType='application/vnd.google-apps.folder' and 'me' in owners and trashed=false`,
+      fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, parents)',
+      pageSize: '1000',
+      spaces: 'drive',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+    const res = await driveFetch(
+      token,
+      `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
+    );
+    const json = (await res.json()) as { files?: RawFolderWithParents[]; nextPageToken?: string };
+    for (const file of json.files ?? []) {
+      if (!file.id || !isOrphanTopLevelFolder({ id: file.id, parents: file.parents }, rootId)) continue;
+      nodes.push(toDriveNode(file));
+    }
+    pageToken = json.nextPageToken;
   } while (pageToken);
   return nodes;
+}
+
+// Busca por NOME em tempo real no Drive inteiro (spec item 5) — usada pelo
+// autocomplete de `[[` e pela resolução de clique num link ainda não
+// carregado nesta sessão. Limitada a poucos resultados: é uma busca
+// interativa, não precisa (nem deveria, por latência) trazer tudo.
+const AUTOCOMPLETE_MAX_RESULTS = 20;
+
+export async function searchFilesByName(token: string, query: string): Promise<DriveNode[]> {
+  const trimmed = query.trim();
+  if (!trimmed) return [];
+  const q = `name contains '${escapeDriveQueryValue(trimmed)}' and trashed=false`;
+  return runDriveQuery(token, q, { orderBy: 'name', maxResults: AUTOCOMPLETE_MAX_RESULTS });
+}
+
+// Busca por CONTEÚDO no Drive inteiro (spec item 6/7) — usada hoje só pela
+// correção de links ao renomear uma nota (precisa de TODOS os arquivos que
+// citam o nome antigo, sem limite); a Fase 4 (busca geral) reaproveita a
+// mesma função para a caixa de busca da aba.
+export async function searchFilesContainingText(token: string, text: string): Promise<DriveNode[]> {
+  const trimmed = text.trim();
+  if (!trimmed) return [];
+  const q = `fullText contains '${escapeDriveQueryValue(trimmed)}' and trashed=false`;
+  return runDriveQuery(token, q);
 }
 
 // Conteúdo bruto de uma nota .md (alt=media assume texto simples/UTF-8).

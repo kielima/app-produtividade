@@ -6,10 +6,14 @@ import {
   getRootFolderId,
   isMarkdownFile,
   listFolderChildren,
+  listOrphanTopLevelFolders,
   readMarkdownContent,
+  searchFilesByName,
   writeMarkdownContent,
+  type DriveNode,
 } from './obsidianDrive';
 import { hasConflict } from './obsidianConflict';
+import { renameNoteAndFixLinks, type RenameOutcome } from './obsidianRename';
 import {
   findNodeName,
   findParentFolderId,
@@ -60,15 +64,27 @@ export function useObsidianVault(uid: string) {
   // `fetchNoteContent` distingue o pré-carregamento inicial da raiz (spec
   // item 1: só nomes/metadados) de uma expansão explícita de subpasta (spec
   // item 2: nomes + conteúdo de todas as notas .md daquela pasta).
+  // `includeOrphans` só é usado no carregamento da raiz: além dos filhos
+  // diretos, busca pastas sem `parents` (não descobríveis via `'root' in
+  // parents`, ex.: a seção "Computadores" do Drive) e mescla na listagem —
+  // ver isOrphanTopLevelFolder em obsidianNode.ts.
   const loadFolder = useCallback(
-    async (folderId: string, opts: { fetchNoteContent: boolean }) => {
+    async (folderId: string, opts: { fetchNoteContent: boolean; includeOrphans?: boolean }) => {
       dispatch({ type: 'FOLDER_LOAD_START', folderId });
       try {
         const token = await getToken();
-        const children = await listFolderChildren(token, folderId);
-        dispatch({ type: 'FOLDER_LOADED', folderId, children });
+        const [children, orphanFolders] = await Promise.all([
+          listFolderChildren(token, folderId),
+          opts.includeOrphans ? listOrphanTopLevelFolders(token, folderId) : Promise.resolve([]),
+        ]);
+        const seenIds = new Set(children.map((c) => c.id));
+        const combined =
+          orphanFolders.length > 0
+            ? [...children, ...orphanFolders.filter((f) => !seenIds.has(f.id))]
+            : children;
+        dispatch({ type: 'FOLDER_LOADED', folderId, children: combined });
         if (opts.fetchNoteContent) {
-          const markdownChildren = children.filter((c) => !c.isFolder && isMarkdownFile(c));
+          const markdownChildren = combined.filter((c) => !c.isFolder && isMarkdownFile(c));
           await Promise.all(markdownChildren.map((child) => loadNoteContent(child.id)));
         }
       } catch (e) {
@@ -85,7 +101,7 @@ export function useObsidianVault(uid: string) {
       if (cancelled) return;
       dispatch({ type: 'ROOT_SET', rootId });
       dispatch({ type: 'EXPANDED_SET', folderId: rootId, expanded: true });
-      await loadFolder(rootId, { fetchNoteContent: false });
+      await loadFolder(rootId, { fetchNoteContent: false, includeOrphans: true });
     })();
     return () => {
       cancelled = true;
@@ -204,6 +220,29 @@ export function useObsidianVault(uid: string) {
     [getToken, loadFolder],
   );
 
+  // Busca por nome no Drive inteiro (spec item 5) — autocomplete de `[[` e
+  // resolução de clique num link ainda não carregado nesta sessão.
+  const searchNotes = useCallback(
+    async (query: string): Promise<DriveNode[]> => {
+      const token = await getToken();
+      return searchFilesByName(token, query);
+    },
+    [getToken],
+  );
+
+  // Renomeia a nota selecionada e corrige os wikilinks que a citam em
+  // qualquer lugar do Drive (spec item 7); depois recarrega a pasta-mãe pra
+  // a árvore refletir o nome novo.
+  const renameNote = useCallback(
+    async (fileId: string, oldName: string, newName: string): Promise<RenameOutcome> => {
+      const outcome = await renameNoteAndFixLinks(uid, fileId, oldName, newName);
+      const parentFolderId = findParentFolderId(stateRef.current.folders, fileId) ?? stateRef.current.rootId;
+      if (parentFolderId) await loadFolder(parentFolderId, { fetchNoteContent: false });
+      return outcome;
+    },
+    [uid, loadFolder],
+  );
+
   return {
     state,
     expandFolder,
@@ -214,5 +253,7 @@ export function useObsidianVault(uid: string) {
     resolveKeepMine,
     resolveUseRemote,
     resolveKeepBoth,
+    searchNotes,
+    renameNote,
   };
 }
