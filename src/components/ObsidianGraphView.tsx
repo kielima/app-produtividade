@@ -21,6 +21,7 @@ type GraphColors = {
   file: string;
   ghost: string;
   label: string;
+  labelHalo: string;
   containment: string;
   summary: string;
 };
@@ -34,6 +35,9 @@ function resolveGraphColors(): GraphColors {
     file: read('--muted', '#888'),
     ghost: read('--border', '#bbb'),
     label: read('--fg', '#1a1a1a'),
+    // Contorno do rótulo na cor de fundo — texto legível mesmo quando cai em
+    // cima de um nó/linha vizinho, sem precisar espaçar tudo perfeitamente.
+    labelHalo: read('--bg', '#fafafa'),
     containment: read('--border', '#ccc'),
     summary: read('--muted', '#888'),
   };
@@ -66,6 +70,7 @@ export function ObsidianGraphView({
   const [previewNoteId, setPreviewNoteId] = useState<string | null>(null);
   const [ghostWarning, setGhostWarning] = useState<string | null>(null);
   const colors = useGraphColors();
+  const didInitialFitRef = useRef(false);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -78,6 +83,24 @@ export function ObsidianGraphView({
   }, []);
 
   const graphData = useMemo(() => buildGraphData(vault.state), [vault.state]);
+
+  // Repulsão/distância padrão do force-graph deixa os círculos praticamente
+  // encostados um no outro (difícil de tocar o certo no celular) — aumenta o
+  // espaçamento pra cada nó ficar mais isolado e legível.
+  useEffect(() => {
+    graphRef.current?.d3Force('charge')?.strength(-160);
+    graphRef.current?.d3Force('link')?.distance(70);
+  }, [graphData]);
+
+  // Só na primeira vez que a simulação estabiliza: enquadra tudo na tela, pra
+  // não abrir numa parte aleatória do grafo. Não repete depois disso (ex.: ao
+  // expandir uma pasta) pra não "puxar o tapete" de onde o usuário estava
+  // navegando — pra isso o botão "Ajustar" já existe.
+  const handleEngineStop = useCallback(() => {
+    if (didInitialFitRef.current) return;
+    didInitialFitRef.current = true;
+    graphRef.current?.zoomToFit(400, 60);
+  }, []);
 
   const handleNodeClick = useCallback(
     (node: GNode) => {
@@ -120,17 +143,25 @@ export function ObsidianGraphView({
     (node: GNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as GraphNode & { x?: number; y?: number };
       if (n.x == null || n.y == null) return;
-      const radius = n.kind === 'folder' ? 7 : 5;
+      // Círculos menores que antes — com o espaçamento maior entre nós
+      // (d3Force abaixo), reduzem a sobreposição que dificultava tocar no nó
+      // certo no celular.
+      const radius = n.kind === 'folder' ? 5 : 3.5;
       ctx.beginPath();
       ctx.arc(n.x, n.y, radius, 0, 2 * Math.PI);
       ctx.globalAlpha = n.kind === 'ghost' ? 0.5 : 1;
       ctx.fillStyle = colors[n.kind];
       ctx.fill();
       ctx.globalAlpha = 1;
-      if (globalScale > 1.2) {
-        ctx.font = `${12 / globalScale}px sans-serif`;
+      if (globalScale > 0.9) {
+        ctx.font = `${13 / globalScale}px sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
+        // Contorno na cor de fundo antes do preenchimento — legível mesmo
+        // sobre outro nó/linha, sem depender de nunca haver sobreposição.
+        ctx.lineWidth = 3 / globalScale;
+        ctx.strokeStyle = colors.labelHalo;
+        ctx.strokeText(n.name, n.x, n.y + radius + 2);
         ctx.fillStyle = colors.label;
         ctx.fillText(n.name, n.x, n.y + radius + 2);
       }
@@ -161,6 +192,7 @@ export function ObsidianGraphView({
         linkLineDash={(l) => ((l as GraphLink).kind === 'summary' ? [4, 4] : null)}
         linkDirectionalArrowLength={(l) => ((l as GraphLink).kind === 'wikilink' ? 5 : 0)}
         onNodeClick={handleNodeClick}
+        onEngineStop={handleEngineStop}
         cooldownTicks={100}
       />
 
