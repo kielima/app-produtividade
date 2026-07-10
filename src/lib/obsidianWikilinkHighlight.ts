@@ -1,32 +1,19 @@
 import { Decoration, type DecorationSet, ViewPlugin, type ViewUpdate, EditorView } from '@codemirror/view';
 import { RangeSetBuilder } from '@codemirror/state';
+import { parseWikilinks } from './obsidianWikilink';
 
-// Só o destaque visual de `[[wikilinks]]` — sem navegação/autocomplete
-// (Fase 2). Fica aqui, isolado do parsing de backlinks, pra Fase 2 estender
-// (clique pra navegar, autocomplete) em cima de uma decoração que já existe,
-// em vez de retrofitar highlighting num editor já em produção.
-
-export type WikilinkRange = { from: number; to: number };
-
-const WIKILINK_RE = /\[\[[^\]\n]+\]\]/g;
-
-// Função pura — testável sem montar um EditorView real.
-export function extractWikilinkRanges(text: string): WikilinkRange[] {
-  const ranges: WikilinkRange[] = [];
-  for (const match of text.matchAll(WIKILINK_RE)) {
-    if (match.index == null) continue;
-    ranges.push({ from: match.index, to: match.index + match[0].length });
-  }
-  return ranges;
-}
+// Só o destaque visual de `[[wikilinks]]` — a sintaxe (alvo/alias/cabeçalho)
+// mora em obsidianWikilink.ts, reaproveitada aqui só para gerar os ranges das
+// decorações. Clique-para-navegar fica em ObsidianEditor.tsx (Fase 2), em
+// cima dos mesmos ranges.
 
 const wikilinkMark = Decoration.mark({ class: 'cm-obsidian-wikilink' });
 
 function buildDecorations(view: EditorView): DecorationSet {
   const builder = new RangeSetBuilder<Decoration>();
   const text = view.state.doc.toString();
-  for (const range of extractWikilinkRanges(text)) {
-    builder.add(range.from, range.to, wikilinkMark);
+  for (const link of parseWikilinks(text)) {
+    builder.add(link.from, link.to, wikilinkMark);
   }
   return builder.finish();
 }

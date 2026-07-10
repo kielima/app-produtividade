@@ -5742,7 +5742,19 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 
 .obsidian-editor-toolbar {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.75rem;
   margin-bottom: 0.4rem;
+  font-size: 0.85rem;
+}
+.obsidian-note-title {
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.obsidian-status-line {
+  margin: 0.3rem 0;
   font-size: 0.85rem;
 }
 
@@ -5759,6 +5771,57 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .obsidian-editor .cm-obsidian-wikilink {
   color: var(--accent);
   font-weight: 600;
+}
+/* Tooltip de autocomplete do `[[` — reaproveita as variáveis de cor do app
+   em vez do tema padrão do CodeMirror. */
+.obsidian-editor .cm-tooltip-autocomplete {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+}
+.obsidian-editor .cm-tooltip-autocomplete > ul > li {
+  padding: 0.35rem 0.6rem;
+}
+.obsidian-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
+  background: var(--surface-2);
+  color: var(--fg);
+}
+.obsidian-editor .cm-completionDetail {
+  margin-left: 0.5rem;
+  color: var(--muted);
+  font-style: normal;
+}
+
+.obsidian-backlinks {
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+}
+.obsidian-backlinks h3 {
+  margin: 0 0 0.4rem;
+  font-size: 0.9rem;
+}
+.obsidian-backlinks ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+}
+.obsidian-backlink-item {
+  align-self: flex-start;
+  padding: 0.2rem 0.5rem;
+  border: none;
+  border-radius: 4px;
+  background: transparent;
+  color: var(--accent);
+  font: inherit;
+  cursor: pointer;
+}
+.obsidian-backlink-item:hover {
+  background: var(--surface-2);
 }
 
 .obsidian-conflict-backdrop {
