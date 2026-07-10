@@ -11,13 +11,26 @@ import { ObsidianNoteGraphCard } from './ObsidianNoteGraphCard';
 
 // Tamanho-base do cartão de preview em "unidades de mundo" do grafo (mesma
 // unidade de `x`/`y` dos nós e da distância configurada em
-// `d3Force('link').distance(70)`) — multiplicado pelo zoom atual
+// `d3Force('link').distance(...)`) — multiplicado pelo zoom atual
 // (`globalScale`) a cada frame pra virar pixels de tela, fazendo o cartão
 // crescer/encolher junto com o resto do grafo. Ponto de partida razoável,
 // não validado com o grafo real (sandbox sem sessão do Drive) — ajustar se
 // ficar grande/pequeno demais na prática.
-const CARD_BASE_WIDTH = 70;
-const CARD_BASE_FONT_SIZE = 4.5;
+const CARD_BASE_WIDTH = 110;
+const CARD_BASE_FONT_SIZE = 5;
+// Proporção de página A4 (297/210mm) — vira `min-height` do cartão (não
+// `height`): uma nota curta fica com cara de página de verdade; uma nota
+// longa ainda cresce além disso e é lida arrastando o grafo, sem cortar.
+const A4_RATIO = 297 / 210;
+
+const BASE_CHARGE_STRENGTH = -160;
+// O nó em preview vira um cartão bem maior que um círculo — sem uma
+// repulsão própria bem mais forte, os nós vizinhos (que só conhecem a
+// distância "normal" entre círculos) acabam desenhados por baixo do
+// cartão. Multiplicador aplicado só a ele, ponto de partida não validado
+// com o grafo real.
+const PREVIEW_CHARGE_STRENGTH = BASE_CHARGE_STRENGTH * 12;
+const LINK_DISTANCE = 70;
 
 type Vault = ReturnType<typeof useObsidianVault>;
 type GNode = NodeObject<GraphNode>;
@@ -109,11 +122,28 @@ export function ObsidianGraphView({
 
   // Repulsão/distância padrão do force-graph deixa os círculos praticamente
   // encostados um no outro (difícil de tocar o certo no celular) — aumenta o
-  // espaçamento pra cada nó ficar mais isolado e legível.
+  // espaçamento pra cada nó ficar mais isolado e legível. O nó em preview
+  // (se houver) recebe repulsão bem mais forte — o cartão dele é bem maior
+  // que um círculo, então precisa empurrar os vizinhos pra mais longe pra
+  // não ficarem desenhados por baixo dele.
   useEffect(() => {
-    graphRef.current?.d3Force('charge')?.strength(-160);
-    graphRef.current?.d3Force('link')?.distance(70);
-  }, [graphData]);
+    graphRef.current?.d3Force('charge')?.strength((node: { id?: string }) =>
+      node.id === previewNoteId ? PREVIEW_CHARGE_STRENGTH : BASE_CHARGE_STRENGTH,
+    );
+    graphRef.current?.d3Force('link')?.distance(LINK_DISTANCE);
+  }, [graphData, previewNoteId]);
+
+  // Só quando o preview abre/fecha (não a cada mudança de `graphData`, que já
+  // tem seu próprio reaquecimento): reaquece a simulação pra ela reagir à
+  // repulsão nova imediatamente, em vez de só na próxima mexida no grafo.
+  const didMountRef = useRef(false);
+  useEffect(() => {
+    if (!didMountRef.current) {
+      didMountRef.current = true;
+      return;
+    }
+    graphRef.current?.d3ReheatSimulation();
+  }, [previewNoteId]);
 
   // Só na primeira vez que a simulação estabiliza: enquadra tudo na tela, pra
   // não abrir numa parte aleatória do grafo. Não repete depois disso (ex.: ao
@@ -216,6 +246,7 @@ export function ObsidianGraphView({
       card.style.left = `${screen.x - width / 2}px`;
       card.style.top = `${screen.y}px`;
       card.style.width = `${width}px`;
+      card.style.minHeight = `${width * A4_RATIO}px`;
       card.style.fontSize = `${fontSize}px`;
     }
     const actions = actionsRef.current;
