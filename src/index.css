@@ -6034,7 +6034,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   z-index: 2;
 }
 .obsidian-graph-controls button,
-.obsidian-note-page-controls button {
+.obsidian-note-graph-card-actions button {
   flex-shrink: 0;
   min-width: 2rem;
   height: 2rem;
@@ -6048,7 +6048,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-size: 0.85rem;
 }
 .obsidian-graph-controls button:hover,
-.obsidian-note-page-controls button:hover {
+.obsidian-note-graph-card-actions button:hover {
   background: var(--surface-2);
 }
 
@@ -6065,77 +6065,41 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   padding: 0.4rem 0.6rem;
 }
 
-/* Preview de nota — ocupa o lugar do grafo (não mais uma janela flutuante),
-   como uma mini página estilo A4: largura limitada e centralizada, altura
-   livre (cresce com o conteúdo, rolável), zoom por tamanho de fonte. */
-.obsidian-note-page-view {
+/* Preview de nota — o círculo do nó em preview é substituído por este
+   cartão, desenhado NO LUGAR do nó dentro do próprio grafo (não numa janela
+   à parte). Posição/tamanho vêm de `style` inline, escrito a cada frame por
+   `syncPreviewOverlay` (ObsidianGraphView.tsx) a partir da posição de tela
+   do nó (`graph2ScreenCoords`) e do zoom atual (`globalScale`) — cresce/
+   encolhe junto com o resto do grafo, sem controle de zoom próprio. */
+.obsidian-note-graph-card {
   position: absolute;
-  inset: 0;
-  z-index: 4;
-  display: flex;
-  flex-direction: column;
-  background: var(--surface-2);
-}
-.obsidian-note-page-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  background: var(--surface);
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.obsidian-note-page-close {
-  border: none;
-  background: transparent;
-  color: var(--muted);
-  font-size: 1.3rem;
-  line-height: 1;
-  cursor: pointer;
-  padding: 0.1rem 0.4rem;
-}
-.obsidian-note-page-close:hover {
-  color: var(--fg);
-}
-.obsidian-note-page-scroll {
-  flex: 1;
-  overflow-y: auto;
-  /* Padding inferior generoso: o conteúdo não fica escondido atrás da barra
-     de zoom/editar, que fica fixa por cima na parte inferior. */
-  padding: 1.25rem 0.75rem 4rem;
-  -webkit-overflow-scrolling: touch;
-  /* `.obsidian-graph-view` desliga todo gesto de toque (pro pan/zoom do
-     force-graph) — precisa reabilitar rolagem vertical aqui dentro. */
-  touch-action: pan-y;
-}
-.obsidian-note-page {
-  max-width: 210mm;
-  margin: 0 auto;
+  z-index: 3;
   background: var(--surface);
   border: 1px solid var(--border);
-  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.15);
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
   border-radius: 3px;
-  padding: 2rem 1.5rem;
-  line-height: 1.6;
-}
-.obsidian-note-page-controls {
-  position: absolute;
-  bottom: 0;
-  right: 0;
-  left: 0;
-  display: flex;
-  justify-content: flex-end;
-  gap: 0.3rem;
-  padding: 1.5rem 0.5rem 0.5rem;
-  /* Esmaece o texto por baixo em vez de cortar a última linha de repente —
-     e não bloqueia toque/seleção nessa faixa (só os botões em si recebem
-     clique, via pointer-events abaixo). */
-  background: linear-gradient(to top, var(--surface-2) 55%, transparent 100%);
+  padding: 0.6em 0.75em;
+  line-height: 1.5;
+  overflow: hidden;
+  /* Nomes de arquivo/título sem espaço (ex.: "gesa1421_ORACULOS.md") não
+     quebram por padrão e vazariam pra fora da largura do cartão. */
+  overflow-wrap: break-word;
+  /* Deixa o gesto de toque atravessar pro canvas por baixo (pan/zoom do
+     grafo via d3-zoom) — só os botões em `.obsidian-note-graph-card-actions`
+     (que tem seu próprio pointer-events) recebem toque. Não dá pra
+     selecionar o texto do cartão; "Editar" abre a nota de verdade. */
   pointer-events: none;
-  z-index: 2;
 }
-.obsidian-note-page-controls button {
-  pointer-events: auto;
+
+.obsidian-note-graph-card-actions {
+  position: absolute;
+  z-index: 3;
+  display: flex;
+  gap: 0.3rem;
+  /* Âncora no canto superior-direito do cartão (mesmo ponto de tela que
+     `syncPreviewOverlay` calcula), independente do zoom — os botões têm
+     tamanho fixo em px (herdado de `.obsidian-graph-controls button`),
+     sempre tocáveis mesmo com o grafo bem afastado. */
+  transform: translate(-100%, -50%);
 }
 
