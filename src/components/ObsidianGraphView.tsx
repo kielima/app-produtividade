@@ -120,14 +120,14 @@ export function ObsidianGraphView({
   const cardRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
 
-  // Posição conhecida de cada PASTA, por id — pastas formam o "esqueleto" da
-  // árvore; abrir uma pasta ou um preview muda `vault.state` (então
-  // `graphData` é recalculado do zero, com objetos de nó novos) e sem isso o
-  // grafo inteiro se reacomodaria a cada clique. Notas/arquivos ficam de
-  // fora de propósito — continuam livres pra reagir à repulsão do preview
-  // (abaixo). Guardado numa ref (não recalculado a partir de `graphData`)
-  // justamente pra sobreviver a esses recálculos.
-  const folderPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+  // Posição fixada manualmente, por id — só entra aqui quando o usuário
+  // escolhe "Fixar posição" no menu de contexto do grafo (nunca automático:
+  // a versão anterior fixava toda pasta sozinha e o usuário reportou que
+  // ficava ruim, tudo parecia "recarregar" e reacomodar sem controle).
+  // Sobrevive a `graphData` ser recalculado do zero a cada mudança de
+  // `vault.state` (abrir pasta/preview) porque é reaplicada no efeito
+  // abaixo, não porque os objetos de nó persistem sozinhos.
+  const pinnedPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
   useEffect(() => {
     if (!previewId) previewNodePosRef.current = null;
@@ -175,33 +175,26 @@ export function ObsidianGraphView({
     graphRef.current?.d3ReheatSimulation();
   }, [previewId]);
 
-  // Toda vez que a simulação estabiliza: memoriza onde cada pasta parou (pra
-  // reaplicar depois que `graphData` for recalculado — ver efeito abaixo).
-  // Só a primeira vez chama `zoomToFit`, pra não abrir numa parte aleatória
-  // do grafo sem "puxar o tapete" depois — pra isso o botão "Ajustar" existe.
+  // Só na primeira vez que a simulação estabiliza: enquadra tudo na tela, pra
+  // não abrir numa parte aleatória do grafo. Não repete depois disso (ex.:
+  // ao expandir uma pasta) pra não "puxar o tapete" de onde o usuário estava
+  // navegando — pra isso o botão "Ajustar" já existe.
   const handleEngineStop = useCallback(() => {
-    for (const node of graphData.nodes) {
-      const n = node as GraphNode & { x?: number; y?: number };
-      if (n.kind === 'folder' && n.x != null && n.y != null) {
-        folderPositionsRef.current.set(n.id, { x: n.x, y: n.y });
-      }
-    }
     if (didInitialFitRef.current) return;
     didInitialFitRef.current = true;
     graphRef.current?.zoomToFit(400, 60);
-  }, [graphData]);
+  }, []);
 
-  // Reaplica (e fixa) a posição conhecida de cada pasta sempre que
-  // `graphData` é recalculado — os objetos de nó são recriados do zero a
-  // cada mudança de `vault.state` (inclusive ao só abrir um preview), então
-  // sem isso as pastas perderiam a posição fixada e reacomodariam com o
-  // resto. `fx`/`fy` (não só `x`/`y`) tira a pasta da física: ela só volta a
-  // se mover se for removida daqui (não acontece hoje).
+  // Reaplica (e mantém fixada) a posição de todo nó que o usuário fixou
+  // manualmente, sempre que `graphData` é recalculado — os objetos de nó são
+  // recriados do zero a cada mudança de `vault.state` (inclusive ao só abrir
+  // um preview), então sem isso um nó fixado voltaria a se mover na próxima
+  // vez que qualquer coisa no vault mudasse. `fx`/`fy` (não só `x`/`y`) tira
+  // o nó da física: só volta a se mover se o usuário soltar (handleTogglePin).
   useEffect(() => {
     for (const node of graphData.nodes) {
       const n = node as GraphNode & { x?: number; y?: number; fx?: number; fy?: number };
-      if (n.kind !== 'folder') continue;
-      const known = folderPositionsRef.current.get(n.id);
+      const known = pinnedPositionsRef.current.get(n.id);
       if (!known) continue;
       n.x = known.x;
       n.y = known.y;
@@ -331,6 +324,31 @@ export function ObsidianGraphView({
     [vault, previewId, onNodeDeleted],
   );
 
+  // Fixar/soltar posição manualmente (menu de contexto do grafo) — único
+  // jeito de um nó ganhar `fx`/`fy` agora; nada é fixado sozinho. Soltar
+  // reaquece a simulação pra o nó voltar a reagir à física imediatamente,
+  // em vez de só na próxima mudança do vault.
+  const handleTogglePin = useCallback(
+    (node: GraphNode) => {
+      setActionNode(null);
+      const live = graphData.nodes.find((n) => n.id === node.id) as
+        | (GraphNode & { x?: number; y?: number; fx?: number; fy?: number })
+        | undefined;
+      if (!live) return;
+      if (pinnedPositionsRef.current.has(node.id)) {
+        pinnedPositionsRef.current.delete(node.id);
+        live.fx = undefined;
+        live.fy = undefined;
+        graphRef.current?.d3ReheatSimulation();
+      } else if (live.x != null && live.y != null) {
+        pinnedPositionsRef.current.set(node.id, { x: live.x, y: live.y });
+        live.fx = live.x;
+        live.fy = live.y;
+      }
+    },
+    [graphData],
+  );
+
   const nodeCanvasObject = useCallback(
     (node: GNode, ctx: CanvasRenderingContext2D, globalScale: number) => {
       const n = node as GraphNode & { x?: number; y?: number };
@@ -352,6 +370,15 @@ export function ObsidianGraphView({
       ctx.fillStyle = colors[n.kind];
       ctx.fill();
       ctx.globalAlpha = 1;
+      // Anel extra pro nó que o usuário fixou manualmente — único jeito de
+      // saber isso sem abrir o menu de contexto de novo (ver handleTogglePin).
+      if (pinnedPositionsRef.current.has(n.id)) {
+        ctx.beginPath();
+        ctx.arc(n.x, n.y, radius + 2.5 / globalScale, 0, 2 * Math.PI);
+        ctx.lineWidth = 1.2 / globalScale;
+        ctx.strokeStyle = colors.label;
+        ctx.stroke();
+      }
       if (globalScale > 0.9) {
         ctx.font = `${13 / globalScale}px sans-serif`;
         ctx.textAlign = 'center';
@@ -506,6 +533,9 @@ export function ObsidianGraphView({
               }}
             >
               Mover para pasta…
+            </button>
+            <button type="button" onClick={() => handleTogglePin(actionNode)}>
+              {pinnedPositionsRef.current.has(actionNode.id) ? 'Soltar posição' : 'Fixar posição'}
             </button>
             {/* Excluir só pra nota/arquivo — nunca pasta, ver handleDeleteNode */}
             {actionNode.kind !== 'folder' && (
