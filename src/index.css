@@ -6017,7 +6017,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 
 .obsidian-graph-controls {
   position: absolute;
-  top: 0.5rem;
+  bottom: 0.5rem;
   right: 0.5rem;
   left: 0.5rem;
   display: flex;
@@ -6025,7 +6025,8 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.3rem;
   z-index: 2;
 }
-.obsidian-graph-controls button {
+.obsidian-graph-controls button,
+.obsidian-note-page-controls button {
   flex-shrink: 0;
   min-width: 2rem;
   height: 2rem;
@@ -6038,14 +6039,16 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font: inherit;
   font-size: 0.85rem;
 }
-.obsidian-graph-controls button:hover {
+.obsidian-graph-controls button:hover,
+.obsidian-note-page-controls button:hover {
   background: var(--surface-2);
 }
 
 .obsidian-graph-warning {
   position: absolute;
   left: 0.75rem;
-  bottom: 0.75rem;
+  /* Acima da barra de zoom/ajustar, que agora fica na parte inferior. */
+  bottom: 3.25rem;
   right: 0.75rem;
   z-index: 2;
   background: var(--surface);
@@ -6054,46 +6057,77 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   padding: 0.4rem 0.6rem;
 }
 
-.obsidian-note-preview-overlay {
+/* Preview de nota — ocupa o lugar do grafo (não mais uma janela flutuante),
+   como uma mini página estilo A4: largura limitada e centralizada, altura
+   livre (cresce com o conteúdo, rolável), zoom por tamanho de fonte. */
+.obsidian-note-page-view {
   position: absolute;
-  right: 1rem;
-  bottom: 1rem;
-  width: min(90vw, 360px);
-  max-height: 60%;
-  overflow-y: auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 8px;
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-  padding: 0.75rem;
-  z-index: 3;
+  inset: 0;
+  z-index: 4;
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-2);
 }
-.obsidian-note-preview-header {
+.obsidian-note-page-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem;
-  margin-bottom: 0.4rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
 }
-.obsidian-note-preview-close {
+.obsidian-note-page-close {
   border: none;
   background: transparent;
   color: var(--muted);
-  font-size: 1.2rem;
+  font-size: 1.3rem;
   line-height: 1;
   cursor: pointer;
-  padding: 0.1rem 0.3rem;
+  padding: 0.1rem 0.4rem;
 }
-.obsidian-note-preview-close:hover {
+.obsidian-note-page-close:hover {
   color: var(--fg);
 }
-.obsidian-note-preview-body {
-  font-size: 0.9rem;
-  line-height: 1.4;
+.obsidian-note-page-scroll {
+  flex: 1;
+  overflow-y: auto;
+  /* Padding inferior generoso: o conteúdo não fica escondido atrás da barra
+     de zoom/editar, que fica fixa por cima na parte inferior. */
+  padding: 1.25rem 0.75rem 4rem;
+  -webkit-overflow-scrolling: touch;
+  /* `.obsidian-graph-view` desliga todo gesto de toque (pro pan/zoom do
+     force-graph) — precisa reabilitar rolagem vertical aqui dentro. */
+  touch-action: pan-y;
 }
-.obsidian-note-preview-actions {
+.obsidian-note-page {
+  max-width: 210mm;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  box-shadow: 0 2px 14px rgba(0, 0, 0, 0.15);
+  border-radius: 3px;
+  padding: 2rem 1.5rem;
+  line-height: 1.6;
+}
+.obsidian-note-page-controls {
+  position: absolute;
+  bottom: 0;
+  right: 0;
+  left: 0;
   display: flex;
   justify-content: flex-end;
-  margin-top: 0.5rem;
+  gap: 0.3rem;
+  padding: 1.5rem 0.5rem 0.5rem;
+  /* Esmaece o texto por baixo em vez de cortar a última linha de repente —
+     e não bloqueia toque/seleção nessa faixa (só os botões em si recebem
+     clique, via pointer-events abaixo). */
+  background: linear-gradient(to top, var(--surface-2) 55%, transparent 100%);
+  pointer-events: none;
+  z-index: 2;
+}
+.obsidian-note-page-controls button {
+  pointer-events: auto;
 }
 
