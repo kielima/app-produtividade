@@ -6103,3 +6103,20 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   transform: translate(-100%, -50%);
 }
 
+/* Preview de imagem/PDF — mesmo cartão/posicionamento de
+   ObsidianNoteGraphCard, só sem o padding de texto (a imagem/página do PDF
+   preenche o cartão de ponta a ponta) e sem a proporção A4 forçada (imagem/
+   PDF já têm proporção própria, ver `syncPreviewOverlay`). */
+.obsidian-file-preview-card {
+  padding: 0;
+}
+.obsidian-file-preview-card img,
+.obsidian-file-preview-card canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.obsidian-file-preview-card p {
+  padding: 0.6em 0.75em;
+}
+
