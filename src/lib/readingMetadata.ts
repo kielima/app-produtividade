@@ -5,6 +5,7 @@
 //  - ISBN → Google Books (googleapis.com/books/v1/volumes?q=isbn:{isbn})
 
 import type { ReadingItem } from '../types';
+import type { PDFDocumentProxy } from './pdf';
 
 // Subconjunto de campos que a busca consegue preencher.
 export type FetchedMetadata = Partial<
@@ -130,9 +131,37 @@ export async function fetchByIsbn(isbn: string): Promise<FetchedMetadata> {
   return out;
 }
 
-// Detecta um DOI no texto da primeira página de um PDF (heurística simples).
-// Formato canônico: 10.xxxx/sufixo.
+// Detecta um DOI num texto (heurística simples). Formato canônico:
+// 10.xxxx/sufixo. Também casa DOIs embutidos em URLs (https://doi.org/10...).
 export function extractDoiFromText(text: string): string | null {
   const m = text.match(/10\.\d{4,9}\/[-._;()/:A-Z0-9]+/i);
   return m ? m[0].replace(/[.,;]+$/, '') : null;
+}
+
+// Procura um DOI nas primeiras páginas de um PDF: tenta o texto de cada
+// página e, se não achar, os links (anotações) da página — muitas revistas só
+// colocam o DOI como hyperlink, não como texto solto. Cobre PDFs em que o DOI
+// não está na 1ª página (ex.: na última, ou no rodapé de todas).
+export async function findDoiInPdf(
+  doc: PDFDocumentProxy,
+  maxPages = 3,
+): Promise<string | null> {
+  const pageCount = Math.min(doc.numPages, maxPages);
+  for (let i = 1; i <= pageCount; i++) {
+    const page = await doc.getPage(i);
+    const [content, annotations] = await Promise.all([
+      page.getTextContent(),
+      page.getAnnotations(),
+    ]);
+    const text = content.items.map((it) => ('str' in it ? it.str : '')).join(' ');
+    const fromText = extractDoiFromText(text);
+    if (fromText) return fromText;
+    for (const ann of annotations as Array<{ url?: string }>) {
+      if (typeof ann.url === 'string') {
+        const fromLink = extractDoiFromText(decodeURIComponent(ann.url));
+        if (fromLink) return fromLink;
+      }
+    }
+  }
+  return null;
 }

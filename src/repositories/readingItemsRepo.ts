@@ -36,6 +36,7 @@ function normalize(id: string, data: Partial<ReadingItem>): ReadingItem {
     ...(data.year != null ? { year: data.year } : {}),
     ...(data.publication != null ? { publication: data.publication } : {}),
     ...(data.lastOpenedAt != null ? { lastOpenedAt: data.lastOpenedAt } : {}),
+    ...(data.autoClassifiedAt != null ? { autoClassifiedAt: data.autoClassifiedAt } : {}),
     ...(data.currentPage != null ? { currentPage: data.currentPage } : {}),
     ...(data.projectId != null ? { projectId: data.projectId } : {}),
   };
