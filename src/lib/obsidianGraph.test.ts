@@ -318,7 +318,19 @@ describe('buildGraphData', () => {
       notes: new Map([['n1', note({ name: 'A.md', parentFolderId: 'root', content: 'veja [[relatorio.pdf]]' })]]),
     };
     const { nodes, links } = buildGraphData(state);
-    expect(nodes.find((n) => n.id === 'doc1')).toMatchObject({ kind: 'file' });
+    expect(nodes.find((n) => n.id === 'doc1')).toMatchObject({ kind: 'file', mimeType: 'application/pdf' });
     expect(findLink(links, 'n1', 'doc1', 'wikilink')).toBeTruthy();
+  });
+
+  it('nó de pasta/nota não carrega mimeType de arquivo', () => {
+    const state: VaultState = {
+      ...initialVaultState(),
+      rootId: 'root',
+      folders: new Map([['root', folder([file({ id: 'n1', name: 'A.md' })])]]),
+      expandedIds: new Set(['root']),
+    };
+    const { nodes } = buildGraphData(state);
+    expect(nodes.find((n) => n.id === 'root')?.mimeType).toBeUndefined();
+    expect(nodes.find((n) => n.id === 'n1')?.mimeType).toBe('text/markdown');
   });
 });

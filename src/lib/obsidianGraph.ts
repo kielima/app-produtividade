@@ -13,7 +13,11 @@ import { isMarkdownFile } from './obsidianNode';
 export type GraphNodeKind = 'folder' | 'note' | 'file' | 'ghost';
 export type GraphLinkKind = 'containment' | 'wikilink' | 'summary';
 
-export type GraphNode = { id: string; name: string; kind: GraphNodeKind };
+// `mimeType` só é populado pra filhos reais de pasta (passo 1 abaixo) — é o
+// que permite ao grafo (ObsidianGraphView.tsx) decidir se um nó tipo 'file'
+// é imagem/PDF (preview inline) ou outro tipo qualquer (sem ação). Pastas,
+// notas soltas e nós fantasma não têm um mimeType de arquivo real aplicável.
+export type GraphNode = { id: string; name: string; kind: GraphNodeKind; mimeType?: string };
 export type GraphLink = { source: string; target: string; kind: GraphLinkKind };
 export type GraphData = { nodes: GraphNode[]; links: GraphLink[] };
 
@@ -33,8 +37,8 @@ export function buildGraphData(state: VaultState): GraphData {
   const summaryKeys = new Set<string>();
   const ghostIds = new Map<string, string>();
 
-  const addNode = (id: string, name: string, kind: GraphNodeKind) => {
-    if (!nodes.has(id)) nodes.set(id, { id, name, kind });
+  const addNode = (id: string, name: string, kind: GraphNodeKind, mimeType?: string) => {
+    if (!nodes.has(id)) nodes.set(id, { id, name, kind, mimeType });
   };
   const addLink = (source: string, target: string, kind: GraphLinkKind) => {
     const key = `${kind}:${source}:${target}`;
@@ -71,7 +75,7 @@ export function buildGraphData(state: VaultState): GraphData {
         continue;
       }
       const kind: GraphNodeKind = child.isFolder ? 'folder' : isMarkdownFile(child) ? 'note' : 'file';
-      addNode(child.id, child.name, kind);
+      addNode(child.id, child.name, kind, child.mimeType);
       addLink(folderId, child.id, 'containment');
     }
   }

@@ -7,6 +7,7 @@ import {
   isMarkdownFile,
   listFolderChildren,
   listStarredItems,
+  readBinaryContent,
   readMarkdownContent,
   searchFilesByName,
   searchFilesContainingText,
@@ -267,6 +268,17 @@ export function useObsidianVault(uid: string) {
     [getToken],
   );
 
+  // Conteúdo binário bruto (imagens, PDFs) pro preview inline no grafo —
+  // mesmo token/fluxo dos demais acessos ao Drive, sem passar por
+  // `state.notes` (que só guarda texto de notas Markdown).
+  const readFilePreview = useCallback(
+    async (fileId: string): Promise<ArrayBuffer> => {
+      const token = await getToken();
+      return readBinaryContent(token, fileId);
+    },
+    [getToken],
+  );
+
   // Renomeia a nota selecionada e corrige os wikilinks que a citam em
   // qualquer lugar do Drive (spec item 7); depois recarrega a pasta-mãe pra
   // a árvore refletir o nome novo. Notas "soltas" (sem pasta-mãe conhecida)
@@ -294,6 +306,7 @@ export function useObsidianVault(uid: string) {
     resolveKeepBoth,
     searchNotes,
     searchVaultWide,
+    readFilePreview,
     renameNote,
   };
 }

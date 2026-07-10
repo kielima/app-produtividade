@@ -160,6 +160,16 @@ export async function readMarkdownContent(token: string, fileId: string): Promis
   return res.text();
 }
 
+// Conteúdo binário bruto (imagens, PDFs) pro preview inline no grafo — mesmo
+// endpoint de `readMarkdownContent`, só sem assumir texto.
+export async function readBinaryContent(token: string, fileId: string): Promise<ArrayBuffer> {
+  const res = await driveFetch(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?alt=media&supportsAllDrives=true`,
+  );
+  return res.arrayBuffer();
+}
+
 // Metadados voláteis usados só na checagem de conflito — chamada leve (sem
 // alt=media) antes de cada escrita.
 export async function getFileModifiedTime(token: string, fileId: string): Promise<string> {

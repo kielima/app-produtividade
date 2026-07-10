@@ -4,10 +4,12 @@ import ForceGraph2D, {
   type LinkObject,
   type NodeObject,
 } from 'react-force-graph-2d';
-import { buildGraphData, type GraphLink, type GraphNode } from '../lib/obsidianGraph';
+import { buildGraphData, type GraphLink, type GraphNode, type GraphNodeKind } from '../lib/obsidianGraph';
 import { filterExactNameMatches } from '../lib/obsidianBacklinks';
+import { driveIconKind } from '../lib/driveFileIcons';
 import type { useObsidianVault } from '../lib/obsidianTree';
 import { ObsidianNoteGraphCard } from './ObsidianNoteGraphCard';
+import { ObsidianFilePreviewCard } from './ObsidianFilePreviewCard';
 
 // Tamanho-base do cartão de preview em "unidades de mundo" do grafo (mesma
 // unidade de `x`/`y` dos nós e da distância configurada em
@@ -90,7 +92,7 @@ export function ObsidianGraphView({
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphLink>>();
   const [size, setSize] = useState({ w: 0, h: 0 });
-  const [previewNoteId, setPreviewNoteId] = useState<string | null>(null);
+  const [previewId, setPreviewId] = useState<string | null>(null);
   const [ghostWarning, setGhostWarning] = useState<string | null>(null);
   const colors = useGraphColors();
   const didInitialFitRef = useRef(false);
@@ -100,13 +102,13 @@ export function ObsidianGraphView({
   // (mesmo frame) pra posicionar o cartão HTML. Fica numa ref (não state)
   // porque muda a ~60fps durante pan/zoom; um `setState` nessa frequência
   // re-renderizaria a árvore React inteira sem necessidade.
-  const previewNodePosRef = useRef<{ x: number; y: number } | null>(null);
+  const previewNodePosRef = useRef<{ x: number; y: number; kind: GraphNodeKind } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
   const actionsRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!previewNoteId) previewNodePosRef.current = null;
-  }, [previewNoteId]);
+    if (!previewId) previewNodePosRef.current = null;
+  }, [previewId]);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -119,6 +121,11 @@ export function ObsidianGraphView({
   }, []);
 
   const graphData = useMemo(() => buildGraphData(vault.state), [vault.state]);
+  // Kind/mimeType do nó em preview (pra decidir qual cartão renderizar) —
+  // dado estático, já disponível em `graphData` sem precisar esperar o
+  // próximo frame do canvas (diferente de `previewNodePosRef`, que só tem
+  // x/y, que SIM muda a cada frame durante a simulação/pan/zoom).
+  const previewNode = previewId ? graphData.nodes.find((n) => n.id === previewId) : undefined;
 
   // Repulsão/distância padrão do force-graph deixa os círculos praticamente
   // encostados um no outro (difícil de tocar o certo no celular) — aumenta o
@@ -128,10 +135,10 @@ export function ObsidianGraphView({
   // não ficarem desenhados por baixo dele.
   useEffect(() => {
     graphRef.current?.d3Force('charge')?.strength((node: { id?: string }) =>
-      node.id === previewNoteId ? PREVIEW_CHARGE_STRENGTH : BASE_CHARGE_STRENGTH,
+      node.id === previewId ? PREVIEW_CHARGE_STRENGTH : BASE_CHARGE_STRENGTH,
     );
     graphRef.current?.d3Force('link')?.distance(LINK_DISTANCE);
-  }, [graphData, previewNoteId]);
+  }, [graphData, previewId]);
 
   // Só quando o preview abre/fecha (não a cada mudança de `graphData`, que já
   // tem seu próprio reaquecimento): reaquece a simulação pra ela reagir à
@@ -143,7 +150,7 @@ export function ObsidianGraphView({
       return;
     }
     graphRef.current?.d3ReheatSimulation();
-  }, [previewNoteId]);
+  }, [previewId]);
 
   // Só na primeira vez que a simulação estabiliza: enquadra tudo na tela, pra
   // não abrir numa parte aleatória do grafo. Não repete depois disso (ex.: ao
@@ -166,12 +173,22 @@ export function ObsidianGraphView({
       }
       if (n.kind === 'note') {
         setGhostWarning(null);
-        setPreviewNoteId(n.id);
+        setPreviewId(n.id);
         void vault.openNote(n.id, { name: n.name });
         return;
       }
+      if (n.kind === 'file') {
+        // Só imagem/PDF têm preview inline — outros tipos de arquivo (ex.
+        // planilha, .docx) continuam sem ação, mesmo padrão da árvore.
+        const fileKind = driveIconKind({ name: n.name, mimeType: n.mimeType ?? '' });
+        if (fileKind === 'image' || fileKind === 'pdf') {
+          setGhostWarning(null);
+          setPreviewId(n.id);
+        }
+        return;
+      }
       if (n.kind === 'ghost') {
-        setPreviewNoteId(null);
+        setPreviewId(null);
         void (async () => {
           const results = await vault.searchNotes(n.name);
           const exact = filterExactNameMatches(results, n.name);
@@ -187,7 +204,6 @@ export function ObsidianGraphView({
           }
         })();
       }
-      // 'file': sem ação, mesmo padrão da árvore (linha desabilitada).
     },
     [vault],
   );
@@ -199,8 +215,8 @@ export function ObsidianGraphView({
       // Nota em preview: em vez do círculo, guarda a posição pro cartão HTML
       // (`ObsidianNoteGraphCard`) ser posicionado em cima dela logo em
       // seguida, em `syncPreviewOverlay` — o cartão ocupa o lugar do nó.
-      if (n.id === previewNoteId) {
-        previewNodePosRef.current = { x: n.x, y: n.y };
+      if (n.id === previewId) {
+        previewNodePosRef.current = { x: n.x, y: n.y, kind: n.kind };
         return;
       }
       // Círculos menores que antes — com o espaçamento maior entre nós
@@ -226,7 +242,7 @@ export function ObsidianGraphView({
         ctx.fillText(n.name, n.x, n.y + radius + 2);
       }
     },
-    [colors, previewNoteId],
+    [colors, previewId],
   );
 
   // Sincroniza a posição/escala do cartão de preview com o zoom/pan atuais —
@@ -246,7 +262,10 @@ export function ObsidianGraphView({
       card.style.left = `${screen.x - width / 2}px`;
       card.style.top = `${screen.y}px`;
       card.style.width = `${width}px`;
-      card.style.minHeight = `${width * A4_RATIO}px`;
+      // Proporção A4 só faz sentido pra texto sem forma própria (nota
+      // Markdown) — imagem/PDF já têm sua própria proporção natural, forçar
+      // A4 neles ia distorcer/preencher com espaço em branco à toa.
+      card.style.minHeight = pos.kind === 'note' ? `${width * A4_RATIO}px` : '';
       card.style.fontSize = `${fontSize}px`;
     }
     const actions = actionsRef.current;
@@ -308,23 +327,34 @@ export function ObsidianGraphView({
 
       {ghostWarning && <p className="error obsidian-status-line obsidian-graph-warning">{ghostWarning}</p>}
 
-      {previewNoteId && (
+      {previewId && previewNode && (
         <>
-          <ObsidianNoteGraphCard ref={cardRef} note={vault.state.notes.get(previewNoteId)} />
+          {previewNode.kind === 'note' ? (
+            <ObsidianNoteGraphCard ref={cardRef} note={vault.state.notes.get(previewId)} />
+          ) : (
+            <ObsidianFilePreviewCard
+              ref={cardRef}
+              fileId={previewId}
+              mimeType={previewNode.mimeType ?? ''}
+              readFileBytes={vault.readFilePreview}
+            />
+          )}
           <div ref={actionsRef} className="obsidian-note-graph-card-actions">
-            <button type="button" onClick={() => setPreviewNoteId(null)} aria-label="Fechar preview">
+            <button type="button" onClick={() => setPreviewId(null)} aria-label="Fechar preview">
               ×
             </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => {
-                onEditNote(previewNoteId);
-                setPreviewNoteId(null);
-              }}
-            >
-              Editar
-            </button>
+            {previewNode.kind === 'note' && (
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={() => {
+                  onEditNote(previewId);
+                  setPreviewId(null);
+                }}
+              >
+                Editar
+              </button>
+            )}
           </div>
         </>
       )}
