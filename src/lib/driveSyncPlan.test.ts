@@ -93,4 +93,37 @@ describe('planDriveSyncItem', () => {
     });
     expect(plan).toEqual({ kind: 'update', patch: { fileName: 'novo-nome.pdf' } });
   });
+
+  it('classifica como artigo pelo nome (estilo ABNT) ao criar um item novo', () => {
+    const plan = planDriveSyncItem(undefined, { id: 'f1', name: 'SILVA, 2020.pdf' });
+    expect(plan.kind).toBe('create');
+    if (plan.kind !== 'create') throw new Error('expected create');
+    expect(plan.item.itemType).toBe('article');
+    expect(plan.item.autoClassifiedAt).toEqual(expect.any(String));
+  });
+
+  it('classifica pelo nome um item antigo ainda sem tipo definido', () => {
+    const existing = item({ itemType: 'other', fileName: 'SILVA, 2020.pdf' });
+    const plan = planDriveSyncItem(existing, {
+      id: 'f1',
+      name: 'SILVA, 2020.pdf',
+      folderId: existing.folderId,
+      folderPath: existing.folderPath,
+    });
+    expect(plan.kind).toBe('update');
+    if (plan.kind !== 'update') throw new Error('expected update');
+    expect(plan.patch.itemType).toBe('article');
+    expect(plan.patch.autoClassifiedAt).toEqual(expect.any(String));
+  });
+
+  it('não reclassifica pelo nome um item que o usuário já classificou/a IA já tentou', () => {
+    const existing = item({ itemType: 'book', fileName: 'SILVA, 2020.pdf' });
+    const plan = planDriveSyncItem(existing, {
+      id: 'f1',
+      name: 'novo-nome, 2020.pdf',
+      folderId: existing.folderId,
+      folderPath: existing.folderPath,
+    });
+    expect(plan).toEqual({ kind: 'update', patch: { fileName: 'novo-nome, 2020.pdf' } });
+  });
 });
