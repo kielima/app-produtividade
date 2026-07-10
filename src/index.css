@@ -408,6 +408,18 @@ a:focus-visible {
   flex-shrink: 0;
   align-self: center;
 }
+
+/* Alvo do portal da aba Obsidian (alternador árvore/grafo + busca) — cresce
+   pra ocupar o espaço livre do topbar (igual `.topbar-search` faz via
+   margin-left:auto), mas com flex:1 em vez disso, pra que a busca expandida
+   (que quer crescer pra preencher a largura disponível) tenha onde crescer. */
+.obsidian-topbar-slot {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+}
 .topbar:not(.topbar--with-subtabs) .topbar-search {
   margin-left: auto;
 }
@@ -5681,29 +5693,25 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   min-height: 60vh;
 }
 
-/* Um único botão: mostra ícone+rótulo do modo pra ONDE o toque leva. */
+/* Botão de ícone só (vive no topbar do app, portal — ver App.tsx e
+   ObsidianView.tsx): mostra o ícone do modo pra ONDE o toque leva, mesmo
+   tamanho/estilo do botão de busca (`.search-toggle`) ao lado dele. */
 .obsidian-mode-toggle-btn {
   display: inline-flex;
   align-items: center;
-  gap: 0.35rem;
+  justify-content: center;
   flex-shrink: 0;
-  border: 1px solid var(--border);
-  background: var(--surface);
+  border: none;
+  background: transparent;
   color: var(--fg);
-  padding: 0.35rem 0.75rem;
-  border-radius: 999px;
+  padding: 0.4rem 0.5rem;
+  border-radius: 4px;
   cursor: pointer;
   font: inherit;
-  font-size: 0.85rem;
 }
 .obsidian-mode-toggle-btn:hover {
-  background: var(--surface-2);
-}
-
-.obsidian-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
+  background: transparent;
+  color: var(--accent);
 }
 
 .obsidian-search-box {

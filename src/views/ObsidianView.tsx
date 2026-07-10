@@ -1,4 +1,5 @@
 import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import {
   grantDriveAccess,
   hasDriveAccess,
@@ -128,6 +129,17 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [searchExpanded, setSearchExpanded] = useState(false);
 
+  // O alternador árvore/grafo e a busca vivem no topbar do app (mesma barra
+  // do botão de menu), não dentro do corpo da aba — igual à busca/filtro das
+  // outras abas (ver App.tsx). Como dependem do hook do vault (só criado
+  // aqui, depois do "portão" de conexão do Drive), renderizam via portal num
+  // slot que o App.tsx já deixa reservado (`#obsidian-topbar-slot`) em vez de
+  // subir esse estado todo pra lá.
+  const [topbarSlot, setTopbarSlot] = useState<HTMLElement | null>(null);
+  useEffect(() => {
+    setTopbarSlot(document.getElementById('obsidian-topbar-slot'));
+  }, []);
+
   const selectedNote = selectedNoteId ? vault.state.notes.get(selectedNoteId) : null;
   const selectedNoteName =
     selectedNote?.name || (selectedNoteId ? findNodeName(vault.state.folders, selectedNoteId) : undefined);
@@ -252,32 +264,35 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
 
   const conflict = vault.state.conflict;
 
+  const topbarControls = (
+    <>
+      {searchExpanded ? (
+        <ObsidianSearchBox
+          searchVaultWide={vault.searchVaultWide}
+          onOpenNote={handleOpenSearchNote}
+          onOpenFolder={handleOpenSearchFolder}
+          onClose={() => setSearchExpanded(false)}
+        />
+      ) : (
+        <>
+          <button
+            type="button"
+            className="obsidian-mode-toggle-btn"
+            onClick={() => setMode(mode === 'tree' ? 'graph' : 'tree')}
+            aria-label={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
+            title={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
+          >
+            {mode === 'tree' ? <GraphIcon /> : <TreeIcon />}
+          </button>
+          <SearchToggle active={false} onClick={() => setSearchExpanded(true)} />
+        </>
+      )}
+    </>
+  );
+
   return (
     <div className="obsidian-view">
-      <div className="obsidian-toolbar">
-        {searchExpanded ? (
-          <ObsidianSearchBox
-            searchVaultWide={vault.searchVaultWide}
-            onOpenNote={handleOpenSearchNote}
-            onOpenFolder={handleOpenSearchFolder}
-            onClose={() => setSearchExpanded(false)}
-          />
-        ) : (
-          <>
-            <button
-              type="button"
-              className="obsidian-mode-toggle-btn"
-              onClick={() => setMode(mode === 'tree' ? 'graph' : 'tree')}
-              aria-label={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
-              title={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
-            >
-              {mode === 'tree' ? <GraphIcon /> : <TreeIcon />}
-              <span>{mode === 'tree' ? 'Grafo' : 'Árvore'}</span>
-            </button>
-            <SearchToggle active={false} onClick={() => setSearchExpanded(true)} />
-          </>
-        )}
-      </div>
+      {topbarSlot && createPortal(topbarControls, topbarSlot)}
       {searchStatus && <p className="muted obsidian-status-line">{searchStatus}</p>}
 
       {mode === 'tree' ? (

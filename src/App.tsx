@@ -1062,6 +1062,13 @@ function AppShell({
             />
           </>
         )}
+        {tab === 'obsidian' && (
+          // Alvo do portal renderizado por ObsidianView — mantém o estado
+          // (modo árvore/grafo, busca) local à própria view em vez de subir
+          // pra cá, já que depende do hook do vault (useObsidianVault), que
+          // não deveria rodar antes do usuário sequer abrir esta aba.
+          <div id="obsidian-topbar-slot" className="obsidian-topbar-slot" />
+        )}
           </>
         )}
       </header>
