@@ -1,5 +1,5 @@
 import { DriveAuthError, driveFetch, ensureDriveToken, grantDriveAccess } from './googleDrive';
-import { isMarkdownFile, type DriveNode } from './obsidianNode';
+import { isMarkdownFile, isOrphanTopLevelFolder, type DriveNode } from './obsidianNode';
 
 // =========================================================================
 // Acesso ao Google Drive (aba Obsidian) — vault genérico, todos os
@@ -106,6 +106,49 @@ export async function listFolderChildren(
   return runDriveQuery(token, `'${folderId}' in parents and trashed=false`, {
     orderBy: 'folder,name',
   });
+}
+
+type RawFolderWithParents = {
+  id?: string;
+  name?: string;
+  mimeType?: string;
+  modifiedTime?: string;
+  size?: string;
+  parents?: string[];
+};
+
+// Pastas "órfãs" (sem `parents`) não aparecem em `'root' in parents` — é
+// assim que a seção "Computadores" do Drive (backup do Google Drive para
+// desktop) se comporta: a API não expõe nenhum jeito de descobrir o id
+// dessas pastas a partir da raiz, mesmo que o usuário as veja normalmente na
+// interface do Drive. Uma vez que se conhece o id, listar o conteúdo delas
+// funciona normalmente (listFolderChildren) — só a descoberta que falha. Por
+// isso, ao carregar a raiz, também rodamos esta busca (todas as pastas que o
+// usuário possui, sem filtro de `parents`) e filtramos client-side as sem
+// pai, pra mostrá-las junto na árvore como se fossem filhas da raiz.
+export async function listOrphanTopLevelFolders(token: string, rootId: string): Promise<DriveNode[]> {
+  const nodes: DriveNode[] = [];
+  let pageToken: string | undefined;
+  do {
+    const params = new URLSearchParams({
+      q: `mimeType='application/vnd.google-apps.folder' and 'me' in owners and trashed=false`,
+      fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, parents)',
+      pageSize: '1000',
+      spaces: 'drive',
+    });
+    if (pageToken) params.set('pageToken', pageToken);
+    const res = await driveFetch(
+      token,
+      `https://www.googleapis.com/drive/v3/files?${params.toString()}`,
+    );
+    const json = (await res.json()) as { files?: RawFolderWithParents[]; nextPageToken?: string };
+    for (const file of json.files ?? []) {
+      if (!file.id || !isOrphanTopLevelFolder({ id: file.id, parents: file.parents }, rootId)) continue;
+      nodes.push(toDriveNode(file));
+    }
+    pageToken = json.nextPageToken;
+  } while (pageToken);
+  return nodes;
 }
 
 // Busca por NOME em tempo real no Drive inteiro (spec item 5) — usada pelo
