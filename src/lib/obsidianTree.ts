@@ -9,11 +9,17 @@ import {
   listStarredItems,
   readMarkdownContent,
   searchFilesByName,
+  searchFilesContainingText,
   writeMarkdownContent,
   type DriveNode,
 } from './obsidianDrive';
 import { hasConflict } from './obsidianConflict';
 import { renameNoteAndFixLinks, type RenameOutcome } from './obsidianRename';
+import {
+  CONTENT_SEARCH_MAX_RESULTS,
+  MIN_SEARCH_QUERY_LENGTH,
+  dedupeContentMatches,
+} from './obsidianSearch';
 import {
   findNodeName,
   findParentFolderId,
@@ -242,6 +248,25 @@ export function useObsidianVault(uid: string) {
     [getToken],
   );
 
+  // Busca geral da aba (Fase 4/spec item 6-7) — por nome E por conteúdo, em
+  // todo o Drive, não só o que já foi carregado nesta sessão. Devolve dois
+  // grupos rotulados em vez de uma lista única "ranqueada": o Drive não dá
+  // nenhum score de relevância pra `fullText contains`, então fingir uma
+  // ordenação única seria enganoso.
+  const searchVaultWide = useCallback(
+    async (query: string): Promise<{ byName: DriveNode[]; byContent: DriveNode[] }> => {
+      const trimmed = query.trim();
+      if (trimmed.length < MIN_SEARCH_QUERY_LENGTH) return { byName: [], byContent: [] };
+      const token = await getToken();
+      const [byName, byContent] = await Promise.all([
+        searchFilesByName(token, trimmed),
+        searchFilesContainingText(token, trimmed, CONTENT_SEARCH_MAX_RESULTS),
+      ]);
+      return { byName, byContent: dedupeContentMatches(byName, byContent) };
+    },
+    [getToken],
+  );
+
   // Renomeia a nota selecionada e corrige os wikilinks que a citam em
   // qualquer lugar do Drive (spec item 7); depois recarrega a pasta-mãe pra
   // a árvore refletir o nome novo. Notas "soltas" (sem pasta-mãe conhecida)
@@ -268,6 +293,7 @@ export function useObsidianVault(uid: string) {
     resolveUseRemote,
     resolveKeepBoth,
     searchNotes,
+    searchVaultWide,
     renameNote,
   };
 }
