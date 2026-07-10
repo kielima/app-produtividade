@@ -6,6 +6,7 @@
   --fg: #1a1a1a;
   --muted: #666;
   --accent: #e07b00;
+  --graph-note: #3468d1;
   --danger: #c0392b;
   --danger-bg: #fde2e2;
   --moscow-must: #d33f3f;
@@ -2530,6 +2531,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
     --fg: #fafafa;
     --muted: #999;
     --danger-bg: #4a2222;
+    --graph-note: #5b9bff;
   }
   .badge { background: rgba(255, 255, 255, 0.08); }
   .stats-card-delta--up { color: #6cd382; background: rgba(46, 204, 113, 0.15); }
@@ -5673,12 +5675,39 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 
 .obsidian-view {
   display: flex;
-  gap: 1rem;
+  flex-direction: column;
+  gap: 0.5rem;
   padding: 0.75rem 0 4rem;
   min-height: 60vh;
 }
+
+.obsidian-mode-toggle {
+  display: flex;
+  gap: 0.25rem;
+}
+.obsidian-mode-toggle-btn {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--fg);
+  padding: 0.3rem 0.75rem;
+  border-radius: 6px;
+  cursor: pointer;
+  font: inherit;
+}
+.obsidian-mode-toggle-btn.is-active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+.obsidian-view-body {
+  display: flex;
+  gap: 1rem;
+  flex: 1;
+  min-height: 0;
+}
 @media (max-width: 720px) {
-  .obsidian-view {
+  .obsidian-view-body {
     flex-direction: column;
   }
 }
@@ -5892,6 +5921,101 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+/* Grafo unificado (Fase 3) */
+.obsidian-graph-view {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 50vh;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  /* O body do app usa touch-action: pan-y globalmente — precisa ser
+     sobrescrito aqui pra o pan/zoom/arrastar do force-graph (d3-zoom/
+     d3-drag) receberem os gestos de toque crus. */
+  touch-action: none;
+}
+.obsidian-graph-view canvas {
+  display: block;
+}
+
+.obsidian-graph-controls {
+  position: absolute;
+  top: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  gap: 0.3rem;
+  z-index: 2;
+}
+.obsidian-graph-controls button {
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface);
+  color: var(--fg);
+  cursor: pointer;
+  font: inherit;
+}
+.obsidian-graph-controls button:hover {
+  background: var(--surface-2);
+}
+
+.obsidian-graph-warning {
+  position: absolute;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  right: 0.75rem;
+  z-index: 2;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.6rem;
+}
+
+.obsidian-note-preview-overlay {
+  position: absolute;
+  right: 1rem;
+  bottom: 1rem;
+  width: min(90vw, 360px);
+  max-height: 60%;
+  overflow-y: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  padding: 0.75rem;
+  z-index: 3;
+}
+.obsidian-note-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.4rem;
+}
+.obsidian-note-preview-close {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0.1rem 0.3rem;
+}
+.obsidian-note-preview-close:hover {
+  color: var(--fg);
+}
+.obsidian-note-preview-body {
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+.obsidian-note-preview-actions {
+  display: flex;
   justify-content: flex-end;
   margin-top: 0.5rem;
 }

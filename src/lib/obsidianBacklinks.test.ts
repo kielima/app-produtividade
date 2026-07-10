@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { buildNameIndex, computeBacklinks, resolveWikilinkTarget } from './obsidianBacklinks';
+import {
+  buildNameIndex,
+  computeBacklinks,
+  filterExactNameMatches,
+  resolveWikilinkTarget,
+} from './obsidianBacklinks';
+import type { DriveNode } from './obsidianNode';
 
 describe('buildNameIndex / resolveWikilinkTarget', () => {
   it('resolve pelo nome sem extensão e sem diferenciar caixa', () => {
@@ -37,5 +43,38 @@ describe('computeBacklinks', () => {
   it('ignora diferenças de caixa e de extensão .md no alvo', () => {
     const notes = [{ id: 'f1', name: 'A.md', content: 'veja [[projeto x]]' }];
     expect(computeBacklinks(notes, 'Projeto X.md')).toEqual([{ id: 'f1', name: 'A.md' }]);
+  });
+});
+
+describe('filterExactNameMatches', () => {
+  const node = (overrides: Partial<DriveNode>): DriveNode => ({
+    id: 'x',
+    name: 'x',
+    mimeType: 'text/markdown',
+    isFolder: false,
+    ...overrides,
+  });
+
+  it('mantém só correspondências exatas (não "contém")', () => {
+    const results = [
+      node({ id: 'f1', name: 'Projeto X.md' }),
+      node({ id: 'f2', name: 'Projeto X 2.md' }),
+    ];
+    expect(filterExactNameMatches(results, 'Projeto X')).toEqual([results[0]]);
+  });
+
+  it('ignora caixa e extensão .md', () => {
+    const results = [node({ id: 'f1', name: 'projeto x.MD' })];
+    expect(filterExactNameMatches(results, 'Projeto X')).toEqual(results);
+  });
+
+  it('exclui pastas mesmo com nome batendo', () => {
+    const results = [node({ id: 'f1', name: 'Projeto X', isFolder: true })];
+    expect(filterExactNameMatches(results, 'Projeto X')).toEqual([]);
+  });
+
+  it('devolve vazio quando nada bate', () => {
+    const results = [node({ id: 'f1', name: 'Outra Coisa.md' })];
+    expect(filterExactNameMatches(results, 'Projeto X')).toEqual([]);
   });
 });

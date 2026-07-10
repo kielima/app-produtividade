@@ -21,6 +21,12 @@ export type FolderState = {
 
 export type NoteContentState = {
   status: 'idle' | 'loading' | 'loaded' | 'saving' | 'error';
+  // Guardados diretamente na própria nota (em vez de só reconstruídos
+  // escaneando `folders`) pra cobrir notas "soltas" — abertas via busca por
+  // nome (Fase 2/3), que não são filhas de nenhuma pasta conhecida.
+  // `parentFolderId` ausente = solta; caso contrário é a pasta-mãe conhecida.
+  name: string;
+  parentFolderId?: string;
   content: string;
   loadedModifiedTime: string;
   dirty: boolean;
@@ -63,7 +69,7 @@ export type VaultAction =
   | { type: 'FOLDER_LOADED'; folderId: string; children: DriveNode[] }
   | { type: 'FOLDER_ERROR'; folderId: string; error: string }
   | { type: 'EXPANDED_SET'; folderId: string; expanded: boolean }
-  | { type: 'NOTE_LOAD_START'; fileId: string }
+  | { type: 'NOTE_LOAD_START'; fileId: string; name: string; parentFolderId?: string }
   | { type: 'NOTE_LOADED'; fileId: string; content: string; modifiedTime: string }
   | { type: 'NOTE_ERROR'; fileId: string; error: string }
   | { type: 'NOTE_EDIT'; fileId: string; content: string }
@@ -101,6 +107,7 @@ function updateNote(
   const next = new Map(notes);
   const prev = next.get(fileId) ?? {
     status: 'idle' as const,
+    name: '',
     content: '',
     loadedModifiedTime: '',
     dirty: false,
@@ -142,7 +149,14 @@ export function obsidianTreeReducer(state: VaultState, action: VaultAction): Vau
       return { ...state, expandedIds: next };
     }
     case 'NOTE_LOAD_START':
-      return { ...state, notes: updateNote(state.notes, action.fileId, { status: 'loading' }) };
+      return {
+        ...state,
+        notes: updateNote(state.notes, action.fileId, {
+          status: 'loading',
+          name: action.name,
+          parentFolderId: action.parentFolderId,
+        }),
+      };
     case 'NOTE_LOADED':
       return {
         ...state,
