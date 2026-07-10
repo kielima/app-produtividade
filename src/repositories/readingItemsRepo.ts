@@ -129,3 +129,17 @@ export async function commitDriveSyncBatch(
   }
   await batch.commit();
 }
+
+// Remove um lote de itens cujo arquivo correspondente não aparece mais na
+// listagem atual do Drive (apagado, movido pra lixeira, ou perdeu acesso) —
+// até 500 operações por lote, limite da API. Sem isso a estante só crescia:
+// a sincronização criava/atualizava itens, mas nunca removia o que sumiu do
+// Drive.
+export async function deleteReadingItemsBatch(uid: string, ids: string[]): Promise<void> {
+  if (ids.length === 0) return;
+  const batch = writeBatch(db);
+  for (const id of ids) {
+    batch.delete(doc(db, 'users', uid, 'readingItems', id));
+  }
+  await batch.commit();
+}
