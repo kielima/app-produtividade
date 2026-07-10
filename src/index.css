@@ -6034,19 +6034,24 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   position: absolute;
   top: 0.5rem;
   right: 0.5rem;
+  left: 0.5rem;
   display: flex;
+  justify-content: flex-end;
   gap: 0.3rem;
   z-index: 2;
 }
 .obsidian-graph-controls button {
-  width: 2rem;
+  flex-shrink: 0;
+  min-width: 2rem;
   height: 2rem;
+  padding: 0 0.5rem;
   border: 1px solid var(--border);
   border-radius: 4px;
   background: var(--surface);
   color: var(--fg);
   cursor: pointer;
   font: inherit;
+  font-size: 0.85rem;
 }
 .obsidian-graph-controls button:hover {
   background: var(--surface-2);
