@@ -30,6 +30,19 @@ const CARD_BASE_FONT_SIZE = 1.25;
 // longa ainda cresce além disso e é lida arrastando o grafo, sem cortar.
 const A4_RATIO = 297 / 210;
 
+// Segurar em cima de um nó deveria disparar o `contextmenu` nativo do
+// navegador (usado por `onNodeRightClick` mais abaixo) — funciona no desktop
+// (clique direito) mas o usuário confirmou que NÃO dispara de forma
+// confiável no WebView do Android dentro do app instalado, provavelmente
+// porque `touch-action: none` (necessário pro pan/zoom do d3-zoom) e o
+// d3-drag (arrastar nó) competem pela mesma detecção nativa de "toque
+// parado". Por isso o long-press também é detectado manualmente (ver efeito
+// mais abaixo): um temporizador no pointerdown, cancelado se o dedo se mover
+// mais que a tolerância ou soltar antes do tempo — mesma lógica que o
+// Android usa nativamente, só que em JS.
+const LONG_PRESS_MS = 500;
+const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
+
 const BASE_CHARGE_STRENGTH = -160;
 // O nó em preview vira um cartão maior que um círculo — sem uma repulsão
 // própria mais forte, os nós vizinhos (que só conhecem a distância "normal"
@@ -150,6 +163,95 @@ export function ObsidianGraphView({
   // x/y, que SIM muda a cada frame durante a simulação/pan/zoom).
   const previewNode = previewId ? graphData.nodes.find((n) => n.id === previewId) : undefined;
 
+  // Fantasma (não é item real do Drive) e a raiz do vault (não tem pai pra
+  // renomear/mover/excluir/fixar) nunca abrem o menu de contexto — guarda
+  // compartilhada pelo clique-direito nativo (desktop) e pelo long-press
+  // manual (touch) abaixo.
+  const canOpenActionMenu = useCallback(
+    (n: GraphNode) => n.kind !== 'ghost' && !(n.kind === 'folder' && n.id === vault.state.rootId),
+    [vault.state.rootId],
+  );
+
+  // Detecção manual de long-press (touch) — ver comentário de
+  // LONG_PRESS_MS/LONG_PRESS_MOVE_TOLERANCE_PX no topo do arquivo sobre por
+  // que não dá pra confiar só no `contextmenu` nativo aqui. Escuta no
+  // CONTÊINER (não no canvas do force-graph) via bubbling — nunca chama
+  // preventDefault/stopPropagation, então o pan/zoom/drag do d3-zoom
+  // continuam recebendo o mesmo toque normalmente; um pan de verdade
+  // ultrapassa a tolerância de movimento e cancela o temporizador antes de
+  // disparar, evitando abrir o menu no meio de um gesto de arrastar o grafo.
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    let timer: number | null = null;
+    let start: { x: number; y: number } | null = null;
+
+    const clear = () => {
+      if (timer != null) window.clearTimeout(timer);
+      timer = null;
+      start = null;
+    };
+
+    const findNodeAt = (clientX: number, clientY: number): GraphNode | undefined => {
+      const g = graphRef.current;
+      if (!g) return undefined;
+      const rect = el.getBoundingClientRect();
+      const x = clientX - rect.left;
+      const y = clientY - rect.top;
+      const zoom = g.zoom() || 1;
+      let closest: GraphNode | undefined;
+      let closestDist = Infinity;
+      for (const node of graphData.nodes) {
+        const n = node as GraphNode & { x?: number; y?: number };
+        if (n.x == null || n.y == null) continue;
+        const screen = g.graph2ScreenCoords(n.x, n.y);
+        const dist = Math.hypot(screen.x - x, screen.y - y);
+        // Raio de desenho (ver nodeCanvasObject) convertido pra pixels de
+        // tela, com um piso de toque generoso — mesmo espírito do raio maior
+        // já usado pro toque no celular.
+        const radiusPx = (n.kind === 'folder' ? 5 : 3.5) * zoom;
+        const tolerance = Math.max(radiusPx, 18);
+        if (dist <= tolerance && dist < closestDist) {
+          closest = n;
+          closestDist = dist;
+        }
+      }
+      return closest;
+    };
+
+    const onPointerDown = (e: PointerEvent) => {
+      if (e.pointerType === 'mouse') return; // desktop já usa onNodeRightClick (clique direito nativo)
+      clear();
+      start = { x: e.clientX, y: e.clientY };
+      timer = window.setTimeout(() => {
+        const pos = start;
+        timer = null;
+        start = null;
+        if (!pos) return;
+        const node = findNodeAt(pos.x, pos.y);
+        if (node && canOpenActionMenu(node)) setActionNode(node);
+      }, LONG_PRESS_MS);
+    };
+
+    const onPointerMove = (e: PointerEvent) => {
+      if (!start) return;
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > LONG_PRESS_MOVE_TOLERANCE_PX) clear();
+    };
+
+    el.addEventListener('pointerdown', onPointerDown);
+    el.addEventListener('pointermove', onPointerMove);
+    el.addEventListener('pointerup', clear);
+    el.addEventListener('pointercancel', clear);
+    return () => {
+      el.removeEventListener('pointerdown', onPointerDown);
+      el.removeEventListener('pointermove', onPointerMove);
+      el.removeEventListener('pointerup', clear);
+      el.removeEventListener('pointercancel', clear);
+      clear();
+    };
+  }, [graphData, canOpenActionMenu]);
+
   // Repulsão/distância padrão do force-graph deixa os círculos praticamente
   // encostados um no outro (difícil de tocar o certo no celular) — aumenta o
   // espaçamento pra cada nó ficar mais isolado e legível. O nó em preview
@@ -254,20 +356,19 @@ export function ObsidianGraphView({
     [vault],
   );
 
-  // Segurar em cima de um nó (touch) dispara o evento nativo `contextmenu`
-  // do navegador (long-press ~500ms no Android WebView/Chrome, igual clique-
-  // direito no desktop) — `onNodeRightClick` já é o hook que a biblioteca
-  // expõe pra isso, sem precisar de nenhum timer/gesto próprio. Raiz do
-  // vault e nós fantasma (não são itens reais do Drive) não têm menu.
+  // Clique direito (desktop) — no touch, quem abre o menu é o long-press
+  // manual detectado no efeito acima (ver comentário lá sobre por que o
+  // `contextmenu` nativo não é confiável no WebView do Android). Mantido
+  // como reforço: onde o `contextmenu` nativo funcionar (desktop sempre;
+  // eventuais Android/navegadores que sintetizem certo), continua útil.
   const handleNodeRightClick = useCallback(
     (node: GNode, event: MouseEvent) => {
       const n = node as GraphNode;
-      if (n.kind === 'ghost') return;
-      if (n.kind === 'folder' && n.id === vault.state.rootId) return;
+      if (!canOpenActionMenu(n)) return;
       event.preventDefault?.();
       setActionNode(n);
     },
-    [vault.state.rootId],
+    [canOpenActionMenu],
   );
 
   // Notas mantêm o comportamento já existente de `renameNote` (corrige
@@ -444,6 +545,13 @@ export function ObsidianGraphView({
         width={size.w || undefined}
         height={size.h || undefined}
         nodeRelSize={4}
+        // Arrastar nó nunca foi um recurso oferecido por esta tela (não tem
+        // "solte pra fixar" nem nada do tipo) — só o default da biblioteca.
+        // Desativado porque competia pelo mesmo toque com a detecção manual
+        // de long-press acima (um toque parado podia começar a virar um
+        // "arrasto" de 1-2px antes do temporizador disparar, cancelando o
+        // menu de contexto por causa da tolerância de movimento).
+        enableNodeDrag={false}
         nodeCanvasObject={nodeCanvasObject}
         nodeCanvasObjectMode={() => 'replace'}
         linkColor={linkColor}
