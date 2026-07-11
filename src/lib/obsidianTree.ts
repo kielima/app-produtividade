@@ -127,6 +127,25 @@ export function useObsidianVault(uid: string) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [uid]);
 
+  // Recarrega uma pasta já carregada (depois de renomear/mover/excluir algo
+  // dentro dela, ou resolver um conflito) — sempre reincluindo favoritos
+  // (`includeStarred`) quando a pasta é a RAIZ do vault. Sem isso, um reload
+  // "genérico" da raiz (a maioria dos que este arquivo faz) sobrescreveria
+  // `state.folders` da raiz só com os filhos "de verdade" dela, perdendo o
+  // merge de itens favoritados feito no carregamento inicial (spec item 3)
+  // — um item favoritado (ex.: uma pasta de topo que só aparece por estar
+  // favoritada, não por ser filha de verdade de "Meu Drive") sumiria da
+  // árvore/grafo mesmo continuando favoritado no Drive, exatamente o "a
+  // pasta renomeada está sumindo" relatado pelo usuário.
+  const reloadFolder = useCallback(
+    (folderId: string) =>
+      loadFolder(folderId, {
+        fetchNoteContent: false,
+        includeStarred: folderId === stateRef.current.rootId,
+      }),
+    [loadFolder],
+  );
+
   const expandFolder = useCallback(
     async (folderId: string) => {
       dispatch({ type: 'EXPANDED_SET', folderId, expanded: true });
@@ -235,9 +254,9 @@ export function useObsidianVault(uid: string) {
         content: conflict.remoteContent,
         modifiedTime: conflict.remoteModifiedTime,
       });
-      await loadFolder(conflict.parentFolderId, { fetchNoteContent: false });
+      await reloadFolder(conflict.parentFolderId);
     },
-    [getToken, loadFolder],
+    [getToken, reloadFolder],
   );
 
   // Busca por nome no Drive inteiro (spec item 5) — autocomplete de `[[` e
@@ -289,10 +308,10 @@ export function useObsidianVault(uid: string) {
       const outcome = await renameNoteAndFixLinks(uid, fileId, oldName, newName);
       const parentFolderId =
         stateRef.current.notes.get(fileId)?.parentFolderId ?? findParentFolderId(stateRef.current.folders, fileId);
-      if (parentFolderId) await loadFolder(parentFolderId, { fetchNoteContent: false });
+      if (parentFolderId) await reloadFolder(parentFolderId);
       return outcome;
     },
-    [uid, loadFolder],
+    [uid, reloadFolder],
   );
 
   // Renomeia uma pasta ou um arquivo não-Markdown — sem corrigir wikilinks
@@ -302,9 +321,9 @@ export function useObsidianVault(uid: string) {
     async (fileId: string, newName: string): Promise<void> => {
       await renameDriveFile(uid, fileId, newName);
       const parentFolderId = findParentFolderId(stateRef.current.folders, fileId);
-      if (parentFolderId) await loadFolder(parentFolderId, { fetchNoteContent: false });
+      if (parentFolderId) await reloadFolder(parentFolderId);
     },
-    [uid, loadFolder],
+    [uid, reloadFolder],
   );
 
   // Move uma pasta/nota/arquivo de uma pasta-mãe pra outra (menu de contexto
@@ -321,12 +340,9 @@ export function useObsidianVault(uid: string) {
       if (stateRef.current.notes.has(fileId)) {
         dispatch({ type: 'NOTE_PARENT_UPDATED', fileId, parentFolderId: newParentId });
       }
-      await Promise.all([
-        loadFolder(oldParentId, { fetchNoteContent: false }),
-        loadFolder(newParentId, { fetchNoteContent: false }),
-      ]);
+      await Promise.all([reloadFolder(oldParentId), reloadFolder(newParentId)]);
     },
-    [uid, loadFolder],
+    [uid, reloadFolder],
   );
 
   // Manda uma nota/arquivo pra lixeira do Drive (recuperável por lá) — menu
@@ -338,9 +354,9 @@ export function useObsidianVault(uid: string) {
       await trashDriveFile(uid, fileId);
       dispatch({ type: 'NOTE_REMOVED', fileId });
       const parentFolderId = findParentFolderId(stateRef.current.folders, fileId);
-      if (parentFolderId) await loadFolder(parentFolderId, { fetchNoteContent: false });
+      if (parentFolderId) await reloadFolder(parentFolderId);
     },
-    [uid, loadFolder],
+    [uid, reloadFolder],
   );
 
   return {
