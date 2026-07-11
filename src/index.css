@@ -5487,7 +5487,9 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   color: var(--danger);
 }
 
-.reader-auto-warning {
+/* Toast dispensável em linha (mensagem + botão "Ok"), usado onde uma escrita
+   em segundo plano falha mesmo após retentativa (ReaderView, LeituraView). */
+.toast-row {
   display: flex;
   align-items: center;
   justify-content: space-between;

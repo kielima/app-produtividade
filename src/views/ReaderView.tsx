@@ -11,7 +11,6 @@ import {
   deleteAnnotation,
 } from '../repositories/annotationsRepo';
 import { patchReadingItem, saveReadingMetadata } from '../repositories/readingItemsRepo';
-import { retryWithBackoff } from '../lib/retry';
 import { PdfPageView, type ReaderTool } from '../components/PdfPageView';
 import { MetadataEditor } from '../components/MetadataEditor';
 import ReactMarkdown from 'react-markdown';
@@ -716,7 +715,7 @@ export function ReaderView({
       </header>
 
       {autoTaskWarning && (
-        <div className="toast reader-auto-warning" role="status">
+        <div className="toast toast-row" role="status">
           <span>{autoTaskWarning}</span>
           <button
             type="button"
@@ -1041,11 +1040,10 @@ function LazyPdfPage({
   );
 }
 
-// Autodetecção de DOI: checa texto e links das primeiras páginas. A escrita
-// no Firestore usa retentativa com timeout porque, no APK, uma escrita que
-// nunca é confirmada pelo servidor (rede instável do WebView, cache em
-// memória) fica pendurada e se perde em silêncio se o app for
-// minimizado/fechado — `onSyncFail` avisa o usuário quando isso acontece.
+// Autodetecção de DOI: checa texto e links das primeiras páginas.
+// `patchReadingItem` já retenta a escrita internamente (ver
+// `readingItemsRepo.ts`) — `onSyncFail` só avisa o usuário se, mesmo assim,
+// a escrita não for confirmada pelo servidor.
 async function autoDetectDoi(
   doc: PDFDocumentProxy,
   uid: string,
@@ -1060,7 +1058,7 @@ async function autoDetectDoi(
   }
   if (!doi) return;
   try {
-    await retryWithBackoff(() => patchReadingItem(uid, item.id, { doi }));
+    await patchReadingItem(uid, item.id, { doi });
   } catch {
     onSyncFail('Não foi possível salvar o DOI detectado automaticamente. Verifique sua conexão.');
   }
@@ -1086,7 +1084,7 @@ async function autoClassifyType(
     patch = { autoClassifiedAt: new Date().toISOString() };
   }
   try {
-    await retryWithBackoff(() => patchReadingItem(uid, item.id, patch));
+    await patchReadingItem(uid, item.id, patch);
   } catch {
     onSyncFail('A classificação automática não foi salva. Verifique sua conexão.');
   }

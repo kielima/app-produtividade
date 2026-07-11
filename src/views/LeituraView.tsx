@@ -83,6 +83,11 @@ export function LeituraView({
   const [layout, setLayout] = useState<LeituraLayout>(loadLeituraLayout);
   const [columns, setColumns] = useState<ReadingColumnConfig[]>(loadReadingColumns);
   const [focusAnnotationId, setFocusAnnotationId] = useState<string | null>(null);
+  // Aviso quando um lote da sincronização não foi confirmado pelo servidor
+  // mesmo após retentativas (ver `lib/retry.ts`) — importante no APK, onde
+  // isso pode acontecer em silêncio e o item nunca aparece nos outros
+  // aparelhos.
+  const [syncWarning, setSyncWarning] = useState<string | null>(null);
 
   // Sincronizar o Drive decide em memória (sem getDoc por arquivo) se cada
   // PDF é novo ou já existe. Usa uma ref (não o `items` do state) porque
@@ -156,6 +161,8 @@ export function LeituraView({
 
   async function syncDrive() {
     setSync({ status: 'syncing', found: 0, processed: 0 });
+    setSyncWarning(null);
+    let failedCount = 0;
     try {
       let token = await ensureDriveToken(uid);
       setConnected(true);
@@ -186,9 +193,11 @@ export function LeituraView({
         .filter((it) => it.driveFileId && !currentIds.has(it.driveFileId))
         .map((it) => it.id);
       for (let i = 0; i < removedIds.length; i += SYNC_BATCH_SIZE) {
+        const slice = removedIds.slice(i, i + SYNC_BATCH_SIZE);
         try {
-          await deleteReadingItemsBatch(uid, removedIds.slice(i, i + SYNC_BATCH_SIZE));
+          await deleteReadingItemsBatch(uid, slice);
         } catch (err) {
+          failedCount += slice.length;
           console.warn('[leitura] falha ao remover itens apagados no Drive:', err);
         }
       }
@@ -208,6 +217,7 @@ export function LeituraView({
         } catch (err) {
           // Um lote com problema não deve abortar os outros; como os IDs não
           // entram em doneIds, a próxima sincronização tenta de novo.
+          failedCount += toCommit.length;
           console.warn('[leitura] falha ao gravar lote de sincronização do Drive:', err);
         }
         saveSyncCheckpoint(uid, doneIds);
@@ -257,6 +267,11 @@ export function LeituraView({
         saveSyncCheckpoint(uid, doneIds);
       }
       syncDoneIdsRef.current = null;
+      if (failedCount > 0) {
+        setSyncWarning(
+          `${failedCount} ${failedCount === 1 ? 'arquivo não foi salvo' : 'arquivos não foram salvos'} — verifique sua conexão e sincronize de novo.`,
+        );
+      }
       setSync({ status: 'idle' });
     } catch (e) {
       if (syncDoneIdsRef.current) saveSyncCheckpoint(uid, syncDoneIdsRef.current);
@@ -357,6 +372,14 @@ export function LeituraView({
           </button>
         )}
         {sync.status === 'error' && <span className="error">{sync.message}</span>}
+        {syncWarning && (
+          <div className="toast toast-row" role="status">
+            <span>{syncWarning}</span>
+            <button type="button" className="btn-link" onClick={() => setSyncWarning(null)}>
+              Ok
+            </button>
+          </div>
+        )}
 
         {sync.status === 'syncing' && (
           <div
