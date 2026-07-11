@@ -4,7 +4,13 @@ import ForceGraph2D, {
   type LinkObject,
   type NodeObject,
 } from 'react-force-graph-2d';
-import { buildGraphData, type GraphLink, type GraphNode, type GraphNodeKind } from '../lib/obsidianGraph';
+import {
+  buildGraphData,
+  reconcileGraphNodes,
+  type GraphLink,
+  type GraphNode,
+  type GraphNodeKind,
+} from '../lib/obsidianGraph';
 import { filterExactNameMatches } from '../lib/obsidianBacklinks';
 import { driveIconKind } from '../lib/driveFileIcons';
 import { buildRenamedFileName, stripMdExtension } from '../lib/obsidianWikilink';
@@ -137,10 +143,28 @@ export function ObsidianGraphView({
   // escolhe "Fixar posição" no menu de contexto do grafo (nunca automático:
   // a versão anterior fixava toda pasta sozinha e o usuário reportou que
   // ficava ruim, tudo parecia "recarregar" e reacomodar sem controle).
-  // Sobrevive a `graphData` ser recalculado do zero a cada mudança de
-  // `vault.state` (abrir pasta/preview) porque é reaplicada no efeito
-  // abaixo, não porque os objetos de nó persistem sozinhos.
+  // Diferente de `nodeObjectsRef` abaixo (que só sobrevive enquanto o nó
+  // continua aparecendo no grafo): esta ref sobrevive mesmo que o nó suma
+  // temporariamente (pasta pai recolhida) e reapareça bem depois — reaplicada
+  // no efeito mais abaixo sempre que `graphData` é recalculado.
   const pinnedPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
+
+  // `buildGraphData` monta objetos de nó NOVOS a cada chamada (Map fresco,
+  // literais `{id,name,kind,mimeType}` sem x/y) — e o d3-force por baixo do
+  // react-force-graph-2d NÃO reconcilia por id: ele só preserva x/y de um nó
+  // se for literalmente o MESMO objeto JS de antes, e reaquece a simulação
+  // (alpha=1) toda vez que `graphData` muda. Sem isso, qualquer mudança de
+  // `vault.state` — renomear, expandir/colapsar pasta, abrir/fechar preview —
+  // fazia TODO nó sem posição reaparecer na espiral de posição inicial do
+  // d3-force e a simulação reaquecer do zero, exatamente o "fica tudo
+  // bugado" relatado. Este cache reaproveita o MESMO objeto (com x/y/vx/vy/
+  // fx/fy que a física já vinha ajustando) pra todo nó que continua visível
+  // entre uma recomputação e outra, só atualizando os campos "de dados"
+  // nele; só ganha posição nova (a tal espiral) quem é genuinamente novo no
+  // grafo. Ids que somem (pasta recolhida, item excluído) são descartados do
+  // cache — se reaparecerem depois, a posição é perdida aqui mas
+  // `pinnedPositionsRef` acima ainda lembra se o usuário tinha fixado.
+  const nodeObjectsRef = useRef<Map<string, GraphNode>>(new Map());
 
   useEffect(() => {
     if (!previewId) previewNodePosRef.current = null;
@@ -156,7 +180,10 @@ export function ObsidianGraphView({
     return () => ro.disconnect();
   }, []);
 
-  const graphData = useMemo(() => buildGraphData(vault.state), [vault.state]);
+  const graphData = useMemo(
+    () => reconcileGraphNodes(buildGraphData(vault.state), nodeObjectsRef.current),
+    [vault.state],
+  );
   // Kind/mimeType do nó em preview (pra decidir qual cartão renderizar) —
   // dado estático, já disponível em `graphData` sem precisar esperar o
   // próximo frame do canvas (diferente de `previewNodePosRef`, que só tem
@@ -288,11 +315,13 @@ export function ObsidianGraphView({
   }, []);
 
   // Reaplica (e mantém fixada) a posição de todo nó que o usuário fixou
-  // manualmente, sempre que `graphData` é recalculado — os objetos de nó são
-  // recriados do zero a cada mudança de `vault.state` (inclusive ao só abrir
-  // um preview), então sem isso um nó fixado voltaria a se mover na próxima
-  // vez que qualquer coisa no vault mudasse. `fx`/`fy` (não só `x`/`y`) tira
-  // o nó da física: só volta a se mover se o usuário soltar (handleTogglePin).
+  // manualmente, sempre que `graphData` é recalculado. Redundante enquanto o
+  // nó continua visível (o cache de `nodeObjectsRef` já preserva fx/fy nele
+  // automaticamente), mas necessário pro caso em que o nó sumiu e reapareceu
+  // (pasta pai recolhida e expandida de novo) — aí o cache de objeto se
+  // perdeu e só `pinnedPositionsRef` ainda lembra a posição fixada. `fx`/`fy`
+  // (não só `x`/`y`) tira o nó da física: só volta a se mover se o usuário
+  // soltar (handleTogglePin).
   useEffect(() => {
     for (const node of graphData.nodes) {
       const n = node as GraphNode & { x?: number; y?: number; fx?: number; fy?: number };

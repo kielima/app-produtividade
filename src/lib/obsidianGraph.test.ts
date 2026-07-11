@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGraphData, type GraphLink } from './obsidianGraph';
+import { buildGraphData, reconcileGraphNodes, type GraphLink, type GraphNode } from './obsidianGraph';
 import { initialVaultState, type FolderState, type NoteContentState, type VaultState } from './obsidianTreeState';
 import type { DriveNode } from './obsidianNode';
 
@@ -332,5 +332,55 @@ describe('buildGraphData', () => {
     const { nodes } = buildGraphData(state);
     expect(nodes.find((n) => n.id === 'root')?.mimeType).toBeUndefined();
     expect(nodes.find((n) => n.id === 'n1')?.mimeType).toBe('text/markdown');
+  });
+});
+
+describe('reconcileGraphNodes', () => {
+  it('nó novo (cache vazio): usa o objeto como está e o guarda no cache', () => {
+    const cache = new Map<string, GraphNode>();
+    const fresh = { nodes: [{ id: 'a', name: 'A', kind: 'note' as const }], links: [] };
+    const result = reconcileGraphNodes(fresh, cache);
+    expect(result.nodes[0]).toBe(fresh.nodes[0]);
+    expect(cache.get('a')).toBe(fresh.nodes[0]);
+  });
+
+  it('nó que já existia: reaproveita o MESMO objeto (preserva x/y simulados pela física)', () => {
+    const cache = new Map<string, GraphNode>();
+    const first = reconcileGraphNodes({ nodes: [{ id: 'a', name: 'A', kind: 'note' as const }], links: [] }, cache);
+    const settledNode = first.nodes[0] as GraphNode & { x?: number; y?: number };
+    // Simula a física do d3-force tendo assentado o nó num x/y qualquer.
+    settledNode.x = 42;
+    settledNode.y = 7;
+
+    const second = reconcileGraphNodes({ nodes: [{ id: 'a', name: 'A (renomeada)', kind: 'note' as const }], links: [] }, cache);
+    const reused = second.nodes[0] as GraphNode & { x?: number; y?: number };
+    expect(reused).toBe(settledNode);
+    expect(reused.x).toBe(42);
+    expect(reused.y).toBe(7);
+    expect(reused.name).toBe('A (renomeada)');
+  });
+
+  it('nó que sumiu (ex.: pasta recolhida) é descartado do cache — reaparece como novo', () => {
+    const cache = new Map<string, GraphNode>();
+    const first = reconcileGraphNodes({ nodes: [{ id: 'a', name: 'A', kind: 'note' as const }], links: [] }, cache);
+    (first.nodes[0] as GraphNode & { x?: number }).x = 99;
+
+    // 'a' não aparece nesta rodada (ex.: pasta-mãe recolhida).
+    reconcileGraphNodes({ nodes: [], links: [] }, cache);
+    expect(cache.has('a')).toBe(false);
+
+    const third = reconcileGraphNodes({ nodes: [{ id: 'a', name: 'A', kind: 'note' as const }], links: [] }, cache);
+    expect(third.nodes[0]).not.toBe(first.nodes[0]);
+    expect((third.nodes[0] as GraphNode & { x?: number }).x).toBeUndefined();
+  });
+
+  it('links do resultado são sempre os mais recentes (não vêm do cache)', () => {
+    const cache = new Map<string, GraphNode>();
+    const links = [{ source: 'a', target: 'b', kind: 'containment' as const }];
+    const result = reconcileGraphNodes(
+      { nodes: [{ id: 'a', name: 'A', kind: 'folder' as const }, { id: 'b', name: 'B', kind: 'note' as const }], links },
+      cache,
+    );
+    expect(result.links).toBe(links);
   });
 });
