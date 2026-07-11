@@ -161,3 +161,39 @@ export function buildGraphData(state: VaultState): GraphData {
 
   return { nodes: Array.from(nodes.values()), links };
 }
+
+// `buildGraphData` acima monta objetos de nó NOVOS a cada chamada — mas o
+// d3-force por baixo do react-force-graph-2d (ObsidianGraphView.tsx) só
+// preserva x/y/vx/vy/fx/fy de um nó se for literalmente o MESMO objeto JS de
+// antes (não reconcilia por id) e reaquece a simulação inteira toda vez que
+// o array de nós muda. Sem reaproveitar o objeto, qualquer mudança de estado
+// (renomear, expandir/colapsar pasta, abrir/fechar preview) fazia todo nó
+// "esquecer" sua posição e reaparecer na espiral de posição inicial do
+// d3-force.
+//
+// `cache` é mutado em nome de quem chama (um `useRef` no componente,
+// sobrevive entre chamadas) — reaproveita o objeto de todo nó que já existia
+// (mesmo id), atualizando nele só os campos "de dados" (name/kind/
+// mimeType), preservando qualquer x/y/vx/vy/fx/fy que a física já tenha
+// ajustado. Nó genuinamente novo (id nunca visto) ganha posição inicial nova
+// normalmente. Id que sumiu (pasta recolhida, item excluído) é descartado do
+// cache — não cresce pra sempre, e se reaparecer depois começa do zero.
+export function reconcileGraphNodes(fresh: GraphData, cache: Map<string, GraphNode>): GraphData {
+  const seenIds = new Set<string>();
+  const nodes = fresh.nodes.map((n) => {
+    seenIds.add(n.id);
+    const existing = cache.get(n.id);
+    if (existing) {
+      existing.name = n.name;
+      existing.kind = n.kind;
+      existing.mimeType = n.mimeType;
+      return existing;
+    }
+    cache.set(n.id, n);
+    return n;
+  });
+  for (const id of cache.keys()) {
+    if (!seenIds.has(id)) cache.delete(id);
+  }
+  return { nodes, links: fresh.links };
+}
