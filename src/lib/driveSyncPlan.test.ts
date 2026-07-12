@@ -121,6 +121,28 @@ describe('planDriveSyncItem', () => {
     expect(plan.item.format).toBe('epub');
   });
 
+  it('classifica todo EPUB novo como livro, mesmo com nome em estilo ABNT de artigo', () => {
+    const plan = planDriveSyncItem(undefined, { id: 'f2', name: 'SILVA, 2020.epub' });
+    expect(plan.kind).toBe('create');
+    if (plan.kind !== 'create') throw new Error('expected create');
+    expect(plan.item.itemType).toBe('book');
+    expect(plan.item.autoClassifiedAt).toEqual(expect.any(String));
+  });
+
+  it('classifica como livro um EPUB antigo ainda sem tipo definido', () => {
+    const existing = item({ format: 'epub', itemType: 'other', fileName: 'book.epub' });
+    const plan = planDriveSyncItem(existing, {
+      id: 'f1',
+      name: 'book.epub',
+      folderId: existing.folderId,
+      folderPath: existing.folderPath,
+    });
+    expect(plan.kind).toBe('update');
+    if (plan.kind !== 'update') throw new Error('expected update');
+    expect(plan.patch.itemType).toBe('book');
+    expect(plan.patch.autoClassifiedAt).toEqual(expect.any(String));
+  });
+
   it('classifica pelo nome um item antigo ainda sem tipo definido', () => {
     const existing = item({ itemType: 'other', fileName: 'SILVA, 2020.pdf' });
     const plan = planDriveSyncItem(existing, {
