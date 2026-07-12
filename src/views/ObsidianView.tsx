@@ -66,8 +66,9 @@ function GraphIcon() {
   );
 }
 
-// Carregado sob demanda: arrasta o react-force-graph-2d só quando o usuário
-// troca pra "Grafo" — o modo árvore (padrão) não paga esse custo.
+// Carregado sob demanda (Suspense abaixo) — o grafo é o modo padrão, então
+// esse import roda logo na abertura da aba, mas mantém o code-split do
+// react-force-graph-2d fora do bundle principal.
 const ObsidianGraphView = lazy(() =>
   import('../components/ObsidianGraphView').then((m) => ({ default: m.ObsidianGraphView })),
 );
@@ -115,7 +116,7 @@ export function ObsidianView({ uid }: { uid: string }) {
 
 function ObsidianVaultBrowser({ uid }: { uid: string }) {
   const vault = useObsidianVault(uid);
-  const [mode, setMode] = useState<'tree' | 'graph'>('tree');
+  const [mode, setMode] = useState<'tree' | 'graph'>('graph');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [linkWarning, setLinkWarning] = useState<string | null>(null);
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
