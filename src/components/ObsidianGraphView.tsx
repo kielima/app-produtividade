@@ -544,8 +544,12 @@ export function ObsidianGraphView({
       card.style.width = `${width}px`;
       // Proporção A4 só faz sentido pra texto sem forma própria (nota
       // Markdown) — imagem/PDF já têm sua própria proporção natural, forçar
-      // A4 neles ia distorcer/preencher com espaço em branco à toa.
-      card.style.minHeight = pos.kind === 'note' ? `${width * A4_RATIO}px` : '';
+      // A4 neles ia distorcer/preencher com espaço em branco à toa. Altura
+      // FIXA (não `minHeight`) — nota curta preenche com espaço em branco,
+      // nota longa tem o excesso cortado (`overflow: hidden` no CSS) em vez
+      // de esticar o cartão num retângulo comprido; "Editar" abre a nota
+      // inteira pra ler/editar o resto.
+      card.style.height = pos.kind === 'note' ? `${width * A4_RATIO}px` : '';
       card.style.fontSize = `${fontSize}px`;
     }
     const actions = actionsRef.current;
