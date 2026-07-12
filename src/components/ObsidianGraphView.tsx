@@ -137,7 +137,6 @@ export function ObsidianGraphView({
   // re-renderizaria a árvore React inteira sem necessidade.
   const previewNodePosRef = useRef<{ x: number; y: number; kind: GraphNodeKind } | null>(null);
   const cardRef = useRef<HTMLDivElement>(null);
-  const actionsRef = useRef<HTMLDivElement>(null);
 
   // Posição fixada manualmente, por id — só entra aqui quando o usuário
   // escolhe "Fixar posição" no menu de contexto do grafo (nunca automático:
@@ -199,14 +198,15 @@ export function ObsidianGraphView({
     [vault.state.rootId],
   );
 
-  // Detecção manual de long-press (touch) — ver comentário de
-  // LONG_PRESS_MS/LONG_PRESS_MOVE_TOLERANCE_PX no topo do arquivo sobre por
-  // que não dá pra confiar só no `contextmenu` nativo aqui. Escuta no
-  // CONTÊINER (não no canvas do force-graph) via bubbling — nunca chama
-  // preventDefault/stopPropagation, então o pan/zoom/drag do d3-zoom
-  // continuam recebendo o mesmo toque normalmente; um pan de verdade
-  // ultrapassa a tolerância de movimento e cancela o temporizador antes de
-  // disparar, evitando abrir o menu no meio de um gesto de arrastar o grafo.
+  // Detecção manual de long-press E de toque simples (touch) — ver
+  // comentário de LONG_PRESS_MS/LONG_PRESS_MOVE_TOLERANCE_PX no topo do
+  // arquivo sobre por que não dá pra confiar só no `contextmenu` nativo
+  // aqui. Escuta no CONTÊINER (não no canvas do force-graph) via bubbling —
+  // nunca chama preventDefault/stopPropagation, então o pan/zoom/drag do
+  // d3-zoom continuam recebendo o mesmo toque normalmente; um pan de
+  // verdade ultrapassa a tolerância de movimento e cancela o temporizador
+  // antes de disparar, evitando abrir o menu no meio de um gesto de
+  // arrastar o grafo.
   useEffect(() => {
     const el = containerRef.current;
     if (!el) return;
@@ -220,7 +220,24 @@ export function ObsidianGraphView({
       start = null;
     };
 
+    // O nó em preview vira um cartão grande (não mais um círculo pequeno) —
+    // achá-lo pela posição real do elemento renderizado (`cardRef`, já
+    // dimensionado pelo browser, funciona igual pra nota com altura A4 fixa
+    // e pra imagem/PDF com altura natural) é mais simples e mais preciso do
+    // que recalcular a área do cartão aqui. Usado tanto pro long-press
+    // (segurar em cima do cartão também abre o menu de ações) quanto pro
+    // toque simples que fecha o preview.
+    const findPreviewNodeAt = (clientX: number, clientY: number): GraphNode | undefined => {
+      const card = cardRef.current;
+      if (!previewId || !card) return undefined;
+      const r = card.getBoundingClientRect();
+      if (clientX < r.left || clientX > r.right || clientY < r.top || clientY > r.bottom) return undefined;
+      return graphData.nodes.find((n) => n.id === previewId);
+    };
+
     const findNodeAt = (clientX: number, clientY: number): GraphNode | undefined => {
+      const previewNodeHit = findPreviewNodeAt(clientX, clientY);
+      if (previewNodeHit) return previewNodeHit;
       const g = graphRef.current;
       if (!g) return undefined;
       const rect = el.getBoundingClientRect();
@@ -248,9 +265,9 @@ export function ObsidianGraphView({
     };
 
     const onPointerDown = (e: PointerEvent) => {
-      if (e.pointerType === 'mouse') return; // desktop já usa onNodeRightClick (clique direito nativo)
       clear();
       start = { x: e.clientX, y: e.clientY };
+      if (e.pointerType === 'mouse') return; // desktop já usa onNodeRightClick (clique direito nativo) pro menu
       timer = window.setTimeout(() => {
         const pos = start;
         timer = null;
@@ -266,18 +283,29 @@ export function ObsidianGraphView({
       if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > LONG_PRESS_MOVE_TOLERANCE_PX) clear();
     };
 
+    // Toque simples (soltou antes do long-press disparar e sem mover muito
+    // — `start` só continua não-nulo nesse caso, ver `clear()`) em cima do
+    // cartão de preview fecha o preview — substitui o botão "×" antigo.
+    // Não distingue mouse/touch aqui (diferente do long-press acima): sem o
+    // botão "×", o clique também precisa continuar funcionando no desktop.
+    const onPointerUp = () => {
+      const tapPos = start;
+      clear();
+      if (tapPos && findPreviewNodeAt(tapPos.x, tapPos.y)) setPreviewId(null);
+    };
+
     el.addEventListener('pointerdown', onPointerDown);
     el.addEventListener('pointermove', onPointerMove);
-    el.addEventListener('pointerup', clear);
+    el.addEventListener('pointerup', onPointerUp);
     el.addEventListener('pointercancel', clear);
     return () => {
       el.removeEventListener('pointerdown', onPointerDown);
       el.removeEventListener('pointermove', onPointerMove);
-      el.removeEventListener('pointerup', clear);
+      el.removeEventListener('pointerup', onPointerUp);
       el.removeEventListener('pointercancel', clear);
       clear();
     };
-  }, [graphData, canOpenActionMenu]);
+  }, [graphData, canOpenActionMenu, previewId]);
 
   // Repulsão/distância padrão do force-graph deixa os círculos praticamente
   // encostados um no outro (difícil de tocar o certo no celular) — aumenta o
@@ -454,6 +482,18 @@ export function ObsidianGraphView({
     [vault, previewId, onNodeDeleted],
   );
 
+  // "Editar" morava numa barra de botões flutuante presa ao cartão de
+  // preview — agora mora no menu de contexto (segurar em cima do nó), junto
+  // de Renomear/Mover/Fixar/Excluir. Funciona pra qualquer nota, não só a
+  // que estiver em preview no momento.
+  const handleEditNode = useCallback(
+    (node: GraphNode) => {
+      setActionNode(null);
+      onEditNote(node.id);
+    },
+    [onEditNote],
+  );
+
   // Fixar/soltar posição manualmente (menu de contexto do grafo) — único
   // jeito de um nó ganhar `fx`/`fy` agora; nada é fixado sozinho. Soltar
   // reaquece a simulação pra o nó voltar a reagir à física imediatamente,
@@ -552,11 +592,6 @@ export function ObsidianGraphView({
       card.style.height = pos.kind === 'note' ? `${width * A4_RATIO}px` : '';
       card.style.fontSize = `${fontSize}px`;
     }
-    const actions = actionsRef.current;
-    if (actions) {
-      actions.style.left = `${screen.x + width / 2}px`;
-      actions.style.top = `${screen.y}px`;
-    }
   }, []);
 
   const linkColor = useCallback(
@@ -619,36 +654,20 @@ export function ObsidianGraphView({
 
       {ghostWarning && <p className="error obsidian-status-line obsidian-graph-warning">{ghostWarning}</p>}
 
+      {/* Sem botão de fechar/editar flutuando no cartão: um toque simples
+          nele fecha o preview (ver o efeito de long-press/toque acima), e
+          "Editar" mora no menu de contexto (segurar em cima do cartão). */}
       {previewId && previewNode && (
-        <>
-          {previewNode.kind === 'note' ? (
-            <ObsidianNoteGraphCard ref={cardRef} note={vault.state.notes.get(previewId)} />
-          ) : (
-            <ObsidianFilePreviewCard
-              ref={cardRef}
-              fileId={previewId}
-              mimeType={previewNode.mimeType ?? ''}
-              readFileBytes={vault.readFilePreview}
-            />
-          )}
-          <div ref={actionsRef} className="obsidian-note-graph-card-actions">
-            <button type="button" onClick={() => setPreviewId(null)} aria-label="Fechar preview">
-              ×
-            </button>
-            {previewNode.kind === 'note' && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={() => {
-                  onEditNote(previewId);
-                  setPreviewId(null);
-                }}
-              >
-                Editar
-              </button>
-            )}
-          </div>
-        </>
+        previewNode.kind === 'note' ? (
+          <ObsidianNoteGraphCard ref={cardRef} note={vault.state.notes.get(previewId)} />
+        ) : (
+          <ObsidianFilePreviewCard
+            ref={cardRef}
+            fileId={previewId}
+            mimeType={previewNode.mimeType ?? ''}
+            readFileBytes={vault.readFilePreview}
+          />
+        )
       )}
 
       {/* Menu de contexto (segurar em cima de um nó) — ver handleNodeRightClick */}
@@ -657,6 +676,14 @@ export function ObsidianGraphView({
           <div className="obsidian-conflict-backdrop" aria-hidden="true" onClick={() => setActionNode(null)} />
           <div className="obsidian-node-menu" role="menu" aria-label={`Ações para ${actionNode.name}`}>
             <p className="obsidian-node-menu-title">{actionNode.name}</p>
+            {/* Só pra nota — igual ao botão "Editar" que morava na barra
+                flutuante do cartão de preview, agora aqui pra qualquer nota
+                (em preview ou não). */}
+            {actionNode.kind === 'note' && (
+              <button type="button" onClick={() => handleEditNode(actionNode)}>
+                Editar
+              </button>
+            )}
             <button
               type="button"
               onClick={() => {

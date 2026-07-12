@@ -6090,8 +6090,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.3rem;
   z-index: 2;
 }
-.obsidian-graph-controls button,
-.obsidian-note-graph-card-actions button {
+.obsidian-graph-controls button {
   flex-shrink: 0;
   min-width: 2rem;
   height: 2rem;
@@ -6104,8 +6103,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font: inherit;
   font-size: 0.85rem;
 }
-.obsidian-graph-controls button:hover,
-.obsidian-note-graph-card-actions button:hover {
+.obsidian-graph-controls button:hover {
   background: var(--surface-2);
 }
 
@@ -6142,22 +6140,12 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
      quebram por padrão e vazariam pra fora da largura do cartão. */
   overflow-wrap: break-word;
   /* Deixa o gesto de toque atravessar pro canvas por baixo (pan/zoom do
-     grafo via d3-zoom) — só os botões em `.obsidian-note-graph-card-actions`
-     (que tem seu próprio pointer-events) recebem toque. Não dá pra
-     selecionar o texto do cartão; "Editar" abre a nota de verdade. */
+     grafo via d3-zoom, e a detecção manual de toque/long-press em
+     ObsidianGraphView.tsx, que lê a posição real do cartão via `cardRef`
+     pra saber se um toque caiu em cima dele). Não dá pra selecionar o texto
+     do cartão; um toque simples fecha o preview, "Editar" (no menu de
+     contexto) abre a nota de verdade. */
   pointer-events: none;
-}
-
-.obsidian-note-graph-card-actions {
-  position: absolute;
-  z-index: 3;
-  display: flex;
-  gap: 0.3rem;
-  /* Âncora no canto superior-direito do cartão (mesmo ponto de tela que
-     `syncPreviewOverlay` calcula), independente do zoom — os botões têm
-     tamanho fixo em px (herdado de `.obsidian-graph-controls button`),
-     sempre tocáveis mesmo com o grafo bem afastado. */
-  transform: translate(-100%, -50%);
 }
 
 /* Preview de imagem/PDF — mesmo cartão/posicionamento de
