@@ -29,6 +29,7 @@ function normalize(id: string, itemId: string, data: Partial<Annotation>): Annot
     ...(data.comment != null ? { comment: data.comment } : {}),
     ...(Array.isArray(data.strokes) ? { strokes: data.strokes } : {}),
     ...(data.anchor != null ? { anchor: data.anchor } : {}),
+    ...(data.cfi != null ? { cfi: data.cfi } : {}),
     ...(data.linkedTaskId != null ? { linkedTaskId: data.linkedTaskId } : {}),
     ...(data.linkedNoteId != null ? { linkedNoteId: data.linkedNoteId } : {}),
   };

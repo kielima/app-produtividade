@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import type { ReadingItem } from '../types';
 import { getCachedPdf } from '../lib/pdfCache';
 import { loadPdfDocument } from '../lib/pdf';
+import { loadEpubBook } from '../lib/epub';
 
 const STATUS_LABEL: Record<ReadingItem['readingStatus'], string> = {
   'to-read': 'A ler',
@@ -9,9 +10,10 @@ const STATUS_LABEL: Record<ReadingItem['readingStatus'], string> = {
   read: 'Lido',
 };
 
-// Card da estante. A capa é a 1ª página do PDF renderizada — porém só quando os
-// bytes já estão no cache local, para não disparar download de todos os PDFs ao
-// abrir a estante. Sem cache, mostra um placeholder com o título.
+// Card da estante. A capa é a 1ª página do PDF (renderizada num canvas) ou a
+// imagem de capa embutida no EPUB — porém só quando os bytes já estão no
+// cache local, para não disparar download de todos os arquivos ao abrir a
+// estante. Sem cache, mostra um placeholder com o título.
 export function ReadingCard({
   item,
   onOpen,
@@ -23,13 +25,23 @@ export function ReadingCard({
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [hasThumb, setHasThumb] = useState(false);
+  const [epubCoverUrl, setEpubCoverUrl] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
+    let objectUrl: string | null = null;
     (async () => {
       const bytes = await getCachedPdf(item.driveFileId);
       if (!bytes || cancelled) return;
       try {
+        if (item.format === 'epub') {
+          const book = await loadEpubBook(bytes);
+          const url = await book.coverUrl();
+          if (cancelled || !url) return;
+          objectUrl = url;
+          setEpubCoverUrl(url);
+          return;
+        }
         const doc = await loadPdfDocument(bytes);
         const page = await doc.getPage(1);
         const canvas = canvasRef.current;
@@ -50,8 +62,13 @@ export function ReadingCard({
     })();
     return () => {
       cancelled = true;
+      // A URL do blob da capa do EPUB não é liberada automaticamente — sem
+      // isto, cada card criaria um objeto novo a cada remontagem.
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
     };
-  }, [item.driveFileId]);
+  }, [item.driveFileId, item.format]);
+
+  const hasCover = hasThumb || !!epubCoverUrl;
 
   return (
     <article className={`reading-card status-${item.readingStatus}`}>
@@ -61,14 +78,18 @@ export function ReadingCard({
         onClick={onOpen}
         aria-label={`Abrir ${item.title}`}
       >
-        <canvas
-          ref={canvasRef}
-          className="reading-card-thumb"
-          style={{ display: hasThumb ? 'block' : 'none' }}
-        />
-        {!hasThumb && (
+        {epubCoverUrl ? (
+          <img src={epubCoverUrl} alt="" className="reading-card-thumb" />
+        ) : (
+          <canvas
+            ref={canvasRef}
+            className="reading-card-thumb"
+            style={{ display: hasThumb ? 'block' : 'none' }}
+          />
+        )}
+        {!hasCover && (
           <span className="reading-card-cover-placeholder" aria-hidden="true">
-            📄
+            {item.format === 'epub' ? '📚' : '📄'}
           </span>
         )}
         <span className={`reading-card-badge badge-${item.readingStatus}`}>

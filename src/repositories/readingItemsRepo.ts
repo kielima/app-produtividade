@@ -22,7 +22,7 @@ function normalize(id: string, data: Partial<ReadingItem>): ReadingItem {
   return {
     id,
     driveFileId: data.driveFileId ?? '',
-    format: 'pdf',
+    format: data.format === 'epub' ? 'epub' : 'pdf',
     title: data.title ?? '',
     authors: Array.isArray(data.authors) ? data.authors : [],
     itemType: data.itemType ?? 'other',
