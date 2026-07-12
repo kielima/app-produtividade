@@ -18,6 +18,14 @@ function stripExtension(name: string, format: ReadingFormat): string {
   return name.replace(format === 'epub' ? /\.epub$/i : /\.pdf$/i, '');
 }
 
+// EPUB é (quase) sempre livro — diferente do PDF, que mistura artigos e
+// livros e por isso depende da heurística de nome em `classifyByFileName`.
+// Classifica todo EPUB como 'book' direto na sincronização, sem esperar o
+// usuário abrir o arquivo nem chamar IA.
+function classifyByFormat(format: ReadingFormat): 'book' | null {
+  return format === 'epub' ? 'book' : null;
+}
+
 // Decide o que fazer com um arquivo do Drive SEM tocar o Firestore — usa o
 // item já carregado localmente (do listener em tempo real) em vez de um
 // getDoc por arquivo. Sincronizar milhares de PDFs um de cada vez (leitura +
@@ -33,8 +41,8 @@ export function planDriveSyncItem(
     const today = new Date().toISOString().slice(0, 10);
     // Nome no estilo de citação ABNT ("SOBRENOME, 2020...") já classifica
     // como artigo na hora, sem esperar o usuário abrir o arquivo nem chamar IA.
-    const byName = classifyByFileName(file.name);
     const format = formatFromFile(file.name, file.mimeType);
+    const byName = classifyByFormat(format) ?? classifyByFileName(file.name);
     return {
       kind: 'create',
       item: {
@@ -68,9 +76,10 @@ export function planDriveSyncItem(
     patch.folderPath = file.folderPath;
   }
   // Item antigo, ainda sem tipo definido: aproveita a resincronização para
-  // classificar pelo nome, sem esperar o usuário abrir o PDF um por um.
+  // classificar (EPUB vira 'book' direto; PDF ainda depende do nome), sem
+  // esperar o usuário abrir o arquivo um por um.
   if (existing.itemType === 'other' && !existing.autoClassifiedAt) {
-    const byName = classifyByFileName(file.name);
+    const byName = classifyByFormat(existing.format) ?? classifyByFileName(file.name);
     if (byName) {
       patch.itemType = byName;
       patch.autoClassifiedAt = new Date().toISOString();
