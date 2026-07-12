@@ -1,10 +1,11 @@
 import { downloadDriveFile, ensureDriveToken } from './googleDrive';
 import { getCachedPdf, putCachedPdf } from './pdfCache';
 
-// Obtém os bytes de um PDF: primeiro do cache local; senão baixa do Drive
-// (garantindo um token válido) e cacheia. Lança DriveAuthError se o acesso ao
-// Drive expirou/foi revogado (o chamador deve oferecer reconectar).
-export async function fetchPdfBytes(
+// Obtém os bytes de um arquivo da estante (PDF ou EPUB): primeiro do cache
+// local; senão baixa do Drive (garantindo um token válido) e cacheia. Lança
+// DriveAuthError se o acesso ao Drive expirou/foi revogado (o chamador deve
+// oferecer reconectar).
+export async function fetchReadingFileBytes(
   uid: string,
   driveFileId: string,
 ): Promise<ArrayBuffer> {

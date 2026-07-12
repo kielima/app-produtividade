@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { loadPdfDocument, type PDFDocumentProxy, type PDFPageProxy } from '../lib/pdf';
-import { fetchPdfBytes } from '../lib/readingDocs';
+import { fetchReadingFileBytes } from '../lib/readingDocs';
 import { DriveAuthError, ensureDriveToken } from '../lib/googleDrive';
 import { findDoiInPdf } from '../lib/readingMetadata';
 import { classifyReadingItem, MissingApiKeyError } from '../lib/aiClassifyReading';
@@ -16,7 +16,7 @@ import { MetadataEditor } from '../components/MetadataEditor';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { createNoteFromText, createTaskFromText, pickDefaultProjectId } from '../lib/createFromText';
-import { formatAbntCitation } from '../lib/citation';
+import { composeAnnotationConversion, quoteMarkdown } from '../lib/annotationConvert';
 import type { Annotation, NormRect, Project, ReadingItem } from '../types';
 
 const HIGHLIGHT_COLORS = ['#ffd54a', '#a5d6a7', '#90caf9', '#f48fb1', '#ce93d8'];
@@ -133,7 +133,7 @@ export function ReaderView({
     setLoad({ status: 'loading' });
     (async () => {
       try {
-        const bytes = await fetchPdfBytes(uid, item.driveFileId);
+        const bytes = await fetchReadingFileBytes(uid, item.driveFileId);
         if (cancelled) return;
         const doc = await loadPdfDocument(bytes);
         if (cancelled) return;
@@ -390,23 +390,8 @@ export function ReaderView({
   }
 
   // -------- Converter marca-texto → nota/tarefa --------
-  // Formata o corpo em markdown: o texto realçado vira uma citação (cada linha
-  // prefixada com "> ") e o comentário do usuário fica abaixo.
-  function quoteMarkdown(text: string): string {
-    return text
-      .trim()
-      .split('\n')
-      .map((l) => `> ${l}`)
-      .join('\n');
-  }
-
   function composeConvert(a: Annotation): { title: string; body: string } {
-    const headline = item.title ? `${item.title} (p.${a.page})` : `p.${a.page}`;
-    const title = commentTitle.trim() || a.title?.trim() || headline;
-    const cite = a.text ? quoteMarkdown(a.text) : '';
-    const citation = formatAbntCitation(item, a.page);
-    const body = [cite, commentText.trim(), citation].filter(Boolean).join('\n\n');
-    return { title, body };
+    return composeAnnotationConversion(item, a, commentTitle, commentText);
   }
 
   // Converte a anotação aberta no editor em nota (Keep) ou tarefa (Tasks),
@@ -446,7 +431,7 @@ export function ReaderView({
       await ensureDriveToken(uid);
       setLoad({ status: 'loading' });
       // Recarrega forçando novo fetch.
-      const bytes = await fetchPdfBytes(uid, item.driveFileId);
+      const bytes = await fetchReadingFileBytes(uid, item.driveFileId);
       const doc = await loadPdfDocument(bytes);
       docRef.current = doc;
       setNumPages(doc.numPages);

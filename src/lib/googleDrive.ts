@@ -371,13 +371,17 @@ export async function driveFetch(token: string, url: string, init?: RequestInit)
   throw new Error(`Google Drive API ${res.status}: ${message}`);
 }
 
-// Lista TODOS os PDFs da Drive do usuário (paginando). trashed=false ignora a
-// lixeira. Ordena por modificação desc.
-export async function listDrivePdfs(token: string): Promise<DriveFile[]> {
+// Mime types dos formatos suportados pela aba Leitura.
+const READING_MIME_TYPES = ["application/pdf", "application/epub+zip"];
+
+// Lista TODOS os PDFs e EPUBs da Drive do usuário (paginando). trashed=false
+// ignora a lixeira. Ordena por modificação desc.
+export async function listDriveReadingFiles(token: string): Promise<DriveFile[]> {
   const files: DriveFile[] = [];
   let pageToken: string | undefined;
+  const mimeQuery = READING_MIME_TYPES.map((m) => `mimeType='${m}'`).join(' or ');
   const baseParams = {
-    q: "mimeType='application/pdf' and trashed=false",
+    q: `(${mimeQuery}) and trashed=false`,
     fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, parents)',
     pageSize: '200',
     orderBy: 'modifiedTime desc',

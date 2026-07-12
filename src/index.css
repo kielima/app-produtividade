@@ -5675,6 +5675,61 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   margin: 0.2rem 0;
 }
 
+/* ---------------- Leitor de EPUB (EpubReaderView) --------------------
+   O epub.js gerencia seu próprio iframe de conteúdo dentro de
+   .epub-viewport — bem diferente do canvas por página do pdf.js, então o
+   corpo do leitor aqui é bem mais simples que o do PDF (sem pinça de zoom,
+   sem virada de página animada). */
+.epub-body-wrap {
+  flex: 1;
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  padding: 1rem;
+}
+.epub-viewport {
+  flex: 1;
+  position: relative;
+  min-height: 0;
+  background: #fff;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.18);
+  border-radius: 4px;
+  overflow: hidden;
+}
+/* Faixas invisíveis nas bordas do viewport para virar página tocando —
+   ficam por cima do iframe do epub.js sem interferir na seleção de texto no
+   miolo da página. */
+.epub-tap-zone {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 12%;
+  border: none;
+  background: transparent;
+  cursor: pointer;
+  z-index: 2;
+}
+.epub-tap-prev {
+  left: 0;
+}
+.epub-tap-next {
+  right: 0;
+}
+.epub-pager {
+  display: flex;
+  gap: 0.25rem;
+}
+.epub-pager button {
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 5px;
+  background: var(--surface-2);
+  font: inherit;
+  cursor: pointer;
+}
+
 /* =============================================================
    Aba Obsidian — vault de notas Markdown com o Google Drive
    ============================================================= */

@@ -136,7 +136,7 @@ export function MetadataEditor({
           <input
             value={fileName}
             onChange={(e) => setFileName(e.target.value)}
-            placeholder="ex.: artigo.pdf"
+            placeholder={item.format === 'epub' ? 'ex.: livro.epub' : 'ex.: artigo.pdf'}
           />
         </label>
 

@@ -125,8 +125,8 @@ export interface Note {
 // não-destrutivas (marca-texto, comentário e tinta da S-Pen).
 // =============================================================
 
-// Formato do documento. Por ora só 'pdf'; 'epub' fica para fase futura.
-export type ReadingFormat = 'pdf';
+// Formato do documento.
+export type ReadingFormat = 'pdf' | 'epub';
 // Tipo do item da estante. Os três embutidos ('article' | 'book' | 'other')
 // ganham rótulos amigáveis; qualquer outro texto é um tipo personalizado
 // criado pelo usuário no editor de metadados. Cada tipo distinto vira uma
@@ -166,7 +166,10 @@ export interface ReadingItem {
   // tipo. Evita reclassificar a cada abertura; ausente = nunca tentado.
   autoClassifiedAt?: string | null;
   readingStatus: ReadingStatus;
-  // Última página lida (1-based) para retomar a leitura.
+  // Última página lida (1-based) para retomar a leitura. Em EPUB é um índice
+  // "sintético" (fatias de ~1600 caracteres via `book.locations`, ver
+  // EpubReaderView), não uma página real do documento — mas serve ao mesmo
+  // propósito: retomar de onde parou e numerar citações.
   currentPage?: number;
   // Associação opcional a um projeto, como nas notas.
   projectId?: string;
@@ -199,7 +202,9 @@ export interface InkStroke {
 export interface Annotation {
   id: string;
   itemId: string;
-  page: number; // 1-based
+  // 1-based. Em EPUB é derivado de `book.locations` (ver `cfi` abaixo, que é
+  // a âncora de verdade); em PDF é a página real do documento.
+  page: number;
   type: AnnotationType;
   color: string;
   // highlight: quadpoints normalizados das linhas selecionadas.
@@ -210,10 +215,16 @@ export interface Annotation {
   title?: string;
   // Corpo do comentário (type 'comment', ou comentário anexado a um highlight).
   comment?: string;
-  // Traços de tinta da S-Pen (type 'ink').
+  // Traços de tinta da S-Pen (type 'ink'). Só existe em PDFs — texto reflowable
+  // de EPUB não tem coordenadas de pixel estáveis entre re-paginações.
   strokes?: InkStroke[];
   // Posição do pin do comentário (0–1), para type 'comment'.
   anchor?: { x: number; y: number };
+  // EPUB CFI (Canonical Fragment Identifier) do trecho selecionado — âncora do
+  // marca-texto em documentos reflowable (equivalente a `rects` no PDF, mas
+  // resistente a mudanças de fonte/tamanho de tela). Presente só quando o item
+  // de origem é `format: 'epub'`.
+  cfi?: string;
   createdAt: string; // ISO datetime
   // Id da tarefa/nota criada a partir desta anotação (vínculo bidirecional:
   // a tarefa/nota guarda `sourceItemId`/`sourceAnnotationId` de volta para

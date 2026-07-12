@@ -10,7 +10,7 @@ import {
   grantDriveAccess,
   hasDriveAccess,
   hasEverConnectedDrive,
-  listDrivePdfs,
+  listDriveReadingFiles,
   ensureDriveToken,
   tryRefreshDriveToken,
   resolveDriveFolderPath,
@@ -33,6 +33,7 @@ import {
 import { MetadataEditor } from '../components/MetadataEditor';
 import { groupIntoShelves, sortReadingTypes } from '../lib/readingTypes';
 import { ReaderView } from './ReaderView';
+import { EpubReaderView } from './EpubReaderView';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import { useTaskNavigation } from '../lib/taskNavigation';
 
@@ -166,7 +167,7 @@ export function LeituraView({
     try {
       let token = await ensureDriveToken(uid);
       setConnected(true);
-      const files = await listDrivePdfs(token);
+      const files = await listDriveReadingFiles(token);
       const currentIds = new Set(files.map((f) => f.id));
       // Retoma de onde parou se a sincronização anterior foi interrompida
       // (app minimizado/fechado pelo SO no meio do processo) em vez de
@@ -243,6 +244,7 @@ export function LeituraView({
           const plan = planDriveSyncItem(itemsById.get(f.id), {
             id: f.id,
             name: f.name,
+            mimeType: f.mimeType,
             folderId,
             folderPath,
           });
@@ -337,20 +339,23 @@ export function LeituraView({
   const metaItem = metaItemId ? items.find((i) => i.id === metaItemId) ?? null : null;
 
   if (openItem) {
-    return (
-      <ReaderView
-        uid={uid}
-        item={openItem}
-        projects={projects}
-        onClose={() => setOpenItemId(null)}
-        onConverted={(dest, id) => {
-          setOpenItemId(null);
-          if (dest === 'note') noteNav.openNote(id);
-          else taskNav.openTask(id);
-        }}
-        focusAnnotationId={focusAnnotationId}
-        onFocusHandled={() => setFocusAnnotationId(null)}
-      />
+    const readerProps = {
+      uid,
+      item: openItem,
+      projects,
+      onClose: () => setOpenItemId(null),
+      onConverted: (dest: 'note' | 'task', id: string) => {
+        setOpenItemId(null);
+        if (dest === 'note') noteNav.openNote(id);
+        else taskNav.openTask(id);
+      },
+      focusAnnotationId,
+      onFocusHandled: () => setFocusAnnotationId(null),
+    };
+    return openItem.format === 'epub' ? (
+      <EpubReaderView {...readerProps} />
+    ) : (
+      <ReaderView {...readerProps} />
     );
   }
 
@@ -428,8 +433,8 @@ export function LeituraView({
           <p>Sua estante está vazia.</p>
           <p className="muted">
             {connected
-              ? 'Clique em "Sincronizar Drive" para importar seus PDFs.'
-              : 'Conecte seu Google Drive para ver seus PDFs aqui.'}
+              ? 'Clique em "Sincronizar Drive" para importar seus PDFs e EPUBs.'
+              : 'Conecte seu Google Drive para ver seus PDFs e EPUBs aqui.'}
           </p>
         </div>
       ) : layout === 'table' ? (

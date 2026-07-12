@@ -1,6 +1,7 @@
-// Cache local dos bytes de PDFs baixados do Drive, via Cache API. Evita rebaixar
-// o mesmo arquivo a cada abertura e dá resiliência offline. Chaveado por
-// driveFileId sob uma URL sintética.
+// Cache local dos bytes de PDFs/EPUBs baixados do Drive, via Cache API. Evita
+// rebaixar o mesmo arquivo a cada abertura e dá resiliência offline. Chaveado
+// por driveFileId sob uma URL sintética (o nome do módulo é histórico — o
+// cache é genérico por bytes, serve os dois formatos da aba Leitura).
 
 const CACHE_NAME = 'reading-pdf-cache-v1';
 const PREFIX = 'https://pdf-cache.local/';

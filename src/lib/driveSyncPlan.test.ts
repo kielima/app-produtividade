@@ -102,6 +102,25 @@ describe('planDriveSyncItem', () => {
     expect(plan.item.autoClassifiedAt).toEqual(expect.any(String));
   });
 
+  it('cria um item EPUB pela extensão do nome quando não há mimeType', () => {
+    const plan = planDriveSyncItem(undefined, { id: 'f2', name: 'book.epub' });
+    expect(plan.kind).toBe('create');
+    if (plan.kind !== 'create') throw new Error('expected create');
+    expect(plan.item.format).toBe('epub');
+    expect(plan.item.title).toBe('book');
+  });
+
+  it('cria um item EPUB pelo mimeType do Drive', () => {
+    const plan = planDriveSyncItem(undefined, {
+      id: 'f2',
+      name: 'book-sem-extensao',
+      mimeType: 'application/epub+zip',
+    });
+    expect(plan.kind).toBe('create');
+    if (plan.kind !== 'create') throw new Error('expected create');
+    expect(plan.item.format).toBe('epub');
+  });
+
   it('classifica pelo nome um item antigo ainda sem tipo definido', () => {
     const existing = item({ itemType: 'other', fileName: 'SILVA, 2020.pdf' });
     const plan = planDriveSyncItem(existing, {
