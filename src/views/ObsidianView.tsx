@@ -7,7 +7,7 @@ import {
   tryRefreshDriveToken,
 } from '../lib/googleDrive';
 import { isMarkdownFile, type DriveNode } from '../lib/obsidianDrive';
-import { DriveFileIcon } from '../lib/driveFileIcons';
+import { DriveFileIcon, isHtmlFile } from '../lib/driveFileIcons';
 import { useObsidianVault } from '../lib/obsidianTree';
 import { findNodeName, type FolderState } from '../lib/obsidianTreeState';
 import {
@@ -20,6 +20,7 @@ import { buildRenamedFileName, stripMdExtension } from '../lib/obsidianWikilink'
 import { useDebouncedCallback } from '../lib/useDebouncedCallback';
 import { ObsidianEditor } from '../components/ObsidianEditor';
 import { ObsidianConflictDialog } from '../components/ObsidianConflictDialog';
+import { ObsidianHtmlViewerDialog } from '../components/ObsidianHtmlViewerDialog';
 import { ObsidianSearchBox } from '../components/ObsidianSearchBox';
 import { SearchToggle } from '../components/SearchBar';
 import { InlineEdit } from '../components/InlineEdit';
@@ -122,6 +123,7 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
   const [searchStatus, setSearchStatus] = useState<string | null>(null);
   const [searchExpanded, setSearchExpanded] = useState(false);
+  const [htmlViewerNode, setHtmlViewerNode] = useState<DriveNode | null>(null);
 
   // O alternador árvore/grafo e a busca vivem no topbar do app (mesma barra
   // do botão de menu), não dentro do corpo da aba — igual à busca/filtro das
@@ -187,6 +189,10 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
   }, [loadedNoteRefs, selectedNoteName, selectedNoteId]);
 
   async function openNode(node: DriveNode) {
+    if (isHtmlFile(node)) {
+      setHtmlViewerNode(node);
+      return;
+    }
     if (!isMarkdownFile(node)) return;
     setSelectedNoteId(node.id);
     await vault.openNote(node.id);
@@ -389,6 +395,15 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
           onKeepBoth={() => void vault.resolveKeepBoth(conflict.fileId)}
         />
       )}
+
+      {htmlViewerNode && (
+        <ObsidianHtmlViewerDialog
+          fileId={htmlViewerNode.id}
+          fileName={htmlViewerNode.name}
+          readFileBytes={vault.readFilePreview}
+          onClose={() => setHtmlViewerNode(null)}
+        />
+      )}
     </div>
   );
 }
@@ -452,10 +467,10 @@ function FolderChildren({
               <button
                 type="button"
                 className={`obsidian-tree-row${selectedNoteId === child.id ? ' active' : ''}${
-                  isMarkdownFile(child) ? '' : ' obsidian-tree-row--readonly'
+                  isMarkdownFile(child) || isHtmlFile(child) ? '' : ' obsidian-tree-row--readonly'
                 }`}
                 onClick={() => onOpenNode(child)}
-                disabled={!isMarkdownFile(child)}
+                disabled={!isMarkdownFile(child) && !isHtmlFile(child)}
               >
                 <DriveFileIcon node={child} />
                 <span>{child.name}</span>

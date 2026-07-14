@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { driveIconKind } from './driveFileIcons';
+import { driveIconKind, isHtmlFile } from './driveFileIcons';
 import { isMarkdownFile } from './obsidianNode';
 
 describe('driveIconKind', () => {
@@ -30,8 +30,29 @@ describe('driveIconKind', () => {
     expect(driveIconKind({ name: 'foto.jpg', mimeType: 'image/jpeg' })).toBe('image');
   });
 
+  it('reconhece HTML pelo sufixo do nome mesmo com mimeType genérico', () => {
+    expect(driveIconKind({ name: 'Guia_Preparo_Interativo.html', mimeType: 'text/plain' })).toBe('html');
+    expect(driveIconKind({ name: 'pagina.htm', mimeType: 'text/plain' })).toBe('html');
+    expect(driveIconKind({ name: 'sem-extensao', mimeType: 'text/html' })).toBe('html');
+  });
+
   it('cai no fallback genérico para tipos desconhecidos', () => {
     expect(driveIconKind({ name: 'dados.bin', mimeType: 'application/octet-stream' })).toBe('file');
+  });
+});
+
+describe('isHtmlFile', () => {
+  it('reconhece .html e .htm em qualquer caixa', () => {
+    expect(isHtmlFile({ name: 'Pagina.HTML', mimeType: '' })).toBe(true);
+    expect(isHtmlFile({ name: 'pagina.htm', mimeType: '' })).toBe(true);
+  });
+
+  it('reconhece mimeType text/html mesmo sem extensão', () => {
+    expect(isHtmlFile({ name: 'sem-extensao', mimeType: 'text/html' })).toBe(true);
+  });
+
+  it('não reconhece outros tipos comuns', () => {
+    expect(isHtmlFile({ name: 'foto.png', mimeType: 'image/png' })).toBe(false);
   });
 });
 
