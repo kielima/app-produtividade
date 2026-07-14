@@ -6091,10 +6091,15 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   flex-shrink: 0;
 }
 .obsidian-html-viewer-title {
+  flex: 1;
+  min-width: 0;
   font-weight: 600;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.obsidian-html-viewer-toolbar button {
+  flex-shrink: 0;
 }
 .obsidian-html-viewer .muted,
 .obsidian-html-viewer .error {
