@@ -23,6 +23,7 @@ const KIND_LABEL: Record<ReturnType<typeof driveIconKind>, string> = {
   slide: 'slides',
   pdf: 'pdf',
   image: 'imagem',
+  html: 'html',
   file: 'arquivo',
 };
 

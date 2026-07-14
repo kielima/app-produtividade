@@ -6062,6 +6062,52 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   margin-top: 0.5rem;
 }
 
+/* Visualizador de HTML em tela cheia (ver ObsidianHtmlViewerDialog.tsx) —
+   diálogo bem maior que obsidian-conflict-dialog: aqui é pra ler/interagir
+   com a página de verdade, não só espiar um resumo. */
+.obsidian-html-viewer {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: min(96vw, 1100px);
+  height: min(92vh, 900px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
+  z-index: 201;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.obsidian-html-viewer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.6rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+}
+.obsidian-html-viewer-title {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.obsidian-html-viewer .muted,
+.obsidian-html-viewer .error {
+  padding: 0.75rem;
+}
+.obsidian-html-viewer-frame {
+  flex: 1;
+  min-height: 0;
+  border: none;
+  width: 100%;
+  background: #fff;
+}
+
 /* Grafo unificado (Fase 3) */
 .obsidian-graph-view {
   position: relative;

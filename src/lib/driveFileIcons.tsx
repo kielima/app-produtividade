@@ -8,9 +8,18 @@ export type DriveIconKind =
   | 'slide'
   | 'pdf'
   | 'image'
+  | 'html'
   | 'file';
 
 const FOLDER_MIME_TYPE = 'application/vnd.google-apps.folder';
+
+// Mesma heurística de isMarkdownFile (mimeType de upload não é confiável):
+// nome termina em .html/.htm ou o Drive marcou text/html corretamente.
+export function isHtmlFile(node: { name: string; mimeType: string }): boolean {
+  const lower = node.name.toLowerCase();
+  if (lower.endsWith('.html') || lower.endsWith('.htm')) return true;
+  return node.mimeType === 'text/html';
+}
 
 // Categoria ampla por mimeType — só o suficiente pro navegador de pastas da
 // aba Obsidian mostrar um glifo diferente por tipo (spec item 3). Não cobre
@@ -23,6 +32,7 @@ export function driveIconKind(node: { name: string; mimeType: string }): DriveIc
   if (node.mimeType === 'application/vnd.google-apps.presentation') return 'slide';
   if (node.mimeType === 'application/pdf') return 'pdf';
   if (node.mimeType.startsWith('image/')) return 'image';
+  if (isHtmlFile(node)) return 'html';
   return 'file';
 }
 
@@ -34,6 +44,7 @@ const PATHS: Record<DriveIconKind, string> = {
   slide: 'M6 2h9l5 5v15H6z M15 2v5h5 M8 11h8v5H8z',
   pdf: 'M6 2h9l5 5v15H6z M15 2v5h5 M8 12h2a1.5 1.5 0 0 1 0 3H8v-3z M13 12v4h1.5a2 2 0 0 0 0-4H13z',
   image: 'M4 5h16v14H4z M8 10a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z M4 16l5-5 4 4 3-3 4 4',
+  html: 'M3 4h18v16H3z M3 8h18 M7 13l-2 2 2 2 M17 13l2 2-2 2 M13 12l-2 6',
   file: 'M6 2h9l5 5v15H6z M15 2v5h5',
 };
 
