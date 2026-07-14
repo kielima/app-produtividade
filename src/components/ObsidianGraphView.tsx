@@ -18,6 +18,7 @@ import type { useObsidianVault } from '../lib/obsidianTree';
 import { findParentFolderId } from '../lib/obsidianTreeState';
 import { ObsidianNoteGraphCard } from './ObsidianNoteGraphCard';
 import { ObsidianFilePreviewCard } from './ObsidianFilePreviewCard';
+import { ObsidianHtmlViewerDialog } from './ObsidianHtmlViewerDialog';
 import { ObsidianRenameDialog } from './ObsidianRenameDialog';
 import { ObsidianMoveDialog } from './ObsidianMoveDialog';
 
@@ -122,6 +123,11 @@ export function ObsidianGraphView({
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphLink>>();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const [previewId, setPreviewId] = useState<string | null>(null);
+  // HTML tem sua própria janela (ver ObsidianHtmlViewerDialog) em vez do
+  // cartão inline de `previewId` — é uma página potencialmente interativa
+  // (JS, formulário), e o cartão inline tem pointer-events desabilitado de
+  // propósito (deixa o toque atravessar pro grafo por baixo).
+  const [htmlViewerNode, setHtmlViewerNode] = useState<GraphNode | null>(null);
   const [ghostWarning, setGhostWarning] = useState<string | null>(null);
   const [actionNode, setActionNode] = useState<GraphNode | null>(null);
   const [renameTarget, setRenameTarget] = useState<GraphNode | null>(null);
@@ -383,12 +389,17 @@ export function ObsidianGraphView({
         return;
       }
       if (n.kind === 'file') {
-        // Só imagem/PDF têm preview inline — outros tipos de arquivo (ex.
-        // planilha, .docx) continuam sem ação, mesmo padrão da árvore.
+        // Imagem/PDF têm preview inline (cartão sem interação); HTML abre um
+        // visualizador em tela cheia (ver htmlViewerNode acima). Outros tipos
+        // de arquivo (ex. planilha, .docx) continuam sem ação, mesmo padrão
+        // da árvore.
         const fileKind = driveIconKind({ name: n.name, mimeType: n.mimeType ?? '' });
         if (fileKind === 'image' || fileKind === 'pdf') {
           setGhostWarning(null);
           setPreviewId(n.id);
+        } else if (fileKind === 'html') {
+          setGhostWarning(null);
+          setHtmlViewerNode(n);
         }
         return;
       }
@@ -739,6 +750,15 @@ export function ObsidianGraphView({
 
       {actionStatus && (
         <p className="error obsidian-status-line obsidian-graph-warning">{actionStatus}</p>
+      )}
+
+      {htmlViewerNode && (
+        <ObsidianHtmlViewerDialog
+          fileId={htmlViewerNode.id}
+          fileName={htmlViewerNode.name}
+          readFileBytes={vault.readFilePreview}
+          onClose={() => setHtmlViewerNode(null)}
+        />
       )}
     </div>
   );
