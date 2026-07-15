@@ -82,14 +82,11 @@ export function ObsidianHtmlViewerDialog({
       aria-modal="true"
       aria-label={`Visualizar ${fileName}`}
     >
-      <div className="obsidian-html-viewer-toolbar">
-        <span className="obsidian-html-viewer-title">{fileName}</span>
-        <button type="button" className="btn-secondary" onClick={onClose}>
-          Fechar
-        </button>
-      </div>
-      {status === 'loading' && <p className="muted">Carregando…</p>}
-      {status === 'error' && <p className="error">{error}</p>}
+      {/* Sem barra de título — o HTML ocupa a tela inteira desde o topo, sem
+          nada do app "por cima" dele. Fechar vira um botão flutuante (FAB)
+          sobreposto ao conteúdo, não uma barra fixa que rouba espaço. */}
+      {status === 'loading' && <p className="muted obsidian-html-viewer-status">Carregando…</p>}
+      {status === 'error' && <p className="error obsidian-html-viewer-status">{error}</p>}
       {status === 'loaded' && url && (
         <iframe
           className="obsidian-html-viewer-frame"
@@ -98,6 +95,15 @@ export function ObsidianHtmlViewerDialog({
           sandbox="allow-scripts allow-forms allow-popups allow-modals"
         />
       )}
+      <button
+        type="button"
+        className="obsidian-html-viewer-close-fab"
+        onClick={onClose}
+        aria-label="Fechar"
+        title="Fechar"
+      >
+        ×
+      </button>
     </div>
   );
 }
