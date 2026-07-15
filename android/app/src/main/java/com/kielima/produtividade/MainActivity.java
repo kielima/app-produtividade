@@ -135,16 +135,24 @@ public class MainActivity extends BridgeActivity {
                 return;
             }
 
-            if (getBridge() == null) return;
-            final WebView webView = getBridge().getWebView();
-            if (webView == null) return;
-
-            String current = webView.getUrl();
-            Uri base = Uri.parse(current != null && !current.isEmpty() ? current : "https://localhost/");
-            final String url = base.buildUpon().path("/").clearQuery().build().toString();
-            final String js = "sessionStorage.setItem('pendingShare', " + JSONObject.quote(payload.toString()) + ");";
-            webView.post(() -> webView.evaluateJavascript(js, value -> webView.loadUrl(url)));
+            // WebView só pode ser tocado a partir da UI thread — chamar
+            // getUrl()/evaluateJavascript() daqui (executor em background)
+            // lança exceção não capturada e derruba o app na hora.
+            final String payloadJson = payload.toString();
+            runOnUiThread(() -> deliverImagePayload(payloadJson));
         });
+    }
+
+    private void deliverImagePayload(String payloadJson) {
+        if (getBridge() == null) return;
+        final WebView webView = getBridge().getWebView();
+        if (webView == null) return;
+
+        String current = webView.getUrl();
+        Uri base = Uri.parse(current != null && !current.isEmpty() ? current : "https://localhost/");
+        final String url = base.buildUpon().path("/").clearQuery().build().toString();
+        final String js = "sessionStorage.setItem('pendingShare', " + JSONObject.quote(payloadJson) + ");";
+        webView.evaluateJavascript(js, value -> webView.loadUrl(url));
     }
 
     private static byte[] readAllBytes(InputStream in) throws IOException {
