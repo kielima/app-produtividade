@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react';
 
 // Não existia nenhum utilitário de debounce no projeto — este hook cobre o
-// autosave da aba Obsidian (e pode ser reaproveitado por qualquer outro
+// autosave da aba Grafos (e pode ser reaproveitado por qualquer outro
 // "salva um pouco depois de parar de digitar" no futuro, ex. autocomplete
 // da Fase 2). `fn` sempre roda com a versão mais recente via ref, então o
 // timer não precisa ser recriado a cada keystroke.

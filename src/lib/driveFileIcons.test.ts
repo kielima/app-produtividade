@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { driveIconKind, isHtmlFile } from './driveFileIcons';
-import { isMarkdownFile } from './obsidianNode';
+import { isMarkdownFile } from './grafosNode';
 
 describe('driveIconKind', () => {
   it('reconhece pastas', () => {
