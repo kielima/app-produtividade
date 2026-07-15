@@ -30,6 +30,15 @@
                 <data android:mimeType="text/plain" />
             </intent-filter>
 
+            <!-- Recebe imagens compartilhadas de outros apps (galeria, câmera,
+                 etc.) para transcrição e conversão em tarefa/nota. Ver
+                 MainActivity#handleImageShare. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+            </intent-filter>
+
         </activity>
 
         <provider
