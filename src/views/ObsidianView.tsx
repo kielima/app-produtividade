@@ -66,12 +66,44 @@ function GraphIcon() {
     </svg>
   );
 }
+function SolarIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <circle cx="12" cy="12" r="2.4" />
+      <ellipse cx="12" cy="12" rx="9" ry="3.6" transform="rotate(25 12 12)" />
+      <circle cx="19.2" cy="9.9" r="1.3" />
+    </svg>
+  );
+}
+
+const MODE_OPTIONS: Array<{ key: 'tree' | 'graph' | 'solar'; label: string; icon: JSX.Element }> = [
+  { key: 'tree', label: 'Árvore', icon: <TreeIcon /> },
+  { key: 'graph', label: 'Grafo', icon: <GraphIcon /> },
+  { key: 'solar', label: 'Sistema solar', icon: <SolarIcon /> },
+];
 
 // Carregado sob demanda (Suspense abaixo) — o grafo é o modo padrão, então
 // esse import roda logo na abertura da aba, mas mantém o code-split do
 // react-force-graph-2d fora do bundle principal.
 const ObsidianGraphView = lazy(() =>
   import('../components/ObsidianGraphView').then((m) => ({ default: m.ObsidianGraphView })),
+);
+// Mesmo code-split do grafo — canvas cru, sem react-force-graph-2d (ver
+// obsidianColors.ts, extraído justamente pra essas duas visualizações não
+// se acoplarem no bundle uma da outra).
+const ObsidianSolarSystemView = lazy(() =>
+  import('../components/ObsidianSolarSystemView').then((m) => ({ default: m.ObsidianSolarSystemView })),
 );
 
 const AUTOSAVE_DELAY_MS = 2800;
@@ -117,7 +149,7 @@ export function ObsidianView({ uid }: { uid: string }) {
 
 function ObsidianVaultBrowser({ uid }: { uid: string }) {
   const vault = useObsidianVault(uid);
-  const [mode, setMode] = useState<'tree' | 'graph'>('graph');
+  const [mode, setMode] = useState<'tree' | 'graph' | 'solar'>('graph');
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [linkWarning, setLinkWarning] = useState<string | null>(null);
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
@@ -275,15 +307,24 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
         />
       ) : (
         <>
-          <button
-            type="button"
-            className="obsidian-mode-toggle-btn"
-            onClick={() => setMode(mode === 'tree' ? 'graph' : 'tree')}
-            aria-label={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
-            title={mode === 'tree' ? 'Ver como grafo' : 'Ver como árvore'}
-          >
-            {mode === 'tree' ? <GraphIcon /> : <TreeIcon />}
-          </button>
+          {/* Segmented control de 3 vias — cada ícone mostra o PRÓPRIO modo
+              que representa (não "pra onde vai", diferente do antigo botão
+              cíclico binário), mais claro com 3+ opções. */}
+          <div className="obsidian-mode-segmented" role="group" aria-label="Visualização do vault">
+            {MODE_OPTIONS.map((opt) => (
+              <button
+                key={opt.key}
+                type="button"
+                className={`obsidian-mode-toggle-btn${mode === opt.key ? ' active' : ''}`}
+                aria-pressed={mode === opt.key}
+                aria-label={opt.label}
+                title={opt.label}
+                onClick={() => setMode(opt.key)}
+              >
+                {opt.icon}
+              </button>
+            ))}
+          </div>
           <SearchToggle active={false} onClick={() => setSearchExpanded(true)} />
         </>
       )}
@@ -370,10 +411,25 @@ function ObsidianVaultBrowser({ uid }: { uid: string }) {
             )}
           </section>
         </div>
-      ) : (
+      ) : mode === 'graph' ? (
         <div className="obsidian-view-body">
           <Suspense fallback={<p className="muted">Carregando grafo…</p>}>
             <ObsidianGraphView
+              vault={vault}
+              onEditNote={(fileId) => {
+                setSelectedNoteId(fileId);
+                setMode('tree');
+              }}
+              onNodeDeleted={(fileId) => {
+                if (fileId === selectedNoteId) setSelectedNoteId(null);
+              }}
+            />
+          </Suspense>
+        </div>
+      ) : (
+        <div className="obsidian-view-body">
+          <Suspense fallback={<p className="muted">Carregando sistema solar…</p>}>
+            <ObsidianSolarSystemView
               vault={vault}
               onEditNote={(fileId) => {
                 setSelectedNoteId(fileId);
