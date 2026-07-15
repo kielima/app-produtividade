@@ -3,12 +3,21 @@ package com.kielima.produtividade;
 import android.content.Intent;
 import android.net.Uri;
 import android.os.Bundle;
+import android.util.Base64;
 import android.view.MotionEvent;
 import android.view.View;
 import android.webkit.WebView;
 
 import com.getcapacitor.BridgeActivity;
 import com.kielima.produtividade.atualizador.AtualizadorPlugin;
+
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.ByteArrayOutputStream;
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.concurrent.Executors;
 
 /**
  * Ponte do botão da S-Pen para o WebView.
@@ -45,19 +54,24 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Recebe links/texto compartilhados de outros apps via o menu
+     * Recebe links/texto/imagens compartilhados de outros apps via o menu
      * "Compartilhar" do Android (ACTION_SEND, registrado no
-     * AndroidManifest.xml) e repassa pro app web navegando o WebView pra URL
-     * atual com os dados na query string. O app web já lê esse formato — é o
-     * mesmo fluxo legado do Web Share Target (ver src/main.tsx).
+     * AndroidManifest.xml). Texto/links repassam pro app web navegando o
+     * WebView pra URL atual com os dados na query string — o app web já lê
+     * esse formato, é o mesmo fluxo legado do Web Share Target (ver
+     * src/main.tsx). Imagens vão por {@link #handleImageShare}, já que o
+     * conteúdo (base64) é grande demais pra caber numa query string.
      */
     private void handleShareIntent(Intent intent) {
         if (intent == null) return;
         String type = intent.getType();
-        if (!Intent.ACTION_SEND.equals(intent.getAction())
-                || type == null || !type.startsWith("text/")) {
+        if (!Intent.ACTION_SEND.equals(intent.getAction()) || type == null) return;
+
+        if (type.startsWith("image/")) {
+            handleImageShare(intent);
             return;
         }
+        if (!type.startsWith("text/")) return;
 
         String text = intent.getStringExtra(Intent.EXTRA_TEXT);
         if (text == null || text.isEmpty()) return;
@@ -77,6 +91,70 @@ public class MainActivity extends BridgeActivity {
         }
         final String url = target.build().toString();
         webView.post(() -> webView.loadUrl(url));
+    }
+
+    /**
+     * Lê a imagem (EXTRA_STREAM) do intent de compartilhamento, converte pra
+     * base64 e entrega ao app web via sessionStorage — o mesmo formato
+     * `pendingShare` do fluxo de texto acima, mas com o campo `image`
+     * preenchido (ver App.tsx#readLegacyPayload). Como o payload pode ter
+     * vários MB, vai via injeção de JS em vez de query string (que tem limite
+     * de tamanho) e depois recarrega a URL pra disparar a leitura do payload
+     * no mount do app. A leitura do arquivo e a codificação base64 rodam fora
+     * da thread principal — imagens de câmera facilmente passam de alguns MB
+     * e fariam o app travar (ANR) se lidas de forma síncrona no onCreate.
+     */
+    private void handleImageShare(Intent intent) {
+        Uri imageUri = intent.getParcelableExtra(Intent.EXTRA_STREAM);
+        if (imageUri == null) return;
+
+        String mimeType = intent.getType();
+        String text = intent.getStringExtra(Intent.EXTRA_TEXT);
+        String subject = intent.getStringExtra(Intent.EXTRA_SUBJECT);
+
+        Executors.newSingleThreadExecutor().execute(() -> {
+            byte[] bytes;
+            try (InputStream in = getContentResolver().openInputStream(imageUri)) {
+                if (in == null) return;
+                bytes = readAllBytes(in);
+            } catch (IOException e) {
+                return;
+            }
+            if (bytes.length == 0) return;
+
+            JSONObject payload = new JSONObject();
+            try {
+                payload.put("title", subject != null ? subject : "");
+                payload.put("text", text != null ? text : "");
+                payload.put("url", "");
+                JSONObject image = new JSONObject();
+                image.put("data", Base64.encodeToString(bytes, Base64.NO_WRAP));
+                image.put("mimeType", mimeType != null ? mimeType : "image/jpeg");
+                payload.put("image", image);
+            } catch (JSONException e) {
+                return;
+            }
+
+            if (getBridge() == null) return;
+            final WebView webView = getBridge().getWebView();
+            if (webView == null) return;
+
+            String current = webView.getUrl();
+            Uri base = Uri.parse(current != null && !current.isEmpty() ? current : "https://localhost/");
+            final String url = base.buildUpon().path("/").clearQuery().build().toString();
+            final String js = "sessionStorage.setItem('pendingShare', " + JSONObject.quote(payload.toString()) + ");";
+            webView.post(() -> webView.evaluateJavascript(js, value -> webView.loadUrl(url)));
+        });
+    }
+
+    private static byte[] readAllBytes(InputStream in) throws IOException {
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        byte[] buffer = new byte[16 * 1024];
+        int read;
+        while ((read = in.read(buffer)) != -1) {
+            out.write(buffer, 0, read);
+        }
+        return out.toByteArray();
     }
 
     /**
