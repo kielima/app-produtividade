@@ -416,11 +416,11 @@ a:focus-visible {
   align-self: center;
 }
 
-/* Alvo do portal da aba Obsidian (alternador árvore/grafo + busca) — cresce
+/* Alvo do portal da aba Grafos (alternador árvore/grafo + busca) — cresce
    pra ocupar o espaço livre do topbar (igual `.topbar-search` faz via
    margin-left:auto), mas com flex:1 em vez disso, pra que a busca expandida
    (que quer crescer pra preencher a largura disponível) tenha onde crescer. */
-.obsidian-topbar-slot {
+.grafos-topbar-slot {
   flex: 1;
   min-width: 0;
   display: flex;
@@ -5745,10 +5745,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 
 /* =============================================================
-   Aba Obsidian — vault de notas Markdown com o Google Drive
+   Aba Grafos — vault de notas Markdown com o Google Drive
    ============================================================= */
 
-.obsidian-view--gate {
+.grafos-view--gate {
   padding: 0.75rem 0;
   display: flex;
   flex-direction: column;
@@ -5756,7 +5756,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.6rem;
 }
 
-.obsidian-view {
+.grafos-view {
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
@@ -5765,16 +5765,16 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 
 /* Segmented control de 3 vias (árvore/grafo/sistema solar), vive no topbar
-   do app (portal — ver App.tsx e ObsidianView.tsx): cada botão mostra o
+   do app (portal — ver App.tsx e GrafosView.tsx): cada botão mostra o
    ícone do PRÓPRIO modo que representa, `.active` marca o modo atual. */
-.obsidian-mode-segmented {
+.grafos-mode-segmented {
   display: inline-flex;
   gap: 0.15rem;
   border: 1px solid var(--border);
   border-radius: 6px;
   padding: 0.15rem;
 }
-.obsidian-mode-toggle-btn {
+.grafos-mode-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -5787,21 +5787,21 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   cursor: pointer;
   font: inherit;
 }
-.obsidian-mode-toggle-btn:hover {
+.grafos-mode-toggle-btn:hover {
   background: transparent;
   color: var(--accent);
 }
-.obsidian-mode-segmented .obsidian-mode-toggle-btn.active {
+.grafos-mode-segmented .grafos-mode-toggle-btn.active {
   background: var(--surface-2);
   color: var(--accent);
 }
 
-.obsidian-search-box {
+.grafos-search-box {
   position: relative;
   flex: 1;
   min-width: 0;
 }
-.obsidian-search-results {
+.grafos-search-results {
   position: absolute;
   top: calc(100% + 0.3rem);
   left: 0;
@@ -5815,29 +5815,29 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   max-height: 320px;
   overflow-y: auto;
 }
-.obsidian-search-empty-hint {
+.grafos-search-empty-hint {
   margin: 0.2rem 0.4rem;
   font-size: 0.85rem;
   color: var(--muted);
 }
-.obsidian-search-result-group + .obsidian-search-result-group {
+.grafos-search-result-group + .grafos-search-result-group {
   margin-top: 0.4rem;
 }
-.obsidian-search-result-group-label {
+.grafos-search-result-group-label {
   margin: 0.2rem 0.4rem;
   font-size: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.03em;
   color: var(--muted);
 }
-.obsidian-search-result-group ul {
+.grafos-search-result-group ul {
   list-style: none;
   margin: 0;
   padding: 0;
   display: flex;
   flex-direction: column;
 }
-.obsidian-search-result-item {
+.grafos-search-result-item {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -5852,29 +5852,29 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   text-align: left;
   cursor: pointer;
 }
-.obsidian-search-result-item:hover {
+.grafos-search-result-item:hover {
   background: var(--surface-2);
 }
-.obsidian-search-result-item span {
+.grafos-search-result-item span {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
   min-width: 0;
 }
 
-.obsidian-view-body {
+.grafos-view-body {
   display: flex;
   gap: 1rem;
   flex: 1;
   min-height: 0;
 }
 @media (max-width: 720px) {
-  .obsidian-view-body {
+  .grafos-view-body {
     flex-direction: column;
   }
 }
 
-.obsidian-tree {
+.grafos-tree {
   flex: 0 0 260px;
   max-width: 260px;
   overflow-y: auto;
@@ -5882,7 +5882,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   padding-right: 0.75rem;
 }
 @media (max-width: 720px) {
-  .obsidian-tree {
+  .grafos-tree {
     flex: none;
     max-width: none;
     max-height: 40vh;
@@ -5893,18 +5893,18 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   }
 }
 
-.obsidian-tree-list {
+.grafos-tree-list {
   list-style: none;
   margin: 0;
   padding: 0;
 }
 
-.obsidian-tree-status {
+.grafos-tree-status {
   padding: 0.3rem 0;
   font-size: 0.85rem;
 }
 
-.obsidian-tree-row {
+.grafos-tree-row {
   display: flex;
   align-items: center;
   gap: 0.4rem;
@@ -5918,29 +5918,29 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   text-align: left;
   cursor: pointer;
 }
-.obsidian-tree-row:hover:not(:disabled) {
+.grafos-tree-row:hover:not(:disabled) {
   background: var(--surface-2);
 }
-.obsidian-tree-row.active {
+.grafos-tree-row.active {
   background: var(--surface-2);
   font-weight: 600;
 }
-.obsidian-tree-row--readonly {
+.grafos-tree-row--readonly {
   cursor: default;
   opacity: 0.75;
 }
-.obsidian-tree-row--folder {
+.grafos-tree-row--folder {
   font-weight: 500;
 }
 
-.obsidian-editor-pane {
+.grafos-editor-pane {
   flex: 1;
   min-width: 0;
   display: flex;
   flex-direction: column;
 }
 
-.obsidian-editor-toolbar {
+.grafos-editor-toolbar {
   display: flex;
   align-items: baseline;
   justify-content: space-between;
@@ -5948,60 +5948,60 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   margin-bottom: 0.4rem;
   font-size: 0.85rem;
 }
-.obsidian-note-title {
+.grafos-note-title {
   font-size: 1.05rem;
   font-weight: 600;
 }
-.obsidian-status-line {
+.grafos-status-line {
   margin: 0.3rem 0;
   font-size: 0.85rem;
 }
 
-.obsidian-editor {
+.grafos-editor {
   flex: 1;
   border: 1px solid var(--border);
   border-radius: 6px;
   overflow: auto;
 }
-.obsidian-editor .cm-editor {
+.grafos-editor .cm-editor {
   height: 100%;
   min-height: 50vh;
 }
-.obsidian-editor .cm-obsidian-wikilink {
+.grafos-editor .cm-grafos-wikilink {
   color: var(--accent);
   font-weight: 600;
 }
 /* Tooltip de autocomplete do `[[` — reaproveita as variáveis de cor do app
    em vez do tema padrão do CodeMirror. */
-.obsidian-editor .cm-tooltip-autocomplete {
+.grafos-editor .cm-tooltip-autocomplete {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 6px;
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
 }
-.obsidian-editor .cm-tooltip-autocomplete > ul > li {
+.grafos-editor .cm-tooltip-autocomplete > ul > li {
   padding: 0.35rem 0.6rem;
 }
-.obsidian-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
+.grafos-editor .cm-tooltip-autocomplete > ul > li[aria-selected] {
   background: var(--surface-2);
   color: var(--fg);
 }
-.obsidian-editor .cm-completionDetail {
+.grafos-editor .cm-completionDetail {
   margin-left: 0.5rem;
   color: var(--muted);
   font-style: normal;
 }
 
-.obsidian-backlinks {
+.grafos-backlinks {
   margin-top: 1rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);
 }
-.obsidian-backlinks h3 {
+.grafos-backlinks h3 {
   margin: 0 0 0.4rem;
   font-size: 0.9rem;
 }
-.obsidian-backlinks ul {
+.grafos-backlinks ul {
   list-style: none;
   margin: 0;
   padding: 0;
@@ -6009,7 +6009,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   flex-direction: column;
   gap: 0.2rem;
 }
-.obsidian-backlink-item {
+.grafos-backlink-item {
   align-self: flex-start;
   padding: 0.2rem 0.5rem;
   border: none;
@@ -6019,17 +6019,17 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font: inherit;
   cursor: pointer;
 }
-.obsidian-backlink-item:hover {
+.grafos-backlink-item:hover {
   background: var(--surface-2);
 }
 
-.obsidian-conflict-backdrop {
+.grafos-conflict-backdrop {
   position: fixed;
   inset: 0;
   background: rgba(0, 0, 0, 0.45);
   z-index: 200;
 }
-.obsidian-conflict-dialog {
+.grafos-conflict-dialog {
   position: fixed;
   top: 50%;
   left: 50%;
@@ -6044,29 +6044,29 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   z-index: 201;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3);
 }
-.obsidian-conflict-dialog h2 {
+.grafos-conflict-dialog h2 {
   margin: 0 0 0.4rem;
   font-size: 1.1rem;
 }
-.obsidian-conflict-panes {
+.grafos-conflict-panes {
   display: flex;
   gap: 0.75rem;
   margin: 0.75rem 0;
 }
 @media (max-width: 640px) {
-  .obsidian-conflict-panes {
+  .grafos-conflict-panes {
     flex-direction: column;
   }
 }
-.obsidian-conflict-pane {
+.grafos-conflict-pane {
   flex: 1;
   min-width: 0;
 }
-.obsidian-conflict-pane h3 {
+.grafos-conflict-pane h3 {
   margin: 0 0 0.3rem;
   font-size: 0.9rem;
 }
-.obsidian-conflict-pane pre {
+.grafos-conflict-pane pre {
   background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: 4px;
@@ -6079,7 +6079,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-size: 0.85rem;
   line-height: 1.4;
 }
-.obsidian-conflict-actions {
+.grafos-conflict-actions {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
@@ -6088,24 +6088,24 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 
 /* Visualizador de HTML em tela cheia DE VERDADE (ver
-   ObsidianHtmlViewerDialog.tsx) — cobre a viewport inteira (`inset: 0`, sem
+   GrafosHtmlViewerDialog.tsx) — cobre a viewport inteira (`inset: 0`, sem
    moldura/cantos, sem barra de título) e o iframe ocupa 100% dela: a página
    renderiza até embaixo do status bar/notch, exatamente como uma tela
-   própria do app, sem nenhuma faixa do Obsidian por cima. Fechar: o FAB
-   flutuante (`.obsidian-html-viewer-close-fab`) OU o gesto/botão de voltar
+   própria do app, sem nenhuma faixa do Grafos por cima. Fechar: o FAB
+   flutuante (`.grafos-html-viewer-close-fab`) OU o gesto/botão de voltar
    do Android (ver o efeito de history no componente) — nunca uma barra fixa
    que rouba espaço do conteúdo. */
-.obsidian-html-viewer {
+.grafos-html-viewer {
   position: fixed;
   inset: 0;
   background: var(--surface);
   z-index: 201;
   overflow: hidden;
 }
-.obsidian-html-viewer-status {
+.grafos-html-viewer-status {
   padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem 0.75rem;
 }
-.obsidian-html-viewer-frame {
+.grafos-html-viewer-frame {
   display: block;
   width: 100%;
   height: 100%;
@@ -6118,7 +6118,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
    semi-opaco (não usa var(--accent) sólido como o `.fab` global) porque este
    flutua sobre uma página arbitrária, de cor imprevisível — precisa
    continuar legível em cima de qualquer fundo. */
-.obsidian-html-viewer-close-fab {
+.grafos-html-viewer-close-fab {
   position: fixed;
   top: calc(0.75rem + env(safe-area-inset-top, 0px));
   right: calc(0.75rem + env(safe-area-inset-right, 0px));
@@ -6138,15 +6138,15 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   cursor: pointer;
   z-index: 202;
 }
-.obsidian-html-viewer-close-fab:hover {
+.grafos-html-viewer-close-fab:hover {
   background: rgba(20, 20, 20, 0.85);
 }
-.obsidian-html-viewer-close-fab:active {
+.grafos-html-viewer-close-fab:active {
   transform: translateY(1px);
 }
 
 /* Grafo unificado (Fase 3) */
-.obsidian-graph-view {
+.grafos-graph-view {
   position: relative;
   flex: 1;
   min-width: 0;
@@ -6159,14 +6159,14 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
      d3-drag) receberem os gestos de toque crus. */
   touch-action: none;
 }
-.obsidian-graph-view canvas {
+.grafos-graph-view canvas {
   display: block;
 }
 
 /* Sistema solar — mesmo container/controles do grafo, canvas cru (sem
    react-force-graph-2d) com pan/zoom próprios, mesmo motivo do
    touch-action: none acima. */
-.obsidian-solar-view {
+.grafos-solar-view {
   position: relative;
   flex: 1;
   min-width: 0;
@@ -6176,11 +6176,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   overflow: hidden;
   touch-action: none;
 }
-.obsidian-solar-view canvas {
+.grafos-solar-view canvas {
   display: block;
 }
 
-.obsidian-graph-controls {
+.grafos-graph-controls {
   position: absolute;
   bottom: 0.5rem;
   right: 0.5rem;
@@ -6190,7 +6190,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.3rem;
   z-index: 2;
 }
-.obsidian-graph-controls button {
+.grafos-graph-controls button {
   flex-shrink: 0;
   min-width: 2rem;
   height: 2rem;
@@ -6203,11 +6203,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font: inherit;
   font-size: 0.85rem;
 }
-.obsidian-graph-controls button:hover {
+.grafos-graph-controls button:hover {
   background: var(--surface-2);
 }
 
-.obsidian-graph-warning {
+.grafos-graph-warning {
   position: absolute;
   left: 0.75rem;
   /* Acima da barra de zoom/ajustar, que agora fica na parte inferior. */
@@ -6223,10 +6223,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 /* Preview de nota — o círculo do nó em preview é substituído por este
    cartão, desenhado NO LUGAR do nó dentro do próprio grafo (não numa janela
    à parte). Posição/tamanho vêm de `style` inline, escrito a cada frame por
-   `syncPreviewOverlay` (ObsidianGraphView.tsx) a partir da posição de tela
+   `syncPreviewOverlay` (GrafosGraphView.tsx) a partir da posição de tela
    do nó (`graph2ScreenCoords`) e do zoom atual (`globalScale`) — cresce/
    encolhe junto com o resto do grafo, sem controle de zoom próprio. */
-.obsidian-note-graph-card {
+.grafos-note-graph-card {
   position: absolute;
   z-index: 3;
   background: var(--surface);
@@ -6241,7 +6241,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   overflow-wrap: break-word;
   /* Deixa o gesto de toque atravessar pro canvas por baixo (pan/zoom do
      grafo via d3-zoom, e a detecção manual de toque/long-press em
-     ObsidianGraphView.tsx, que lê a posição real do cartão via `cardRef`
+     GrafosGraphView.tsx, que lê a posição real do cartão via `cardRef`
      pra saber se um toque caiu em cima dele). Não dá pra selecionar o texto
      do cartão; um toque simples fecha o preview, "Editar" (no menu de
      contexto) abre a nota de verdade. */
@@ -6249,19 +6249,19 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 
 /* Preview de imagem/PDF — mesmo cartão/posicionamento de
-   ObsidianNoteGraphCard, só sem o padding de texto (a imagem/página do PDF
+   GrafosNoteGraphCard, só sem o padding de texto (a imagem/página do PDF
    preenche o cartão de ponta a ponta) e sem a proporção A4 forçada (imagem/
    PDF já têm proporção própria, ver `syncPreviewOverlay`). */
-.obsidian-file-preview-card {
+.grafos-file-preview-card {
   padding: 0;
 }
-.obsidian-file-preview-card img,
-.obsidian-file-preview-card canvas {
+.grafos-file-preview-card img,
+.grafos-file-preview-card canvas {
   display: block;
   width: 100%;
   height: auto;
 }
-.obsidian-file-preview-card p {
+.grafos-file-preview-card p {
   padding: 0.6em 0.75em;
 }
 
@@ -6269,7 +6269,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
    ancorada embaixo (mesma convenção de controles do grafo ficarem na parte
    inferior), não presa à posição de tela do nó: some/reaparece com qualquer
    toque fora dele, então não precisa acompanhar pan/zoom em tempo real. */
-.obsidian-node-menu {
+.grafos-node-menu {
   position: fixed;
   left: 0;
   right: 0;
@@ -6284,12 +6284,12 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
   box-shadow: 0 -6px 20px rgba(0, 0, 0, 0.25);
 }
-.obsidian-node-menu-title {
+.grafos-node-menu-title {
   margin: 0 0 0.2rem;
   font-weight: 600;
   overflow-wrap: break-word;
 }
-.obsidian-node-menu button {
+.grafos-node-menu button {
   width: 100%;
   text-align: left;
   padding: 0.6rem 0.75rem;
@@ -6300,22 +6300,22 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font: inherit;
   cursor: pointer;
 }
-.obsidian-node-menu button:hover {
+.grafos-node-menu button:hover {
   background: var(--surface-2);
 }
-.obsidian-node-menu button.danger {
+.grafos-node-menu button.danger {
   color: var(--danger);
 }
-.obsidian-node-menu button.danger:hover {
+.grafos-node-menu button.danger:hover {
   background: var(--danger-bg);
 }
 
 /* Diálogo de renomear (pasta/nota/arquivo) — mesmo backdrop/painel-base de
-   .obsidian-conflict-dialog, só mais estreito (é só um campo de texto). */
-.obsidian-rename-dialog {
+   .grafos-conflict-dialog, só mais estreito (é só um campo de texto). */
+.grafos-rename-dialog {
   width: min(94vw, 420px);
 }
-.obsidian-rename-input {
+.grafos-rename-input {
   width: 100%;
   padding: 0.5rem 0.6rem;
   border: 1px solid var(--border);
@@ -6328,10 +6328,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 
 /* Diálogo "mover para pasta" — navega a mesma árvore de pastas do vault
    (lazy-load reaproveitado de vault.expandFolder/collapseFolder). */
-.obsidian-move-dialog {
+.grafos-move-dialog {
   width: min(94vw, 480px);
 }
-.obsidian-move-tree {
+.grafos-move-tree {
   max-height: 50vh;
   overflow-y: auto;
   margin: 0.5rem 0 0.75rem;
@@ -6339,17 +6339,17 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   border-radius: 6px;
   padding: 0.4rem;
 }
-.obsidian-move-row-group + .obsidian-move-row-group {
+.grafos-move-row-group + .grafos-move-row-group {
   margin-top: 0.15rem;
 }
-.obsidian-move-row {
+.grafos-move-row {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 0.2rem 0.4rem;
 }
-.obsidian-move-row-toggle {
+.grafos-move-row-toggle {
   /* Ocupa a linha inteira (empurra o botão "Mover para cá" pra linha de
      baixo, sempre — não só quando o nome é longo) — evita o botão ficar
      "flutuando" ao lado da primeira linha de um nome que quebra em duas. */
@@ -6364,10 +6364,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   cursor: pointer;
   overflow-wrap: break-word;
 }
-.obsidian-move-row-toggle:hover {
+.grafos-move-row-toggle:hover {
   background: var(--surface-2);
 }
-.obsidian-move-row-pick {
+.grafos-move-row-pick {
   flex-shrink: 0;
   margin-left: auto;
   font-size: 0.8rem;

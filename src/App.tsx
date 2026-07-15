@@ -67,9 +67,9 @@ import { NotesView } from './views/NotesView';
 const LeituraView = lazy(() =>
   import('./views/LeituraView').then((m) => ({ default: m.LeituraView })),
 );
-// Carregado sob demanda: arrasta o CodeMirror só quando a aba Obsidian abre.
-const ObsidianView = lazy(() =>
-  import('./views/ObsidianView').then((m) => ({ default: m.ObsidianView })),
+// Carregado sob demanda: arrasta o CodeMirror só quando a aba Grafos abre.
+const GrafosView = lazy(() =>
+  import('./views/GrafosView').then((m) => ({ default: m.GrafosView })),
 );
 import {
   hasEverConnectedCalendar,
@@ -140,7 +140,7 @@ type Tab =
   | 'today'
   | 'notes'
   | 'leitura'
-  | 'obsidian'
+  | 'grafos'
   | 'tasks'
   | 'projects'
   | 'countdown'
@@ -151,7 +151,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'today', label: 'Hoje' },
   { key: 'notes', label: 'Keep' },
   { key: 'leitura', label: 'Leitura' },
-  { key: 'obsidian', label: 'Obsidian' },
+  { key: 'grafos', label: 'Grafos' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
   { key: 'countdown', label: 'Agenda' },
@@ -1086,12 +1086,12 @@ function AppShell({
             />
           </>
         )}
-        {tab === 'obsidian' && (
-          // Alvo do portal renderizado por ObsidianView — mantém o estado
+        {tab === 'grafos' && (
+          // Alvo do portal renderizado por GrafosView — mantém o estado
           // (modo árvore/grafo, busca) local à própria view em vez de subir
-          // pra cá, já que depende do hook do vault (useObsidianVault), que
+          // pra cá, já que depende do hook do vault (useGrafosVault), que
           // não deveria rodar antes do usuário sequer abrir esta aba.
-          <div id="obsidian-topbar-slot" className="obsidian-topbar-slot" />
+          <div id="grafos-topbar-slot" className="grafos-topbar-slot" />
         )}
           </>
         )}
@@ -1140,9 +1140,9 @@ function AppShell({
             />
           </Suspense>
         )}
-        {tab === 'obsidian' && (
+        {tab === 'grafos' && (
           <Suspense fallback={<p className="reader-status">Carregando…</p>}>
-            <ObsidianView uid={uid} />
+            <GrafosView uid={uid} />
           </Suspense>
         )}
         {tab === 'tasks' && (

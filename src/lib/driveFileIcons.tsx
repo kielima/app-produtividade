@@ -1,4 +1,4 @@
-import { isMarkdownFile } from './obsidianNode';
+import { isMarkdownFile } from './grafosNode';
 
 export type DriveIconKind =
   | 'folder'
@@ -22,7 +22,7 @@ export function isHtmlFile(node: { name: string; mimeType: string }): boolean {
 }
 
 // Categoria ampla por mimeType — só o suficiente pro navegador de pastas da
-// aba Obsidian mostrar um glifo diferente por tipo (spec item 3). Não cobre
+// aba Grafos mostrar um glifo diferente por tipo (spec item 3). Não cobre
 // o styling do grafo unificado (Fase 3).
 export function driveIconKind(node: { name: string; mimeType: string }): DriveIconKind {
   if (node.mimeType === FOLDER_MIME_TYPE) return 'folder';
