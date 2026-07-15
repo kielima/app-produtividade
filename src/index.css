@@ -6087,52 +6087,62 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   margin-top: 0.5rem;
 }
 
-/* Visualizador de HTML em tela cheia de verdade (ver
+/* Visualizador de HTML em tela cheia DE VERDADE (ver
    ObsidianHtmlViewerDialog.tsx) — cobre a viewport inteira (`inset: 0`, sem
-   moldura/cantos), não um cartão centralizado: é pra ler/interagir com a
-   página como se fosse uma tela própria do app. Sem backdrop separado (não
-   sobra nada "por fora" pra escurecer). Fechar: botão "Fechar" OU o gesto/
-   botão de voltar do Android (ver o efeito de history no componente). */
+   moldura/cantos, sem barra de título) e o iframe ocupa 100% dela: a página
+   renderiza até embaixo do status bar/notch, exatamente como uma tela
+   própria do app, sem nenhuma faixa do Obsidian por cima. Fechar: o FAB
+   flutuante (`.obsidian-html-viewer-close-fab`) OU o gesto/botão de voltar
+   do Android (ver o efeito de history no componente) — nunca uma barra fixa
+   que rouba espaço do conteúdo. */
 .obsidian-html-viewer {
   position: fixed;
   inset: 0;
   background: var(--surface);
   z-index: 201;
-  display: flex;
-  flex-direction: column;
   overflow: hidden;
-  padding-bottom: env(safe-area-inset-bottom, 0px);
 }
-.obsidian-html-viewer-toolbar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  padding: calc(0.6rem + env(safe-area-inset-top, 0px)) 0.75rem 0.6rem;
-  border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
-}
-.obsidian-html-viewer-title {
-  flex: 1;
-  min-width: 0;
-  font-weight: 600;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.obsidian-html-viewer-toolbar button {
-  flex-shrink: 0;
-}
-.obsidian-html-viewer .muted,
-.obsidian-html-viewer .error {
-  padding: 0.75rem;
+.obsidian-html-viewer-status {
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem 0.75rem;
 }
 .obsidian-html-viewer-frame {
-  flex: 1;
-  min-height: 0;
-  border: none;
+  display: block;
   width: 100%;
+  height: 100%;
+  border: none;
   background: #fff;
+}
+/* FAB sobreposto ao conteúdo (não uma barra) — cantos com
+   env(safe-area-inset-*) pra nunca cair sob o notch/status bar/gesture bar,
+   independente de onde o conteúdo do HTML do usuário desenha o dele. Fundo
+   semi-opaco (não usa var(--accent) sólido como o `.fab` global) porque este
+   flutua sobre uma página arbitrária, de cor imprevisível — precisa
+   continuar legível em cima de qualquer fundo. */
+.obsidian-html-viewer-close-fab {
+  position: fixed;
+  top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  right: calc(0.75rem + env(safe-area-inset-right, 0px));
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 50%;
+  border: none;
+  padding: 0;
+  background: rgba(20, 20, 20, 0.72);
+  color: #fff;
+  font-size: 1.6rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.35);
+  cursor: pointer;
+  z-index: 202;
+}
+.obsidian-html-viewer-close-fab:hover {
+  background: rgba(20, 20, 20, 0.85);
+}
+.obsidian-html-viewer-close-fab:active {
+  transform: translateY(1px);
 }
 
 /* Grafo unificado (Fase 3) */
