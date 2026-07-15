@@ -537,7 +537,7 @@ function AppShell({
           title: parsed.title ?? '',
           text: parsed.text ?? '',
           url: parsed.url ?? '',
-          image: null,
+          image: parsed.image ?? null,
         };
       } catch {
         return null;
