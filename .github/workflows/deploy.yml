@@ -42,14 +42,31 @@ jobs:
       - name: Authenticate to Google Cloud
         run: echo '${{ secrets.FIREBASE_SERVICE_ACCOUNT_APP_PRODUTIVIDADE_KIE }}' | base64 -d > /tmp/sa.json
 
-      - name: Deploy to Firebase (hosting + firestore + functions)
+      - name: Deploy to Firebase (hosting + firestore)
+        # Site (PWA) e regras do Firestore — sem dependência do Secret
+        # Manager, roda independente do status de billing do projeto (ver
+        # a etapa de functions logo abaixo, separada de propósito).
+        # --force: aceita automaticamente a cleanup policy do Artifact Registry,
+        # senão o deploy falha pedindo confirmação interativa.
+        run: npx firebase-tools@latest deploy --only hosting,firestore --project app-produtividade-3ec9d --non-interactive --force
+        env:
+          GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
+
+      - name: Deploy to Firebase (functions)
         # As Functions detêm o refresh token do Google Calendar. Só o secret
         # GOOGLE_OAUTH_CLIENT_SECRET vive no Secret Manager (o client ID é
         # público, constante no código); o predeploy em firebase.json
         # instala/builda functions/ antes do deploy.
-        # --force: aceita automaticamente a cleanup policy do Artifact Registry,
-        # senão o deploy falha pedindo confirmação interativa (mesmo já tendo
-        # publicado as functions com sucesso).
-        run: npx firebase-tools@latest deploy --only hosting,firestore,functions --project app-produtividade-3ec9d --non-interactive --force
+        #
+        # Etapa separada da de hosting/firestore acima: ler um secret do
+        # Secret Manager exige billing habilitado no projeto Google Cloud —
+        # sem isso, esta etapa falha com 403 ("This API method requires
+        # billing to be enabled"), e isso NÃO deve impedir o site (hosting)
+        # de publicar. `continue-on-error` deixa o job passar mesmo se só
+        # esta etapa falhar. Pra voltar a funcionar sem nenhuma mudança de
+        # código, habilite billing em
+        # https://console.developers.google.com/billing/enable?project=app-produtividade-3ec9d
+        continue-on-error: true
+        run: npx firebase-tools@latest deploy --only functions --project app-produtividade-3ec9d --non-interactive --force
         env:
           GOOGLE_APPLICATION_CREDENTIALS: /tmp/sa.json
