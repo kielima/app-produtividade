@@ -82,8 +82,17 @@ export function useObsidianVault(uid: string) {
   // diretos, busca itens marcados como favoritos (⭐) no Drive e mescla na
   // listagem — é como o usuário torna visível algo que não está alcançável
   // navegando a partir da raiz (ex.: a seção "Computadores" do Drive).
+  // Devolve os `children` carregados (além de despachar no reducer) — usado
+  // por `loadFolderChildren` abaixo, que precisa do resultado imediato pra
+  // alimentar o crawl recursivo do sistema solar sem depender de reler
+  // `stateRef` logo após um dispatch (risco de leitura defasada antes do
+  // próximo render). Nenhum chamador existente usava o retorno antes desta
+  // mudança, então é uma alteração aditiva.
   const loadFolder = useCallback(
-    async (folderId: string, opts: { fetchNoteContent: boolean; includeStarred?: boolean }) => {
+    async (
+      folderId: string,
+      opts: { fetchNoteContent: boolean; includeStarred?: boolean },
+    ): Promise<DriveNode[] | undefined> => {
       dispatch({ type: 'FOLDER_LOAD_START', folderId });
       try {
         const token = await getToken();
@@ -105,8 +114,10 @@ export function useObsidianVault(uid: string) {
             ),
           );
         }
+        return combined;
       } catch (e) {
         dispatch({ type: 'FOLDER_ERROR', folderId, error: e instanceof Error ? e.message : String(e) });
+        return undefined;
       }
     },
     [getToken, loadNoteContent],
@@ -143,6 +154,28 @@ export function useObsidianVault(uid: string) {
         fetchNoteContent: false,
         includeStarred: folderId === stateRef.current.rootId,
       }),
+    [loadFolder],
+  );
+
+  // Carregamento "raso" (sem conteúdo de nota, sem marcar como expandida) —
+  // usado pelo crawl eager do sistema solar (ObsidianSolarSystemView.tsx),
+  // que precisa da listagem de filhos de TODA pasta do vault pra montar o
+  // mapa orbital completo, mas não do texto de cada nota (essa visualização
+  // não faz parsing de wikilink) nem de marcar nada como "expandido" —
+  // `expandedIds` continua controlando só a árvore/grafo, sem esse método
+  // interferir no comportamento preguiçoso deles. Cache-aware: se a pasta já
+  // foi carregada por qualquer caminho (árvore, grafo, ou uma chamada
+  // anterior daqui), devolve os filhos do cache sem nova requisição.
+  const loadFolderChildren = useCallback(
+    async (folderId: string): Promise<DriveNode[]> => {
+      const existing = stateRef.current.folders.get(folderId);
+      if (existing && existing.status === 'loaded') return existing.children;
+      const children = await loadFolder(folderId, {
+        fetchNoteContent: false,
+        includeStarred: folderId === stateRef.current.rootId,
+      });
+      return children ?? [];
+    },
     [loadFolder],
   );
 
@@ -363,6 +396,7 @@ export function useObsidianVault(uid: string) {
     state,
     expandFolder,
     collapseFolder,
+    loadFolderChildren,
     openNote,
     editNote,
     saveNote,

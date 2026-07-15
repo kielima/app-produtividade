@@ -12,6 +12,7 @@ import {
   type GraphNodeKind,
 } from '../lib/obsidianGraph';
 import { filterExactNameMatches } from '../lib/obsidianBacklinks';
+import { useThemeColors, type CssVarReader } from '../lib/obsidianColors';
 import { driveIconKind } from '../lib/driveFileIcons';
 import { buildRenamedFileName, stripMdExtension } from '../lib/obsidianWikilink';
 import type { useObsidianVault } from '../lib/obsidianTree';
@@ -62,8 +63,9 @@ type Vault = ReturnType<typeof useObsidianVault>;
 type GNode = NodeObject<GraphNode>;
 type GLink = LinkObject<GraphNode, GraphLink>;
 
-// Canvas 2D não lê variáveis CSS (`var(--x)`) diretamente — resolvidas uma
-// vez via getComputedStyle e recalculadas quando o tema claro/escuro muda.
+// Paleta específica do grafo, lida via os utilitários genéricos de
+// obsidianColors.ts (compartilhados com o sistema solar, que tem sua
+// própria paleta/shape — ver ObsidianSolarSystemView.tsx).
 type GraphColors = {
   folder: string;
   note: string;
@@ -75,9 +77,7 @@ type GraphColors = {
   summary: string;
 };
 
-function resolveGraphColors(): GraphColors {
-  const style = getComputedStyle(document.documentElement);
-  const read = (name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback;
+function resolveGraphColorsFrom(read: CssVarReader): GraphColors {
   return {
     folder: read('--accent', '#e07b00'),
     note: read('--graph-note', '#3468d1'),
@@ -93,14 +93,7 @@ function resolveGraphColors(): GraphColors {
 }
 
 function useGraphColors(): GraphColors {
-  const [colors, setColors] = useState(resolveGraphColors);
-  useEffect(() => {
-    const mq = window.matchMedia('(prefers-color-scheme: dark)');
-    const update = () => setColors(resolveGraphColors());
-    mq.addEventListener('change', update);
-    return () => mq.removeEventListener('change', update);
-  }, []);
-  return colors;
+  return useThemeColors(resolveGraphColorsFrom);
 }
 
 // Visualização de grafo unificado (spec item 4) — mesma fonte de dados da

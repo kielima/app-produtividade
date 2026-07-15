@@ -7,6 +7,13 @@
   --muted: #666;
   --accent: #e07b00;
   --graph-note: #3468d1;
+  --solar-blackhole: #0b0b12;
+  --solar-blackhole-glow: rgba(120, 90, 255, 0.35);
+  --solar-star: #ffb703;
+  --solar-star-glow: rgba(255, 183, 3, 0.4);
+  --solar-planet: #2f8f8f;
+  --solar-moon: #9a9a9a;
+  --solar-orbit-line: rgba(0, 0, 0, 0.12);
   --danger: #c0392b;
   --danger-bg: #fde2e2;
   --moscow-must: #d33f3f;
@@ -2544,6 +2551,13 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
     --muted: #999;
     --danger-bg: #4a2222;
     --graph-note: #5b9bff;
+    --solar-blackhole: #000000;
+    --solar-blackhole-glow: rgba(150, 110, 255, 0.5);
+    --solar-star: #ffd166;
+    --solar-star-glow: rgba(255, 209, 102, 0.5);
+    --solar-planet: #5fd0d0;
+    --solar-moon: #bdbdbd;
+    --solar-orbit-line: rgba(255, 255, 255, 0.12);
   }
   .badge { background: rgba(255, 255, 255, 0.08); }
   .stats-card-delta--up { color: #6cd382; background: rgba(46, 204, 113, 0.15); }
@@ -5750,9 +5764,16 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   min-height: 60vh;
 }
 
-/* Botão de ícone só (vive no topbar do app, portal — ver App.tsx e
-   ObsidianView.tsx): mostra o ícone do modo pra ONDE o toque leva, mesmo
-   tamanho/estilo do botão de busca (`.search-toggle`) ao lado dele. */
+/* Segmented control de 3 vias (árvore/grafo/sistema solar), vive no topbar
+   do app (portal — ver App.tsx e ObsidianView.tsx): cada botão mostra o
+   ícone do PRÓPRIO modo que representa, `.active` marca o modo atual. */
+.obsidian-mode-segmented {
+  display: inline-flex;
+  gap: 0.15rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.15rem;
+}
 .obsidian-mode-toggle-btn {
   display: inline-flex;
   align-items: center;
@@ -5768,6 +5789,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 .obsidian-mode-toggle-btn:hover {
   background: transparent;
+  color: var(--accent);
+}
+.obsidian-mode-segmented .obsidian-mode-toggle-btn.active {
+  background: var(--surface-2);
   color: var(--accent);
 }
 
@@ -6128,6 +6153,23 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   touch-action: none;
 }
 .obsidian-graph-view canvas {
+  display: block;
+}
+
+/* Sistema solar — mesmo container/controles do grafo, canvas cru (sem
+   react-force-graph-2d) com pan/zoom próprios, mesmo motivo do
+   touch-action: none acima. */
+.obsidian-solar-view {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  min-height: 50vh;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  overflow: hidden;
+  touch-action: none;
+}
+.obsidian-solar-view canvas {
   display: block;
 }
 
