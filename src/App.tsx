@@ -9,6 +9,8 @@ import {
   useState,
 } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
+import { App as CapacitorApp } from '@capacitor/app';
+import { Capacitor } from '@capacitor/core';
 import { Login } from './components/Login';
 import {
   defaultProjectFiltersState,
@@ -224,6 +226,28 @@ export function App() {
   const [statsFilters, setStatsFilters] = useState<StatsFiltersState>(
     loadStatsFilters,
   );
+
+  // No APK, o botão físico/gesto de voltar do Android por padrão apenas
+  // fecha o app (o Capacitor só delega pro histórico do WebView quando um
+  // listener 'backButton' está registrado). Aqui delegamos pro histórico da
+  // SPA — o mesmo `history.back()` que os botões "fechar" já usam — e só
+  // minimizamos o app quando não há mais pra onde voltar.
+  useEffect(() => {
+    if (!Capacitor.isNativePlatform()) return;
+    const listenerPromise = CapacitorApp.addListener(
+      'backButton',
+      ({ canGoBack }) => {
+        if (canGoBack) {
+          window.history.back();
+        } else {
+          CapacitorApp.minimizeApp();
+        }
+      },
+    );
+    return () => {
+      listenerPromise.then((handle) => handle.remove());
+    };
+  }, []);
 
   useEffect(() => {
     localStorage.setItem(
