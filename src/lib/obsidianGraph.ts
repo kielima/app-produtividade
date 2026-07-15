@@ -2,6 +2,7 @@ import { parseWikilinks, normalizeNoteName } from './obsidianWikilink';
 import { buildNameIndex, resolveWikilinkTarget } from './obsidianBacklinks';
 import { findParentFolderId, type VaultState } from './obsidianTreeState';
 import { isMarkdownFile } from './obsidianNode';
+import { EXCLUDED_NAMES } from './obsidianExcludedNames';
 
 // Construtor puro do grafo unificado (spec item 4) — sem Drive/Firebase/CM6,
 // testável isoladamente (obsidianGraph.test.ts). Opera direto sobre
@@ -22,13 +23,6 @@ export type GraphLink = { source: string; target: string; kind: GraphLinkKind };
 export type GraphData = { nodes: GraphNode[]; links: GraphLink[] };
 
 const ROOT_LABEL = 'Meu Drive';
-
-// Pastas/arquivos que nunca aparecem no grafo, mesmo carregados/expandidos —
-// ruído estrutural (config do próprio Obsidian, índices auto-gerados) que
-// não ajuda a visualizar as ligações reais entre notas. Casamento por nome
-// exato; uma pasta excluída esconde tudo dentro dela (nenhum filho seu chega
-// a virar nó, então nada "solto" aparece por baixo dela).
-const EXCLUDED_NAMES = new Set(['.obsidian', '00_AVALIACOES', 'CLAUDE.md', '_MOC.md']);
 
 export function buildGraphData(state: VaultState): GraphData {
   const nodes = new Map<string, GraphNode>();
