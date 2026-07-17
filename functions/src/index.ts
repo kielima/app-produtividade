@@ -28,6 +28,10 @@ const GOOGLE_OAUTH_CLIENT_ID =
   '739803156090-n0f203p9io7276nm1uujsauntue6l644.apps.googleusercontent.com';
 const GOOGLE_OAUTH_CLIENT_SECRET = defineSecret('GOOGLE_OAUTH_CLIENT_SECRET');
 
+// Chave da API Gemini — vive só no Secret Manager. `callGemini` abaixo é o
+// único ponto que a lê; o cliente nunca a vê (ver src/lib/geminiClient.ts).
+const GEMINI_API_KEY = defineSecret('GEMINI_API_KEY');
+
 const TOKEN_ENDPOINT = 'https://oauth2.googleapis.com/token';
 const REVOKE_ENDPOINT = 'https://oauth2.googleapis.com/revoke';
 const CALENDAR_SCOPE = 'https://www.googleapis.com/auth/calendar.events';
@@ -323,5 +327,58 @@ export const disconnectDrive = onCall(
     await driveStatusDocRef(uid).set({ connected: false }, { merge: true }).catch(() => undefined);
 
     return { status: 'ok' as const };
+  },
+);
+
+// =============================================================
+// Gemini — proxy fino que injeta a chave de API do Secret Manager.
+//
+// O prompt/schema de cada feature de IA (subtarefas, transcrição de imagem,
+// classificação de leitura) continua montado no cliente — nada disso é
+// sigiloso. Só a apiKey precisa ficar no servidor, então esta function
+// apenas repassa `model` + `body` (o corpo já pronto do generateContent)
+// para o Gemini e devolve a resposta como veio. Ver src/lib/geminiClient.ts.
+// =============================================================
+
+interface GeminiErrorBody {
+  error?: { message?: string };
+}
+
+export const callGemini = onCall(
+  { secrets: [GEMINI_API_KEY] },
+  async (request) => {
+    requireAuth(request);
+
+    const model = (request.data?.model ?? '') as string;
+    const body = request.data?.body;
+    if (!model || typeof body !== 'object' || body === null) {
+      throw new HttpsError('invalid-argument', 'model e body são obrigatórios.');
+    }
+
+    const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent`;
+
+    let res: Response;
+    try {
+      res = await fetch(`${endpoint}?key=${encodeURIComponent(GEMINI_API_KEY.value())}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      });
+    } catch (e) {
+      throw new HttpsError(
+        'unavailable',
+        `Falha de rede ao chamar Gemini: ${e instanceof Error ? e.message : String(e)}`,
+      );
+    }
+
+    const json = await res.json().catch(() => null);
+    if (!res.ok) {
+      const msg = (json as GeminiErrorBody | null)?.error?.message ?? `HTTP ${res.status}`;
+      throw new HttpsError('internal', `Gemini respondeu erro: ${msg}`);
+    }
+    if (!json) {
+      throw new HttpsError('internal', 'Resposta vazia do Gemini.');
+    }
+    return json;
   },
 );

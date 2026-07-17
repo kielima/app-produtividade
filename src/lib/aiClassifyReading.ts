@@ -1,29 +1,19 @@
 // Classifica automaticamente um item da estante de leitura (artigo/livro/
 // outro) com base no conteúdo das primeiras páginas do PDF, via Gemini
-// (mesma chave/modelo configurados em `aiSubtasks.ts`). Não depende de DOI:
-// tenta o texto extraído primeiro; se vier curto demais (PDF escaneado sem
-// camada de texto), manda a imagem da 1ª página para o Gemini analisar
-// visualmente — mesmo padrão de `aiTranscribe.ts`.
+// (mesmo modelo configurado em `aiSubtasks.ts`; a chave vive no Secret
+// Manager, ver `geminiClient.ts`). Não depende de DOI: tenta o texto
+// extraído primeiro; se vier curto demais (PDF escaneado sem camada de
+// texto), manda a imagem da 1ª página para o Gemini analisar visualmente —
+// mesmo padrão de `aiTranscribe.ts`.
 
 import type { PDFDocumentProxy } from './pdf';
-import { getGeminiApiKey, getGeminiModel } from './aiSubtasks';
+import { getGeminiModel } from './aiSubtasks';
+import { callGemini } from './geminiClient';
 
 export class AiClassifyError extends Error {}
-// Erro específico para "sem chave configurada" — o chamador pode usá-lo para
-// não marcar o item como "já tentado" e assim classificar automaticamente
-// assim que o usuário configurar a chave, sem exigir reclassificação manual.
-export class MissingApiKeyError extends AiClassifyError {}
 
 export interface ClassifyResult {
   itemType: 'article' | 'book' | 'other';
-}
-
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-  }>;
-  promptFeedback?: { blockReason?: string };
-  error?: { message?: string };
 }
 
 // Abaixo disso, o texto extraído provavelmente não reflete o conteúdo real
@@ -73,11 +63,6 @@ const PROMPT = [
 export async function classifyReadingItem(
   doc: PDFDocumentProxy,
 ): Promise<ClassifyResult> {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    throw new MissingApiKeyError('Chave Gemini não configurada.');
-  }
-
   const text = await extractFirstPagesText(doc, 3);
   const parts: Array<Record<string, unknown>> = [];
   if (text.length < MIN_TEXT_LENGTH) {
@@ -105,31 +90,13 @@ export async function classifyReadingItem(
     },
   };
 
-  const model = getGeminiModel();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-  let res: Response;
+  let json;
   try {
-    res = await fetch(`${endpoint}?key=${encodeURIComponent(apiKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    json = await callGemini(getGeminiModel(), body);
   } catch (e) {
-    throw new AiClassifyError(
-      `Falha de rede ao chamar Gemini: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    throw new AiClassifyError(e instanceof Error ? e.message : String(e));
   }
 
-  const json = (await res.json().catch(() => null)) as GeminiResponse | null;
-
-  if (!res.ok) {
-    const msg = json?.error?.message ?? `HTTP ${res.status}`;
-    throw new AiClassifyError(`Gemini respondeu erro: ${msg}`);
-  }
-  if (!json) {
-    throw new AiClassifyError('Resposta vazia do Gemini.');
-  }
   if (json.promptFeedback?.blockReason) {
     throw new AiClassifyError(`Prompt bloqueado: ${json.promptFeedback.blockReason}`);
   }
