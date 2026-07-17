@@ -4,6 +4,7 @@ import ForceGraph2D, {
   type LinkObject,
   type NodeObject,
 } from 'react-force-graph-2d';
+import { forceCollide } from 'd3-force-3d';
 import {
   buildGraphData,
   reconcileGraphNodes,
@@ -51,13 +52,41 @@ const A4_RATIO = 297 / 210;
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
-const BASE_CHARGE_STRENGTH = -160;
+const BASE_CHARGE_STRENGTH = -200;
 // O nó em preview vira um cartão maior que um círculo — sem uma repulsão
 // própria mais forte, os nós vizinhos (que só conhecem a distância "normal"
 // entre círculos) acabam desenhados por baixo do cartão. Multiplicador
 // reduzido junto com o tamanho do cartão acima (era 12x pro cartão maior).
 const PREVIEW_CHARGE_STRENGTH = BASE_CHARGE_STRENGTH * 4;
 const LINK_DISTANCE = 70;
+
+// Repulsão (charge) sozinha não garante ausência de sobreposição — é uma
+// força "macia" que a atração dos links pode vencer localmente. O que
+// resolve de fato títulos um em cima do outro é uma força de colisão com
+// raio POR NÓ do tamanho do rótulo dele (não um raio fixo): nomes de
+// arquivo variam muito de tamanho, e um raio único ou fica grande demais
+// pros nomes curtos (espaço desperdiçado) ou pequeno demais pros longos
+// (continua sobrepondo). Calibrado para o maior tamanho de fonte que o
+// rótulo chega a desenhar na tela — `nodeCanvasObject` só desenha o texto
+// a partir de `globalScale > 0.9`, e usa fonte `13/globalScale`, então o
+// pior caso (maior fonte em unidades de mundo) é `13/0.9`. Isso garante
+// zero sobreposição em qualquer zoom onde os rótulos aparecem; dar mais
+// zoom só encolhe o texto em unidades de mundo, nunca aumenta.
+const LABEL_COLLIDE_FONT_SIZE = 13 / 0.9;
+const LABEL_COLLIDE_PADDING = 6;
+
+// Canvas 1x1 nunca anexado ao DOM, só pra medir largura de texto
+// (`measureText`) — reaproveitado entre chamadas em vez de criar um canvas
+// novo a cada recálculo das forças do grafo.
+let measureTextCtx: CanvasRenderingContext2D | null | undefined;
+function getMeasureTextWidth(text: string, fontSize: number): number {
+  if (measureTextCtx === undefined) {
+    measureTextCtx = document.createElement('canvas').getContext('2d');
+  }
+  if (!measureTextCtx) return text.length * fontSize * 0.55; // fallback grosseiro sem canvas (ex.: SSR/teste)
+  measureTextCtx.font = `${fontSize}px sans-serif`;
+  return measureTextCtx.measureText(text).width;
+}
 
 type Vault = ReturnType<typeof useGrafosVault>;
 type GNode = NodeObject<GraphNode>;
@@ -317,6 +346,18 @@ export function GrafosGraphView({
       node.id === previewId ? PREVIEW_CHARGE_STRENGTH : BASE_CHARGE_STRENGTH,
     );
     graphRef.current?.d3Force('link')?.distance(LINK_DISTANCE);
+    graphRef.current?.d3Force(
+      'collide',
+      forceCollide<GraphNode & { id?: string }>((node) => {
+        // O cartão de preview já tem sua própria repulsão bem maior (charge
+        // acima) e não desenha rótulo (ver nodeCanvasObject) — não precisa
+        // de raio de colisão à parte.
+        if (node.id === previewId) return 0;
+        const circleRadius = node.kind === 'folder' ? 5 : 3.5;
+        const halfLabelWidth = getMeasureTextWidth(node.name, LABEL_COLLIDE_FONT_SIZE) / 2;
+        return Math.max(circleRadius, halfLabelWidth) + LABEL_COLLIDE_PADDING;
+      }),
+    );
   }, [graphData, previewId]);
 
   // Só quando o preview abre/fecha (não a cada mudança de `graphData`, que já
