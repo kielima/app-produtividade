@@ -1,22 +1,15 @@
 // Cliente Gemini para extrair texto de uma imagem partilhada via Web Share
-// Target. Reutiliza a mesma chave/modelo configurados em `aiSubtasks.ts` —
-// o utilizador só configura uma vez em Configurações > IA.
+// Target. Reutiliza o mesmo modelo configurado em `aiSubtasks.ts` e a chave
+// guardada no Secret Manager do Firebase (ver src/lib/geminiClient.ts).
 
-import { getGeminiApiKey, getGeminiModel } from './aiSubtasks';
+import { getGeminiModel } from './aiSubtasks';
+import { callGemini } from './geminiClient';
 
 export class AiTranscribeError extends Error {}
 
 export interface TranscribedContent {
   title: string;
   text: string;
-}
-
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-  }>;
-  promptFeedback?: { blockReason?: string };
-  error?: { message?: string };
 }
 
 const PROMPT = [
@@ -32,13 +25,6 @@ export async function transcribeImage(args: {
   imageBase64: string;
   mimeType: string;
 }): Promise<TranscribedContent> {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    throw new AiTranscribeError(
-      'Chave Gemini não configurada. Vá em Configurações > Inteligência Artificial.',
-    );
-  }
-
   const body = {
     contents: [
       {
@@ -67,31 +53,13 @@ export async function transcribeImage(args: {
     },
   };
 
-  const model = getGeminiModel();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-  let res: Response;
+  let json;
   try {
-    res = await fetch(`${endpoint}?key=${encodeURIComponent(apiKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    json = await callGemini(getGeminiModel(), body);
   } catch (e) {
-    throw new AiTranscribeError(
-      `Falha de rede ao chamar Gemini: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    throw new AiTranscribeError(e instanceof Error ? e.message : String(e));
   }
 
-  const json = (await res.json().catch(() => null)) as GeminiResponse | null;
-
-  if (!res.ok) {
-    const msg = json?.error?.message ?? `HTTP ${res.status}`;
-    throw new AiTranscribeError(`Gemini respondeu erro: ${msg}`);
-  }
-  if (!json) {
-    throw new AiTranscribeError('Resposta vazia do Gemini.');
-  }
   if (json.promptFeedback?.blockReason) {
     throw new AiTranscribeError(
       `Prompt bloqueado: ${json.promptFeedback.blockReason}`,

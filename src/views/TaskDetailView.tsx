@@ -26,7 +26,7 @@ import { ParentPicker } from '../components/ParentPicker';
 import { Popover } from '../components/Popover';
 import { ProjectPicker } from '../components/ProjectPicker';
 import TrashIcon from '../components/TrashIcon';
-import { AiSubtasksError, generateSubtasks, hasGeminiApiKey } from '../lib/aiSubtasks';
+import { AiSubtasksError, generateSubtasks } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
 import {
@@ -824,11 +824,7 @@ export function TaskDetailView({
                 className="btn-ai-subtasks"
                 onClick={handleGenerateSubtasks}
                 disabled={aiLoading}
-                title={
-                  hasGeminiApiKey()
-                    ? 'Gerar subtarefas a partir do título e da nota'
-                    : 'Configure a chave Gemini em Configurações primeiro'
-                }
+                title="Gerar subtarefas a partir do título e da nota"
               >
                 {aiLoading ? '⏳ Gerando…' : '✨ Gerar com IA'}
               </button>

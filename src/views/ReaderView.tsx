@@ -3,7 +3,7 @@ import { loadPdfDocument, type PDFDocumentProxy, type PDFPageProxy } from '../li
 import { fetchReadingFileBytes } from '../lib/readingDocs';
 import { DriveAuthError, ensureDriveToken } from '../lib/googleDrive';
 import { findDoiInPdf } from '../lib/readingMetadata';
-import { classifyReadingItem, MissingApiKeyError } from '../lib/aiClassifyReading';
+import { classifyReadingItem } from '../lib/aiClassifyReading';
 import {
   newAnnotationId,
   subscribeToAnnotations,
@@ -1051,9 +1051,7 @@ async function autoDetectDoi(
 
 // Classificação automática (artigo/livro/outro) via IA, uma única tentativa
 // por item — marcada em `autoClassifiedAt` para não bater na API a cada
-// abertura. Exceção: se ainda não há chave Gemini configurada, não marca
-// como tentado, para classificar sozinho assim que o usuário configurar a
-// chave (sem precisar reabrir/reclassificar manualmente).
+// abertura.
 async function autoClassifyType(
   doc: PDFDocumentProxy,
   uid: string,
@@ -1064,8 +1062,7 @@ async function autoClassifyType(
   try {
     const { itemType } = await classifyReadingItem(doc);
     patch = { itemType, autoClassifiedAt: new Date().toISOString() };
-  } catch (err) {
-    if (err instanceof MissingApiKeyError) return;
+  } catch {
     patch = { autoClassifiedAt: new Date().toISOString() };
   }
   try {

@@ -1,10 +1,12 @@
 // Cliente Gemini para gerar subtarefas a partir do título + nota de uma tarefa.
 //
-// A chave de API fica só no localStorage do navegador do utilizador. Nunca
-// entra no bundle nem no repositório. Por ser um app pessoal client-only com
-// código aberto, esse é o padrão correto — nada de `VITE_*` aqui.
+// A chave de API vive no Secret Manager do Firebase — a chamada real ao
+// Gemini acontece na Cloud Function `callGemini` (ver src/lib/geminiClient.ts
+// e functions/src/index.ts). Aqui só montamos o prompt/schema (não sigilosos)
+// e escolhemos o modelo.
 
-const API_KEY_STORAGE = 'app-produtividade:gemini-api-key';
+import { callGemini } from './geminiClient';
+
 const MODEL_STORAGE = 'app-produtividade:gemini-model';
 const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
 
@@ -29,36 +31,7 @@ export function getDefaultGeminiModel(): string {
   return DEFAULT_GEMINI_MODEL;
 }
 
-export function getGeminiApiKey(): string {
-  try {
-    return localStorage.getItem(API_KEY_STORAGE) ?? '';
-  } catch {
-    return '';
-  }
-}
-
-export function setGeminiApiKey(key: string): void {
-  const trimmed = key.trim();
-  if (trimmed) {
-    localStorage.setItem(API_KEY_STORAGE, trimmed);
-  } else {
-    localStorage.removeItem(API_KEY_STORAGE);
-  }
-}
-
-export function hasGeminiApiKey(): boolean {
-  return getGeminiApiKey().length > 0;
-}
-
 export class AiSubtasksError extends Error {}
-
-interface GeminiResponse {
-  candidates?: Array<{
-    content?: { parts?: Array<{ text?: string }> };
-  }>;
-  promptFeedback?: { blockReason?: string };
-  error?: { message?: string };
-}
 
 function buildPrompt(title: string, note: string, existingSubtasks: string[]): string {
   const noteBlock = note.trim()
@@ -87,13 +60,6 @@ export async function generateSubtasks(args: {
   note: string;
   existingSubtasks: string[];
 }): Promise<string[]> {
-  const apiKey = getGeminiApiKey();
-  if (!apiKey) {
-    throw new AiSubtasksError(
-      'Chave Gemini não configurada. Vá em Configurações > Inteligência Artificial.',
-    );
-  }
-
   const prompt = buildPrompt(args.title, args.note, args.existingSubtasks);
 
   const body = {
@@ -114,31 +80,13 @@ export async function generateSubtasks(args: {
     },
   };
 
-  const model = getGeminiModel();
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
-
-  let res: Response;
+  let json;
   try {
-    res = await fetch(`${endpoint}?key=${encodeURIComponent(apiKey)}`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    });
+    json = await callGemini(getGeminiModel(), body);
   } catch (e) {
-    throw new AiSubtasksError(
-      `Falha de rede ao chamar Gemini: ${e instanceof Error ? e.message : String(e)}`,
-    );
+    throw new AiSubtasksError(e instanceof Error ? e.message : String(e));
   }
 
-  const json = (await res.json().catch(() => null)) as GeminiResponse | null;
-
-  if (!res.ok) {
-    const msg = json?.error?.message ?? `HTTP ${res.status}`;
-    throw new AiSubtasksError(`Gemini respondeu erro: ${msg}`);
-  }
-  if (!json) {
-    throw new AiSubtasksError('Resposta vazia do Gemini.');
-  }
   if (json.promptFeedback?.blockReason) {
     throw new AiSubtasksError(
       `Prompt bloqueado: ${json.promptFeedback.blockReason}`,
