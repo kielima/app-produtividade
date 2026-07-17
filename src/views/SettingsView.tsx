@@ -2,9 +2,7 @@ import { useRef, useState } from 'react';
 import { useAuthState } from 'react-firebase-hooks/auth';
 import {
   getDefaultGeminiModel,
-  getGeminiApiKey,
   getGeminiModel,
-  setGeminiApiKey,
   setGeminiModel,
 } from '../lib/aiSubtasks';
 import { auth } from '../lib/firebase';
@@ -55,10 +53,8 @@ export function SettingsView({ uid }: { uid: string }) {
   const [preview, setPreview] = useState<ExportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [geminiKey, setGeminiKey] = useState(() => getGeminiApiKey());
-  const [geminiKeyVisible, setGeminiKeyVisible] = useState(false);
-  const [geminiKeySaved, setGeminiKeySaved] = useState(false);
   const [geminiModel, setGeminiModelState] = useState(() => getGeminiModel());
+  const [geminiModelSaved, setGeminiModelSaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importPayload, setImportPayload] = useState<ExportPayload | null>(null);
@@ -193,17 +189,10 @@ export function SettingsView({ uid }: { uid: string }) {
     }
   }
 
-  function handleSaveGeminiKey() {
-    setGeminiApiKey(geminiKey);
+  function handleSaveGeminiModel() {
     setGeminiModel(geminiModel);
-    setGeminiKeySaved(true);
-    window.setTimeout(() => setGeminiKeySaved(false), 2000);
-  }
-
-  function handleClearGeminiKey() {
-    setGeminiApiKey('');
-    setGeminiKey('');
-    setGeminiKeySaved(false);
+    setGeminiModelSaved(true);
+    window.setTimeout(() => setGeminiModelSaved(false), 2000);
   }
 
   function resetImport() {
@@ -262,45 +251,17 @@ export function SettingsView({ uid }: { uid: string }) {
       <article className="settings-card">
         <h3>Inteligência Artificial</h3>
         <p className="muted">
-          Configure uma chave do Google Gemini para gerar subtarefas
-          automaticamente a partir do título e das notas de uma tarefa. A
-          chave fica salva só no localStorage deste navegador — nunca é
-          enviada ao Firestore nem ao repositório. Pegue uma chave gratuita
-          em{' '}
-          <a
-            href="https://aistudio.google.com/apikey"
-            target="_blank"
-            rel="noreferrer"
-          >
-            aistudio.google.com/apikey
-          </a>
-          .
+          Recursos de IA (subtarefas, transcrição de imagem compartilhada,
+          classificação de itens da Leitura) usam o Google Gemini. A chave de
+          API fica guardada no Secret Manager do Firebase — não precisa
+          configurar nada aqui, e ela nunca chega ao navegador. Só o modelo é
+          ajustável por dispositivo.
         </p>
 
         <div
           className="settings-actions"
           style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.5rem' }}
         >
-          <input
-            type={geminiKeyVisible ? 'text' : 'password'}
-            value={geminiKey}
-            onChange={(e) => {
-              setGeminiKey(e.target.value);
-              setGeminiKeySaved(false);
-            }}
-            placeholder="AIza…"
-            spellCheck={false}
-            autoComplete="off"
-            style={{
-              padding: '0.5rem 0.7rem',
-              border: '1px solid var(--border)',
-              borderRadius: 4,
-              background: 'var(--surface)',
-              color: 'var(--fg)',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontSize: '0.85rem',
-            }}
-          />
           <label style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
             Modelo (padrão: <code>{getDefaultGeminiModel()}</code>)
           </label>
@@ -309,7 +270,7 @@ export function SettingsView({ uid }: { uid: string }) {
             value={geminiModel}
             onChange={(e) => {
               setGeminiModelState(e.target.value);
-              setGeminiKeySaved(false);
+              setGeminiModelSaved(false);
             }}
             placeholder={getDefaultGeminiModel()}
             spellCheck={false}
@@ -328,31 +289,14 @@ export function SettingsView({ uid }: { uid: string }) {
             <button
               type="button"
               className="btn-primary"
-              onClick={handleSaveGeminiKey}
-              disabled={!geminiKey.trim()}
+              onClick={handleSaveGeminiModel}
             >
-              Salvar chave
+              Salvar modelo
             </button>
-            <button
-              type="button"
-              className="btn-secondary"
-              onClick={() => setGeminiKeyVisible((v) => !v)}
-            >
-              {geminiKeyVisible ? 'Ocultar' : 'Mostrar'}
-            </button>
-            {getGeminiApiKey() && (
-              <button
-                type="button"
-                className="btn-secondary"
-                onClick={handleClearGeminiKey}
-              >
-                Remover
-              </button>
-            )}
           </div>
-          {geminiKeySaved && (
+          {geminiModelSaved && (
             <p className="muted" style={{ margin: 0 }}>
-              ✓ Chave salva neste navegador.
+              ✓ Modelo salvo neste navegador.
             </p>
           )}
         </div>
