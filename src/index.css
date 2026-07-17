@@ -6117,10 +6117,15 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
    independente de onde o conteúdo do HTML do usuário desenha o dele. Fundo
    semi-opaco (não usa var(--accent) sólido como o `.fab` global) porque este
    flutua sobre uma página arbitrária, de cor imprevisível — precisa
-   continuar legível em cima de qualquer fundo. */
+   continuar legível em cima de qualquer fundo. `top` usa `min()` pra capar a
+   contribuição do safe-area-inset-top: no APK Android (edge-to-edge por
+   padrão a partir do SDK 35) esse valor relatado pelo WebView vem bem maior
+   que a status bar visível de verdade, e sem o teto o botão "flutuava" longe
+   do topo — quase no meio da tela — em vez de ficar colado no canto como
+   deveria (relatado pelo usuário: botão bem abaixo de onde ele esperava). */
 .grafos-html-viewer-close-fab {
   position: fixed;
-  top: calc(0.75rem + env(safe-area-inset-top, 0px));
+  top: min(calc(0.5rem + env(safe-area-inset-top, 0px)), 2.5rem);
   right: calc(0.75rem + env(safe-area-inset-right, 0px));
   width: 2.75rem;
   height: 2.75rem;
