@@ -20,16 +20,26 @@ import { GrafosMoveDialog } from './GrafosMoveDialog';
 
 type Vault = ReturnType<typeof useGrafosVault>;
 
-// Quantas pastas o crawl eager pode buscar em paralelo — alto o bastante pra
-// mapear o vault rápido, baixo o bastante pra não disparar centenas de
-// requisições simultâneas ao Drive de uma vez (ver crawlVault abaixo).
-// Reduzido de 6 pra 4 como margem extra contra estourar a cota da API do
-// Drive num vault muito grande (ver RETRY_DELAYS_MS logo abaixo).
+// Quantas pastas o crawl eager pode buscar em paralelo DENTRO DE UM NÍVEL —
+// alto o bastante pra mapear o vault rápido, baixo o bastante pra não
+// disparar centenas de requisições simultâneas ao Drive de uma vez (ver
+// crawlVaultByLevel abaixo). Reduzido de 6 pra 4 como margem extra contra
+// estourar a cota da API do Drive num vault muito grande.
 const MAX_CONCURRENT_FOLDER_LOADS = 4;
 
 // Backoff pra falhas transitórias (rate limit, erro 500 "internal" etc.)
 // durante o crawl — ver loadFolderChildrenWithRetry.
 const RETRY_DELAYS_MS = [500, 1500, 4000];
+
+// Pausa entre um nível de profundidade e o próximo do crawl (ver
+// crawlVaultByLevel) — o crawl processa o vault inteiro em "camadas" (raiz,
+// depois filhos diretos, depois netos, ...), uma de cada vez, em vez de
+// disparar a árvore inteira de uma só vez. Além de limitar o pico de
+// memória (nunca há mais promises "pendentes" do que o tamanho de UM
+// nível, não da árvore inteira), essa pausa dá tempo pro throttle de
+// `solarData` (SOLAR_DATA_THROTTLE_MS) e pro GC "respirarem" entre rajadas,
+// e produz o efeito visual pedido de "abrir o universo nível a nível".
+const LEVEL_PACING_MS = 500;
 
 // Mesmos valores de GrafosGraphView.tsx — long-press (touch) detectado na
 // mão porque `contextmenu` nativo não dispara de forma confiável no WebView
@@ -305,35 +315,68 @@ async function loadFolderChildrenWithRetry(vault: Vault, folderId: string): Prom
   }
 }
 
-// Crawl recursivo de TODA pasta do vault a partir da raiz — é o que torna
-// "todo o universo visível" verdade: diferente da árvore/grafo (que só
-// mostram o que foi expandido manualmente), o sistema solar carrega tudo
-// sozinho ao montar. `vault.loadFolderChildren` é cache-aware e não busca
+// Aplica `fn` a cada item de `items`, no máximo `limit` de cada vez, e só
+// devolve depois que TODOS terminarem — ao contrário de disparar `fn` pra
+// toda a árvore de uma vez (só limitando quantos rodam por vez, mas não
+// quantos ficam "na fila" esperando), isto processa um lote de tamanho
+// fixo (`items.length`) e não cresce mais que isso. Usado por
+// crawlVaultByLevel pra processar UM NÍVEL de profundidade por vez.
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const semaphore = createSemaphore(limit);
+  return Promise.all(
+    items.map(async (item) => {
+      const release = await semaphore.acquire();
+      try {
+        return await fn(item);
+      } finally {
+        release();
+      }
+    }),
+  );
+}
+
+// Crawl de TODA pasta do vault a partir da raiz, em largura (BFS) — é o que
+// torna "todo o universo visível" verdade: diferente da árvore/grafo (que
+// só mostram o que foi expandido manualmente), o sistema solar carrega tudo
+// sozinho ao montar. Processa um NÍVEL DE PROFUNDIDADE por vez (raiz →
+// filhos diretos → netos → ...), com uma pausa entre níveis
+// (`LEVEL_PACING_MS`): diferente de uma recursão que dispara a árvore
+// inteira de uma vez só limitando a concorrência (a versão anterior desta
+// função), aqui o número de requisições/promises "em voo" a qualquer
+// momento é limitado ao tamanho de UM nível, não da árvore inteira — é
+// isso que evita o pico de memória que estava derrubando o WebView em
+// vaults grandes. `vault.loadFolderChildren` é cache-aware e não busca
 // conteúdo de nota (`fetchNoteContent: false`), então não desperdiça
 // requisições em texto que esta visualização nunca usa. Erros de uma pasta
 // individual (mesmo após as tentativas de `loadFolderChildrenWithRetry`)
 // não abortam o crawl inteiro — a pasta problemática só fica sem filhos no
-// mapa.
-async function crawlVault(vault: Vault, rootId: string, isCancelled: () => boolean): Promise<void> {
+// mapa. `onLevelStart` (opcional) é chamado antes de processar cada nível,
+// com o número do nível e quantas pastas ele tem — usado só pro indicador
+// de progresso na tela.
+async function crawlVaultByLevel(
+  vault: Vault,
+  rootId: string,
+  isCancelled: () => boolean,
+  onLevelStart?: (level: number, folderCount: number) => void,
+): Promise<void> {
   const seen = new Set<string>([rootId]);
-  const semaphore = createSemaphore(MAX_CONCURRENT_FOLDER_LOADS);
+  let currentLevel = [rootId];
+  let depth = 0;
 
-  async function visit(folderId: string): Promise<void> {
-    if (isCancelled()) return;
-    const release = await semaphore.acquire();
-    let children: DriveNode[];
-    try {
-      children = await loadFolderChildrenWithRetry(vault, folderId);
-    } finally {
-      release();
-    }
-    if (isCancelled()) return;
-    const subfolders = children.filter((c) => c.isFolder && !EXCLUDED_NAMES.has(c.name) && !seen.has(c.id));
-    for (const sf of subfolders) seen.add(sf.id);
-    await Promise.all(subfolders.map((sf) => visit(sf.id)));
+  while (currentLevel.length > 0 && !isCancelled()) {
+    onLevelStart?.(depth, currentLevel.length);
+    const nextLevelBatches = await mapWithConcurrency(currentLevel, MAX_CONCURRENT_FOLDER_LOADS, async (folderId) => {
+      if (isCancelled()) return [] as string[];
+      const children = await loadFolderChildrenWithRetry(vault, folderId);
+      const subfolders = children.filter((c) => c.isFolder && !EXCLUDED_NAMES.has(c.name) && !seen.has(c.id));
+      for (const sf of subfolders) seen.add(sf.id);
+      return subfolders.map((sf) => sf.id);
+    });
+    currentLevel = nextLevelBatches.flat();
+    depth += 1;
+    if (currentLevel.length === 0 || isCancelled()) break;
+    await sleep(LEVEL_PACING_MS);
   }
-
-  await visit(rootId);
 }
 
 // Visualização "sistema solar" (releitura orbital da mesma hierarquia de
@@ -360,6 +403,12 @@ export function GrafosSolarSystemView({
   }, [size]);
 
   const [crawling, setCrawling] = useState(true);
+  // Nível de profundidade atual do crawl (0 = raiz) e quantas pastas esse
+  // nível tem — só pro indicador de progresso ("nível N") na tela.
+  const [crawlProgress, setCrawlProgress] = useState<{ level: number; folderCount: number }>({
+    level: 0,
+    folderCount: 1,
+  });
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [htmlViewerNode, setHtmlViewerNode] = useState<SolarNode | null>(null);
   const [actionNode, setActionNode] = useState<SolarNode | null>(null);
@@ -418,7 +467,9 @@ export function GrafosSolarSystemView({
     if (!rootId) return;
     let cancelled = false;
     setCrawling(true);
-    crawlVault(vault, rootId, () => cancelled).finally(() => {
+    crawlVaultByLevel(vault, rootId, () => cancelled, (level, folderCount) => {
+      if (!cancelled) setCrawlProgress({ level, folderCount });
+    }).finally(() => {
       if (!cancelled) setCrawling(false);
     });
     return () => {
@@ -804,7 +855,8 @@ export function GrafosSolarSystemView({
 
       {crawling && (
         <p className="muted grafos-status-line">
-          Mapeando o universo… {solarData.nodes.length} corpos encontrados até agora
+          Mapeando o universo… nível {crawlProgress.level} ({crawlProgress.folderCount} pasta
+          {crawlProgress.folderCount === 1 ? '' : 's'}) · {solarData.nodes.length} corpos encontrados até agora
         </p>
       )}
 
