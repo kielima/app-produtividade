@@ -23,9 +23,13 @@ export function ProjectPicker({
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
-    if (!q) return projects;
-    return projects.filter((p) => p.name.toLowerCase().includes(q));
-  }, [projects, query]);
+    const selectable = projects.filter(
+      (p) =>
+        p.id === currentSection || (p.status !== 'Concluído' && p.status !== 'Cancelado')
+    );
+    if (!q) return selectable;
+    return selectable.filter((p) => p.name.toLowerCase().includes(q));
+  }, [projects, currentSection, query]);
 
   return (
     <div className="project-picker">
