@@ -5982,6 +5982,12 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.5rem;
   padding: 1.5rem;
 }
+.grafos-solar-crawl-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
 
 .grafos-editor {
   flex: 1;

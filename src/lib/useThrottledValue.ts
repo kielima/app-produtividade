@@ -8,7 +8,7 @@ import { useEffect, useRef, useState } from 'react';
 // atualiza no máximo uma vez a cada `intervalMs`, mesmo que `value` mude com
 // muito mais frequência que isso. Diferente de debounce (que só dispara
 // depois de um período de silêncio — inútil aqui, porque a fonte que motivou
-// este hook, o crawl eager do sistema solar em ObsidianSolarSystemView.tsx,
+// este hook, o crawl eager do sistema solar em GrafosSolarSystemView.tsx,
 // muda `vault.state` CONTINUAMENTE por um tempo longo; um debounce nunca
 // dispararia até o crawl inteiro terminar), o throttle sempre converge pro
 // valor mais recente dentro de `intervalMs`, mantendo a sensação de
