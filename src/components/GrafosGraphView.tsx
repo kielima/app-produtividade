@@ -176,6 +176,16 @@ export function GrafosGraphView({
   // no efeito mais abaixo sempre que `graphData` é recalculado.
   const pinnedPositionsRef = useRef<Map<string, { x: number; y: number }>>(new Map());
 
+  // Id do nó tocado por último (pasta/nota/arquivo) — `handleNodeClick`
+  // grava aqui e `handleEngineStop` consome assim que a física estabilizar
+  // de novo. Abrir/fechar uma pasta muda `graphData` (novos nós entram) e a
+  // força de colisão/repulsão desloca o nó tocado pra abrir espaço pros
+  // vizinhos novos — centralizar só no clique (posição de ANTES desse
+  // reajuste) fazia o item "escapar" do centro assim que os vizinhos
+  // chegavam. Recentralizar de novo com a posição final, só quando a
+  // simulação já assentou, corrige isso.
+  const pendingCenterNodeIdRef = useRef<string | null>(null);
+
   // `buildGraphData` monta objetos de nó NOVOS a cada chamada (Map fresco,
   // literais `{id,name,kind,mimeType}` sem x/y) — e o d3-force por baixo do
   // react-force-graph-2d NÃO reconcilia por id: ele só preserva x/y de um nó
@@ -372,15 +382,29 @@ export function GrafosGraphView({
     graphRef.current?.d3ReheatSimulation();
   }, [previewId]);
 
-  // Só na primeira vez que a simulação estabiliza: enquadra tudo na tela, pra
-  // não abrir numa parte aleatória do grafo. Não repete depois disso (ex.:
-  // ao expandir uma pasta) pra não "puxar o tapete" de onde o usuário estava
+  // Primeira vez que a simulação estabiliza: enquadra tudo na tela, pra não
+  // abrir numa parte aleatória do grafo. Não repete depois disso (ex.: ao
+  // expandir uma pasta) pra não "puxar o tapete" de onde o usuário estava
   // navegando — pra isso o botão "Ajustar" já existe.
+  //
+  // Nas vezes seguintes: se o último clique (`pendingCenterNodeIdRef`) ainda
+  // não foi consumido, recentraliza no nó tocado usando a posição FINAL,
+  // depois que a colisão/repulsão já empurrou os vizinhos novos pro lugar —
+  // corrige o "escapar do centro" que a centralização imediata (no
+  // `handleNodeClick`) sozinha não resolve.
   const handleEngineStop = useCallback(() => {
-    if (didInitialFitRef.current) return;
-    didInitialFitRef.current = true;
-    graphRef.current?.zoomToFit(400, 60);
-  }, []);
+    if (!didInitialFitRef.current) {
+      didInitialFitRef.current = true;
+      graphRef.current?.zoomToFit(400, 60);
+    }
+    const pendingId = pendingCenterNodeIdRef.current;
+    if (!pendingId) return;
+    pendingCenterNodeIdRef.current = null;
+    const n = graphData.nodes.find((node) => node.id === pendingId) as
+      | (GraphNode & { x?: number; y?: number })
+      | undefined;
+    if (n?.x != null && n.y != null) graphRef.current?.centerAt(n.x, n.y, 400);
+  }, [graphData]);
 
   // Reaplica (e mantém fixada) a posição de todo nó que o usuário fixou
   // manualmente, sempre que `graphData` é recalculado. Redundante enquanto o
@@ -408,8 +432,12 @@ export function GrafosGraphView({
       // Centraliza o que foi tocado — pasta, nota ou arquivo — pra ficar
       // fácil de reencontrar mesmo com o resto do grafo se reajustando ao
       // redor (spec do usuário: "centraliza... com o que tem em volta se
-      // reajustando"). Só pan, sem mudar o zoom.
+      // reajustando"). Só pan, sem mudar o zoom. Centralização imediata (dá
+      // feedback na hora), mas a posição usada aqui é a de ANTES de
+      // expandir/recolher — `handleEngineStop` corrige com a posição final
+      // assim que a física estabilizar de novo (ver `pendingCenterNodeIdRef`).
       if (n.x != null && n.y != null) graphRef.current?.centerAt(n.x, n.y, 400);
+      pendingCenterNodeIdRef.current = n.id;
       if (n.kind === 'folder') {
         if (n.id === vault.state.rootId) return;
         if (vault.state.expandedIds.has(n.id)) vault.collapseFolder(n.id);
