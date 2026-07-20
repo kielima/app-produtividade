@@ -25,9 +25,6 @@ const HL_TAP_PAD = 0.012;
 const TAP_MAX = 12;
 // Tempo sem eventos de caneta após o qual devolvemos a rolagem normal ao dedo.
 const PEN_IDLE_MS = 700;
-// Tempo de toque parado do dedo para virar seleção de texto nativa (como o
-// long-press padrão do Android).
-const LONG_PRESS_MS = 500;
 
 type SpanBox = {
   el: Element;
@@ -38,7 +35,7 @@ type SpanBox = {
 };
 
 type Gesture = {
-  mode: 'idle' | 'pending' | 'active' | 'selecting';
+  mode: 'idle' | 'pending' | 'active';
   action: 'highlight' | 'erase' | 'comment';
   pen: boolean;
   pointerId: number;
@@ -220,71 +217,31 @@ export function PdfPageView({
     );
   }
 
+  // O canvas de captura (overlay) e a camada de texto (textLayer) revezam quem
+  // recebe os toques:
+  //  - "Desarmado" (repouso, sem caneta por perto): overlay com
+  //    pointer-events: none, textLayer com pointer-events: auto. O DEDO então
+  //    encosta DE VERDADE nos <span> de texto, e o Android reconhece o
+  //    long-press nativamente — alças de seleção e menu "Copiar" de verdade
+  //    (uma Selection criada via JS não aciona essa UI nativa; é preciso que o
+  //    toque real chegue no texto real).
+  //  - "Armado" (caneta pairando/em uso): invertido — overlay com
+  //    pointer-events: auto (recebe o traço) e textLayer com none (não
+  //    atrapalha). A S-Pen reporta hover ANTES de encostar, dando tempo de
+  //    armar antes do contato de verdade.
   function armPen() {
     overlayRef.current?.style.setProperty('touch-action', 'none');
+    overlayRef.current?.style.setProperty('pointer-events', 'auto');
+    textLayerRef.current?.style.setProperty('pointer-events', 'none');
     if (penIdleTimer.current) clearTimeout(penIdleTimer.current);
     penIdleTimer.current = window.setTimeout(disarmPen, PEN_IDLE_MS);
   }
   function disarmPen() {
     if (gesture.current.mode === 'active') return; // nunca no meio de um traço
     overlayRef.current?.style.setProperty('touch-action', 'pan-y');
+    overlayRef.current?.style.setProperty('pointer-events', 'none');
+    textLayerRef.current?.style.setProperty('pointer-events', 'auto');
     penIdleTimer.current = null;
-  }
-
-  // ----------------------------------------------------------------
-  // Seleção de texto nativa pelo DEDO (segurar = long-press, como no Android)
-  // ----------------------------------------------------------------
-  // O canvas de captura fica por cima de tudo (necessário para a caneta), então
-  // o navegador nunca vê o toque chegar nos <span> de texto por baixo e não
-  // oferece o menu de seleção. Em vez de mexer nas camadas (o que quebraria a
-  // captura da caneta), simulamos o long-press: seguramos o dedo parado por
-  // LONG_PRESS_MS, achamos a palavra sob o dedo com a mesma geometria usada
-  // pelo marca-texto (locateCaret) e criamos uma Selection/Range de verdade
-  // sobre o texto real — o Android então desenha as alças e o menu Copiar
-  // normalmente, porque a seleção nativa não liga para como ela nasceu.
-  const longPressTimer = useRef<number | null>(null);
-
-  function clearLongPressTimer() {
-    if (longPressTimer.current != null) {
-      window.clearTimeout(longPressTimer.current);
-      longPressTimer.current = null;
-    }
-  }
-
-  function selectWordAt(clientX: number, clientY: number): boolean {
-    snapshotSpans();
-    const caret = locateCaret(clientX, clientY);
-    if (!caret) return false;
-    const box = spanBoxes.current[caret.index];
-    const node = box.el.firstChild;
-    if (!node || node.nodeType !== Node.TEXT_NODE) return false;
-    const text = node.textContent ?? '';
-    const chars = charBoxes(box.el);
-    if (!chars.length) return false;
-    let idx = chars.length - 1;
-    for (let i = 0; i < chars.length; i++) {
-      if (clientX <= chars[i].r) {
-        idx = i;
-        break;
-      }
-    }
-    if (!chars[idx].ch.trim()) return false; // caiu em espaço: nada a selecionar
-    let start = idx;
-    while (start > 0 && /\S/.test(text[start - 1])) start--;
-    let end = idx + 1;
-    while (end < text.length && /\S/.test(text[end])) end++;
-    try {
-      const range = document.createRange();
-      range.setStart(node, start);
-      range.setEnd(node, end);
-      const sel = window.getSelection();
-      if (!sel) return false;
-      sel.removeAllRanges();
-      sel.addRange(range);
-      return true;
-    } catch {
-      return false;
-    }
   }
 
   function localPoint(e: { clientX: number; clientY: number }): { x: number; y: number } {
@@ -797,20 +754,6 @@ export function PdfPageView({
       curX: e.clientX,
       curY: e.clientY,
     };
-
-    // Segurar parado = seleção de texto (ver comentário acima de selectWordAt).
-    clearLongPressTimer();
-    const pointerId = e.pointerId;
-    const cx = e.clientX;
-    const cy = e.clientY;
-    longPressTimer.current = window.setTimeout(() => {
-      longPressTimer.current = null;
-      const g = gesture.current;
-      if (g.pointerId !== pointerId || g.mode !== 'pending') return;
-      if (selectWordAt(cx, cy)) {
-        gesture.current = { ...g, mode: 'selecting' };
-      }
-    }, LONG_PRESS_MS);
   }
 
   function onPointerMove(e: React.PointerEvent) {
@@ -849,13 +792,7 @@ export function PdfPageView({
     // pending
     // Dedo: não interceptamos — o navegador rola (pan-y) e dispara pointercancel
     // se virar rolagem; se for só um toque, o pointerup decide pela distância.
-    // Movimento além do limiar cancela o long-press (virou rolagem, não seleção).
-    if (!g.pen) {
-      const mx = Math.abs(e.clientX - g.startX);
-      const my = Math.abs(e.clientY - g.startY);
-      if (Math.max(mx, my) >= DRAG_THRESHOLD) clearLongPressTimer();
-      return;
-    }
+    if (!g.pen) return;
     const dx = Math.abs(e.clientX - g.startX);
     const dy = Math.abs(e.clientY - g.startY);
     if (Math.max(dx, dy) < DRAG_THRESHOLD) return;
@@ -880,27 +817,13 @@ export function PdfPageView({
   }
 
   function onPointerUp(e: React.PointerEvent) {
-    clearLongPressTimer();
     const g = gesture.current;
     if (e.pointerId !== g.pointerId) return;
-
-    // O long-press já criou a seleção de texto; só limpamos o gesto e deixamos
-    // o Android cuidar das alças/menu (não é um toque nem um arrasto nosso).
-    if (g.mode === 'selecting') {
-      gesture.current = freshGesture();
-      return;
-    }
 
     if (g.mode === 'active') {
       if (g.action === 'highlight') finishHighlight();
       // borracha já apagou ao longo do arrasto
     } else if (g.mode === 'pending') {
-      if (!g.pen) {
-        // Toque comum em outro ponto: some com uma seleção de texto anterior,
-        // como no comportamento nativo do Android.
-        const sel = window.getSelection();
-        if (sel && sel.toString()) sel.removeAllRanges();
-      }
       // Só conta como TOQUE se mal se moveu (senão foi rolagem/arrasto à toa).
       const dist = Math.hypot(e.clientX - g.startX, e.clientY - g.startY);
       if (dist <= TAP_MAX) {
@@ -928,7 +851,6 @@ export function PdfPageView({
   }
 
   function onPointerCancel() {
-    clearLongPressTimer();
     const g = gesture.current;
     if (g.pen) overlayRef.current?.releasePointerCapture?.(g.pointerId);
     gesture.current = freshGesture();
@@ -940,7 +862,18 @@ export function PdfPageView({
   return (
     <div ref={containerRef} className="pdf-page" data-page={pageNumber}>
       <canvas ref={canvasRef} className="pdf-page-canvas" />
-      <div ref={textLayerRef} className="pdf-text-layer" style={{ pointerEvents: 'none' }} />
+      {/* Em repouso (sem caneta por perto) esta camada recebe o toque do dedo
+          DE VERDADE, para o Android reconhecer o long-press nativamente sobre
+          texto real (alças de seleção + menu Copiar). Ver armPen/disarmPen. */}
+      <div
+        ref={textLayerRef}
+        className="pdf-text-layer"
+        style={{ pointerEvents: 'auto', touchAction: 'pan-y' }}
+        onPointerDown={onPointerDown}
+        onPointerMove={onPointerMove}
+        onPointerUp={onPointerUp}
+        onPointerCancel={onPointerCancel}
+      />
 
       {/* Overlay de anotações salvas (marca-texto + tinta) */}
       <svg
@@ -993,13 +926,15 @@ export function PdfPageView({
         ))}
 
       {/* Camada de captura de ponteiro + pré-visualização do realce.
-          Dedo: rola (pan-y). Caneta: ao pairar/encostar, armamos touch-action:
-          none e capturamos, então o traço não vira rolagem em nenhuma direção. */}
+          Em repouso fica com pointer-events: none (o dedo toca a camada de
+          texto abaixo, ver textLayer). Caneta: ao pairar/encostar, armPen()
+          devolve pointer-events + touch-action: none e capturamos, então o
+          traço não vira rolagem nem seleção em nenhuma direção. */}
       <canvas
         ref={overlayRef}
         className="pdf-ink-canvas"
         style={{
-          pointerEvents: 'auto',
+          pointerEvents: 'none',
           touchAction: 'pan-y',
           cursor: tool === 'eraser' ? 'cell' : 'crosshair',
         }}
