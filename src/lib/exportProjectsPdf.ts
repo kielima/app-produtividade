@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import type { MoSCoW, Project, ProjectPriority } from '../types';
 
 const MOSCOW_LABEL: Record<MoSCoW, string> = {
@@ -144,13 +145,38 @@ export async function exportProjectsToPdf(projects: Project[]): Promise<void> {
   }
 
   const fileDate = now.toISOString().slice(0, 10);
-  downloadBlob(doc.output('blob'), `projetos-${fileDate}.pdf`);
+  const filename = `projetos-${fileDate}.pdf`;
+
+  if (Capacitor.isNativePlatform()) {
+    // No WebView do Android (Capacitor) não existe mecanismo de download de
+    // browser: nem o `doc.save()` do jsPDF nem `<a download>` com Blob
+    // disparam nada, silenciosamente (o WebView não tem DownloadListener
+    // registrado). Gravamos o PDF no cache do app via Filesystem e abrimos a
+    // folha de compartilhamento nativa, de onde o usuário salva/abre/envia o
+    // arquivo — evita depender de permissões de armazenamento por escopo.
+    const base64 = doc.output('datauristring').split(',')[1];
+    const [{ Filesystem, Directory }, { Share }] = await Promise.all([
+      import('@capacitor/filesystem'),
+      import('@capacitor/share'),
+    ]);
+    const { uri } = await Filesystem.writeFile({
+      path: filename,
+      data: base64,
+      directory: Directory.Cache,
+    });
+    await Share.share({
+      title: filename,
+      dialogTitle: 'Salvar ou compartilhar PDF',
+      files: [uri],
+    });
+  } else {
+    downloadBlob(doc.output('blob'), filename);
+  }
 }
 
-// Mesmo padrão de download usado em `exportData.ts` (Blob + <a download>) —
-// mais confiável no WebView do Android (Capacitor) do que o `doc.save()`
-// embutido do jsPDF, que depende de um mecanismo de download de browser que
-// nem sempre está disponível ali.
+// Padrão de download usado em `exportData.ts` (Blob + <a download>) —
+// funciona em qualquer browser real, mas não no WebView nativo do Capacitor
+// (ver ramo `isNativePlatform` acima).
 function downloadBlob(blob: Blob, filename: string): void {
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
