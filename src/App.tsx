@@ -1103,7 +1103,10 @@ function AppShell({
               type="button"
               className="pdf-export-btn"
               onClick={() => {
-                void exportProjectsToPdf(projectsForExport);
+                exportProjectsToPdf(projectsForExport).catch((err) => {
+                  console.error('Falha ao exportar projetos em PDF:', err);
+                  window.alert('Não foi possível gerar o PDF. Tente novamente.');
+                });
               }}
               disabled={projectsForExport.length === 0}
               aria-label="Exportar projetos filtrados em PDF"
