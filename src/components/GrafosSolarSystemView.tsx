@@ -389,6 +389,16 @@ export function GrafosSolarSystemView({
   const [renameTarget, setRenameTarget] = useState<SolarNode | null>(null);
   const [moveTarget, setMoveTarget] = useState<SolarNode | null>(null);
   const [actionStatus, setActionStatus] = useState<string | null>(null);
+  // Erro capturado FORA do ciclo de render do React (loop de animação via
+  // requestAnimationFrame, ResizeObserver, promises não tratadas) — o
+  // GrafosViewErrorBoundary que envolve este componente só pega exceções
+  // lançadas DURANTE a renderização; nada disso passa por lá. Sem isso,
+  // relatos de "o app fecha" eram indistinguíveis de um crash de verdade,
+  // mesmo sendo (possivelmente) só uma exceção JS silenciosa em algum canto
+  // assíncrono. Mostrado como um aviso na tela (ver JSX abaixo) em vez de
+  // travar tudo — o loop de animação também para de se reagendar quando
+  // isto é setado, pra não crashar/logar em rajada a 60fps.
+  const [fatalError, setFatalError] = useState<string | null>(null);
   // Colapso/expansão aqui é puramente visual — os dados já vêm todos
   // carregados pelo crawl eager, então não há nada pra "buscar" ao clicar
   // numa pasta; só decide o que fica escondido do desenho/hit-test, sem
@@ -446,6 +456,28 @@ export function GrafosSolarSystemView({
     };
   }, []);
 
+  // Rede de segurança pra exceções que o GrafosViewErrorBoundary (que
+  // envolve este componente) NÃO pega — ele só cobre erros lançados durante
+  // a renderização; nada em `requestAnimationFrame`, `ResizeObserver` ou
+  // promises fica coberto. Escuta em `window` (não dá pra escopar só a este
+  // componente) enquanto ele estiver montado, e mostra o erro na tela em
+  // vez de deixar um crash "silencioso" indistinguível de um crash de
+  // verdade.
+  useEffect(() => {
+    function onError(e: ErrorEvent) {
+      setFatalError(e.message || String(e.error ?? 'erro desconhecido'));
+    }
+    function onRejection(e: PromiseRejectionEvent) {
+      setFatalError(e.reason instanceof Error ? e.reason.message : String(e.reason));
+    }
+    window.addEventListener('error', onError);
+    window.addEventListener('unhandledrejection', onRejection);
+    return () => {
+      window.removeEventListener('error', onError);
+      window.removeEventListener('unhandledrejection', onRejection);
+    };
+  }, []);
+
   // Carrega um nível (lista de ids em `frontier`) e avança o estado de
   // progresso — chamado tanto pelo efeito de montagem (nível 0, a raiz)
   // quanto pelo botão manual "Carregar próximo nível" (ver JSX abaixo).
@@ -459,6 +491,8 @@ export function GrafosSolarSystemView({
         frontierRef.current = next;
         setHasMoreLevels(next.length > 0);
         setLevelNumber((n) => n + 1);
+      } catch (e) {
+        if (mountedRef.current) setFatalError(e instanceof Error ? e.message : String(e));
       } finally {
         if (mountedRef.current) setLoadingLevel(false);
       }
@@ -541,20 +575,33 @@ export function GrafosSolarSystemView({
   }, []);
 
   tickRef.current = (now: number) => {
-    const dt = clamp((now - lastTsRef.current) / 1000, 0, 0.1);
-    lastTsRef.current = now;
-    if (!reducedMotionRef.current) advanceAngles(solarData.nodes, dt);
-    computeWorldPositions(solarData.nodes, nodesByIdRef.current);
-    draw(canvasRef.current, solarData.nodes, nodesByIdRef.current, visibleIds, cameraRef.current, sizeRef.current, colors, previewId);
-    const card = cardRef.current;
-    if (previewNode && card) {
-      const screen = worldToScreen(cameraRef.current, sizeRef.current.w, sizeRef.current.h, previewNode.x, previewNode.y);
-      const width = CARD_BASE_WIDTH * cameraRef.current.scale;
-      card.style.left = `${screen.x - width / 2}px`;
-      card.style.top = `${screen.y}px`;
-      card.style.width = `${width}px`;
-      card.style.height = previewNode.dataKind === 'note' ? `${width * A4_RATIO}px` : '';
-      card.style.fontSize = `${CARD_BASE_FONT_SIZE * cameraRef.current.scale}px`;
+    // Uma exceção aqui dentro (canvas/API não suportada nesse WebView,
+    // dado inesperado no meio da animação, etc.) NÃO é pega pelo
+    // GrafosViewErrorBoundary (rAF roda fora do ciclo de render do React)
+    // — sem o try/catch, ela vira um crash silencioso: o loop simplesmente
+    // para de se reagendar e a tela congela sem nenhuma mensagem. Com o
+    // catch, mostra o erro (`fatalError`, ver JSX) e para de tentar de
+    // novo — evita também um possível crash-loop reexecutando o mesmo erro
+    // a 60fps.
+    try {
+      const dt = clamp((now - lastTsRef.current) / 1000, 0, 0.1);
+      lastTsRef.current = now;
+      if (!reducedMotionRef.current) advanceAngles(solarData.nodes, dt);
+      computeWorldPositions(solarData.nodes, nodesByIdRef.current);
+      draw(canvasRef.current, solarData.nodes, nodesByIdRef.current, visibleIds, cameraRef.current, sizeRef.current, colors, previewId);
+      const card = cardRef.current;
+      if (previewNode && card) {
+        const screen = worldToScreen(cameraRef.current, sizeRef.current.w, sizeRef.current.h, previewNode.x, previewNode.y);
+        const width = CARD_BASE_WIDTH * cameraRef.current.scale;
+        card.style.left = `${screen.x - width / 2}px`;
+        card.style.top = `${screen.y}px`;
+        card.style.width = `${width}px`;
+        card.style.height = previewNode.dataKind === 'note' ? `${width * A4_RATIO}px` : '';
+        card.style.fontSize = `${CARD_BASE_FONT_SIZE * cameraRef.current.scale}px`;
+      }
+    } catch (e) {
+      setFatalError(e instanceof Error ? e.message : String(e));
+      return;
     }
     rafRef.current = requestAnimationFrame((t) => tickRef.current?.(t));
   };
@@ -854,27 +901,38 @@ export function GrafosSolarSystemView({
     <div className="grafos-solar-view" ref={containerRef}>
       <canvas ref={canvasRef} />
 
-      <div className="grafos-solar-crawl-controls grafos-status-line">
-        <span className="muted">
-          Nível {levelNumber} carregado · {solarData.nodes.length} corpos no mapa
-        </span>
-        {hasMoreLevels ? (
-          <button
-            type="button"
-            className="btn-secondary"
-            disabled={loadingLevel || frontierRef.current.length === 0}
-            onClick={() => void loadNextLevel(frontierRef.current)}
-          >
-            {loadingLevel
-              ? 'Carregando…'
-              : `Carregar nível ${levelNumber + 1} (${frontierRef.current.length} pasta${
-                  frontierRef.current.length === 1 ? '' : 's'
-                })`}
+      {fatalError && (
+        <div className="grafos-solar-fatal-error">
+          <p className="error">Erro inesperado no sistema solar: {fatalError}</p>
+          <button type="button" className="btn-secondary" onClick={() => setFatalError(null)}>
+            Fechar aviso
           </button>
-        ) : (
-          <span className="muted">Universo completo.</span>
-        )}
-      </div>
+        </div>
+      )}
+
+      {!fatalError && (
+        <div className="grafos-solar-crawl-controls grafos-status-line">
+          <span className="muted">
+            Nível {levelNumber} carregado · {solarData.nodes.length} corpos no mapa
+          </span>
+          {hasMoreLevels ? (
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={loadingLevel || frontierRef.current.length === 0}
+              onClick={() => void loadNextLevel(frontierRef.current)}
+            >
+              {loadingLevel
+                ? 'Carregando…'
+                : `Carregar nível ${levelNumber + 1} (${frontierRef.current.length} pasta${
+                    frontierRef.current.length === 1 ? '' : 's'
+                  })`}
+            </button>
+          ) : (
+            <span className="muted">Universo completo.</span>
+          )}
+        </div>
+      )}
 
       <div className="grafos-graph-controls">
         <button
