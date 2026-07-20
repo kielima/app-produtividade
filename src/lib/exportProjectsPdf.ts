@@ -144,5 +144,20 @@ export async function exportProjectsToPdf(projects: Project[]): Promise<void> {
   }
 
   const fileDate = now.toISOString().slice(0, 10);
-  doc.save(`projetos-${fileDate}.pdf`);
+  downloadBlob(doc.output('blob'), `projetos-${fileDate}.pdf`);
+}
+
+// Mesmo padrão de download usado em `exportData.ts` (Blob + <a download>) —
+// mais confiável no WebView do Android (Capacitor) do que o `doc.save()`
+// embutido do jsPDF, que depende de um mecanismo de download de browser que
+// nem sempre está disponível ali.
+function downloadBlob(blob: Blob, filename: string): void {
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
 }
