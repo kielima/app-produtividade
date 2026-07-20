@@ -6272,6 +6272,11 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .grafos-graph-controls button:hover {
   background: var(--surface-2);
 }
+.grafos-graph-controls button.active {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
 
 .grafos-graph-warning {
   position: absolute;
