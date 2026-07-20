@@ -406,6 +406,29 @@ export function GrafosSolarSystemView({
   // árvore/grafo).
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
+  // Pausa manual da animação orbital (botão Pausar/Retomar) — controle
+  // explícito do usuário, à parte do respeito automático a
+  // `prefers-reduced-motion` (`reducedMotionRef`, mais abaixo). Lido direto
+  // no corpo do componente dentro de `tickRef.current`, que é reatribuído a
+  // cada render — sempre reflete o valor mais recente sem precisar de ref.
+  const [paused, setPaused] = useState(false);
+
+  // Nó que a câmera está seguindo — recentralizado a cada frame dentro de
+  // `tickRef.current`, pra ficar no centro da tela mesmo enquanto orbita.
+  // Ativado/desativado pelo menu de contexto (segurar em cima do nó, mesmo
+  // gesto usado por Renomear/Mover/Excluir). Guardado em estado (o rótulo do
+  // menu precisa reagir) E espelhado numa ref (`followIdRef`) pra ser lido
+  // sem stale closure de dentro do listener de pointer, que cancela o
+  // seguimento assim que o usuário arrasta a tela manualmente (ver
+  // onPointerMove) — arrastar e seguir seriam duas fontes de verdade
+  // brigando pela posição da câmera ao mesmo tempo.
+  const [followId, setFollowIdState] = useState<string | null>(null);
+  const followIdRef = useRef<string | null>(null);
+  const setFollowId = useCallback((id: string | null) => {
+    followIdRef.current = id;
+    setFollowIdState(id);
+  }, []);
+
   const colors = useSolarColors();
   const cameraRef = useRef<Camera>({ x: 0, y: 0, scale: 1 });
   const didInitialFitRef = useRef(false);
@@ -586,8 +609,19 @@ export function GrafosSolarSystemView({
     try {
       const dt = clamp((now - lastTsRef.current) / 1000, 0, 0.1);
       lastTsRef.current = now;
-      if (!reducedMotionRef.current) advanceAngles(solarData.nodes, dt);
+      if (!reducedMotionRef.current && !paused) advanceAngles(solarData.nodes, dt);
       computeWorldPositions(solarData.nodes, nodesByIdRef.current);
+      // Seguir: recentraliza a câmera no nó seguido TODO frame, depois que a
+      // posição dele já foi recalculada acima (mesma matemática do tap em
+      // onNodeTap, só que repetida continuamente em vez de uma vez só) — é
+      // isso que faz a câmera "acompanhar" o corpo enquanto ele orbita, em vez
+      // de só centralizar nele uma vez e deixá-lo escapar da tela depois.
+      const followed = followId ? nodesByIdRef.current.get(followId) : undefined;
+      if (followed) {
+        const camera = cameraRef.current;
+        camera.x = -followed.x * camera.scale;
+        camera.y = -followed.y * camera.scale;
+      }
       draw(canvasRef.current, solarData.nodes, nodesByIdRef.current, visibleIds, cameraRef.current, sizeRef.current, colors, previewId);
       const card = cardRef.current;
       if (previewNode && card) {
@@ -773,6 +807,10 @@ export function GrafosSolarSystemView({
       }
 
       if (dragLast && pointers.size === 1) {
+        // Arrastar manualmente cancela o "seguir" — as duas coisas brigariam
+        // pela posição da câmera no mesmo frame (ver tickRef.current acima)
+        // e o dedo do usuário deveria sempre vencer.
+        if (followIdRef.current) setFollowId(null);
         const dx = e.clientX - dragLast.x;
         const dy = e.clientY - dragLast.y;
         cameraRef.current.x += dx;
@@ -836,7 +874,7 @@ export function GrafosSolarSystemView({
       el.removeEventListener('contextmenu', onContextMenu);
       clearLongPress();
     };
-  }, [solarData, visibleIds, previewId, canOpenActionMenu, onNodeTap]);
+  }, [solarData, visibleIds, previewId, canOpenActionMenu, onNodeTap, setFollowId]);
 
   // --- Renomear/mover/excluir/editar — mesma lógica de GrafosGraphView.tsx,
   // simplificada porque SolarNode já carrega `parentId` diretamente (não
@@ -881,12 +919,13 @@ export function GrafosSolarSystemView({
       try {
         await vault.deleteFile(node.id);
         if (node.id === previewId) setPreviewId(null);
+        if (node.id === followId) setFollowId(null);
         onNodeDeleted?.(node.id);
       } catch (e) {
         setActionStatus(`Erro ao excluir: ${e instanceof Error ? e.message : String(e)}`);
       }
     },
-    [vault, previewId, onNodeDeleted],
+    [vault, previewId, followId, onNodeDeleted, setFollowId],
   );
 
   const handleEditNode = useCallback(
@@ -935,6 +974,15 @@ export function GrafosSolarSystemView({
       )}
 
       <div className="grafos-graph-controls">
+        <button
+          type="button"
+          className={paused ? 'active' : undefined}
+          onClick={() => setPaused((p) => !p)}
+          aria-label={paused ? 'Retomar animação das órbitas' : 'Pausar animação das órbitas'}
+          aria-pressed={paused}
+        >
+          {paused ? 'Retomar' : 'Pausar'}
+        </button>
         <button
           type="button"
           onClick={() => {
@@ -993,6 +1041,15 @@ export function GrafosSolarSystemView({
                 Editar
               </button>
             )}
+            <button
+              type="button"
+              onClick={() => {
+                setFollowId(followId === actionNode.id ? null : actionNode.id);
+                setActionNode(null);
+              }}
+            >
+              {followId === actionNode.id ? 'Parar de seguir' : 'Seguir'}
+            </button>
             <button
               type="button"
               onClick={() => {
