@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ProjectCard } from '../components/ProjectCard';
 import type { ProjectFiltersState } from '../components/ProjectFiltersBar';
 import { computeVolatilityBands } from '../lib/glicko2';
-import { normalizeForSearch } from '../lib/searchNormalize';
+import { computeProgressByProject, filterAndSortProjects } from '../lib/projectFilterSort';
 import { buildTaskCountByProject } from '../lib/taskHierarchy';
 import { subscribeToGlickoRatings, type GlickoMap } from '../repositories/glickoRepo';
 import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
@@ -76,47 +76,15 @@ export function ProjectsView({
 
   const taskCountByProject = useMemo(() => buildTaskCountByProject(tasks), [tasks]);
 
-  // Progresso (0..1) por projeto: fração de tarefas concluídas. Projetos sem
-  // tarefas ficam como null (sem progresso definido).
-  const progressByProject = useMemo(() => {
-    const out: Record<string, number | null> = {};
-    for (const p of projects) {
-      const c = taskCountByProject[p.id];
-      out[p.id] = c && c.total > 0 ? c.done / c.total : null;
-    }
-    return out;
-  }, [projects, taskCountByProject]);
+  const progressByProject = useMemo(
+    () => computeProgressByProject(projects, taskCountByProject),
+    [projects, taskCountByProject],
+  );
 
-  const filtered = useMemo(() => {
-    const q = normalizeForSearch(searchQuery.trim());
-    const list = projects.filter((p) => {
-      if (!filters.statusFilter.has(p.status)) return false;
-      if (q) {
-        const haystack = normalizeForSearch(
-          [p.name, ...p.categories].join('\n'),
-        );
-        if (!haystack.includes(q)) return false;
-      }
-      return true;
-    });
-    if (filters.sortMode === 'progress') {
-      // Maior conclusão primeiro. Projetos sem tarefas (null) vão para o fim,
-      // preservando entre empates a ordem manual (por nota) original.
-      return list
-        .map((p, idx) => ({ p, idx }))
-        .sort((a, b) => {
-          const pa = progressByProject[a.p.id];
-          const pb = progressByProject[b.p.id];
-          const va = pa ?? -1;
-          const vb = pb ?? -1;
-          if (vb !== va) return vb - va;
-          return a.idx - b.idx;
-        })
-        .map((x) => x.p);
-    }
-    // 'score': mantém a ordem manual (maior nota primeiro), já vinda do repo.
-    return list;
-  }, [projects, filters, progressByProject, searchQuery]);
+  const filtered = useMemo(
+    () => filterAndSortProjects(projects, filters, searchQuery, progressByProject),
+    [projects, filters, progressByProject, searchQuery],
+  );
 
   // Agrupamento por categoria para a visualização "Por categoria". Um projeto
   // com várias categorias aparece em cada grupo correspondente; sem categorias

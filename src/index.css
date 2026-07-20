@@ -636,6 +636,25 @@ a:focus-visible {
   margin-left: 0;
 }
 
+/* Botão "exportar PDF" da aba Projetos — mesmo padrão visual do duel-toggle. */
+.pdf-export-btn {
+  background: transparent;
+  border: none;
+  color: var(--fg);
+  padding: 0.5rem;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 0;
+  flex-shrink: 0;
+  align-self: center;
+}
+.pdf-export-btn:hover { background: var(--surface-2); color: var(--accent, var(--fg)); }
+.pdf-export-btn svg { display: block; }
+.pdf-export-btn:disabled { opacity: 0.4; }
+.pdf-export-btn:disabled:hover { background: transparent; color: var(--fg); }
+
 /* ===== Tela de duelo de projetos ===== */
 .duel-view {
   display: flex;

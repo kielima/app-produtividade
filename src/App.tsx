@@ -41,7 +41,9 @@ import {
 } from './components/ShareTargetDialog';
 import { UpdatePrompt } from './components/UpdatePrompt';
 import { signOutCurrent } from './lib/auth';
-import { isTopLevel } from './lib/taskHierarchy';
+import { exportProjectsToPdf } from './lib/exportProjectsPdf';
+import { computeProgressByProject, filterAndSortProjects } from './lib/projectFilterSort';
+import { buildTaskCountByProject, isTopLevel } from './lib/taskHierarchy';
 import { auth } from './lib/firebase';
 import { NotesFiltersBar } from './components/NotesFiltersBar';
 import {
@@ -682,6 +684,19 @@ function AppShell({
     ? notes.find((n) => n.id === selectedNoteId) ?? null
     : null;
 
+  // Mesma lista (filtro + ordenação) que a aba Projetos mostra na tela —
+  // reusada para exportar exatamente o que está visível para o PDF.
+  const projectsForExport = useMemo(() => {
+    const taskCountByProject = buildTaskCountByProject(data.tasks);
+    const progressByProject = computeProgressByProject(data.projects, taskCountByProject);
+    return filterAndSortProjects(
+      data.projects,
+      projectFilters,
+      projectSearchQuery,
+      progressByProject,
+    );
+  }, [data.projects, data.tasks, projectFilters, projectSearchQuery]);
+
   useEffect(() => {
     if (selectedTaskId && !selectedTask && data.tasks.length > 0) {
       skipHistorySyncRef.current = true;
@@ -1084,6 +1099,35 @@ function AppShell({
               searchQuery={projectSearchQuery}
               onClearSearch={() => setProjectSearchQuery('')}
             />
+            <button
+              type="button"
+              className="pdf-export-btn"
+              onClick={() => {
+                void exportProjectsToPdf(projectsForExport);
+              }}
+              disabled={projectsForExport.length === 0}
+              aria-label="Exportar projetos filtrados em PDF"
+              title="Exportar projetos filtrados em PDF"
+            >
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="19"
+                height="19"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.6"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                focusable="false"
+              >
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+                <polyline points="14 2 14 8 20 8" />
+                <line x1="9" x2="15" y1="15" y2="15" />
+                <line x1="9" x2="13" y1="18" y2="18" />
+              </svg>
+            </button>
           </>
         )}
         {tab === 'grafos' && (
