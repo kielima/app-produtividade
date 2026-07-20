@@ -5982,11 +5982,40 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   gap: 0.5rem;
   padding: 1.5rem;
 }
+/* Igual a `.grafos-graph-controls` (position: absolute) — sem isso, este
+   bloco cai no fluxo normal do documento DEPOIS do <canvas>, que já ocupa
+   100% da altura do contêiner (`.grafos-solar-view`, `overflow: hidden`);
+   ficava sempre cortado/invisível, em qualquer dispositivo (não só
+   Android). */
 .grafos-solar-crawl-controls {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: 0.6rem;
+  z-index: 2;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+.grafos-solar-fatal-error {
+  position: absolute;
+  top: 0.5rem;
+  left: 0.5rem;
+  right: 0.5rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.4rem;
+  padding: 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--danger);
+  border-radius: 6px;
 }
 
 .grafos-editor {
