@@ -166,15 +166,21 @@ export function useGrafosVault(uid: string) {
   // interferir no comportamento preguiçoso deles. Cache-aware: se a pasta já
   // foi carregada por qualquer caminho (árvore, grafo, ou uma chamada
   // anterior daqui), devolve os filhos do cache sem nova requisição.
+  //
+  // Devolve `undefined` (não `[]`) quando a busca falha — distinção que o
+  // chamador precisa pra decidir se tenta de novo: `[]` é uma pasta
+  // genuinamente vazia, `undefined` é uma falha transitória (rate limit,
+  // erro 500 "internal" etc.) que pode valer a pena repetir. Antes desta
+  // mudança os dois casos eram indistinguíveis (`children ?? []`), o que
+  // impedia qualquer retry no crawl eager.
   const loadFolderChildren = useCallback(
-    async (folderId: string): Promise<DriveNode[]> => {
+    async (folderId: string): Promise<DriveNode[] | undefined> => {
       const existing = stateRef.current.folders.get(folderId);
       if (existing && existing.status === 'loaded') return existing.children;
-      const children = await loadFolder(folderId, {
+      return loadFolder(folderId, {
         fetchNoteContent: false,
         includeStarred: folderId === stateRef.current.rootId,
       });
-      return children ?? [];
     },
     [loadFolder],
   );

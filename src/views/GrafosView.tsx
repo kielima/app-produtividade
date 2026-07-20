@@ -24,6 +24,7 @@ import { GrafosHtmlViewerDialog } from '../components/GrafosHtmlViewerDialog';
 import { GrafosSearchBox } from '../components/GrafosSearchBox';
 import { SearchToggle } from '../components/SearchBar';
 import { InlineEdit } from '../components/InlineEdit';
+import { GrafosViewErrorBoundary } from '../components/GrafosViewErrorBoundary';
 
 // Ícones do botão de alternância árvore/grafo — mostram o modo pra ONDE o
 // toque leva (não o atual), igual a um botão "ver como X".
@@ -413,33 +414,37 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
         </div>
       ) : mode === 'graph' ? (
         <div className="grafos-view-body">
-          <Suspense fallback={<p className="muted">Carregando grafo…</p>}>
-            <GrafosGraphView
-              vault={vault}
-              onEditNote={(fileId) => {
-                setSelectedNoteId(fileId);
-                setMode('tree');
-              }}
-              onNodeDeleted={(fileId) => {
-                if (fileId === selectedNoteId) setSelectedNoteId(null);
-              }}
-            />
-          </Suspense>
+          <GrafosViewErrorBoundary fallbackTitle="O grafo encontrou um erro inesperado.">
+            <Suspense fallback={<p className="muted">Carregando grafo…</p>}>
+              <GrafosGraphView
+                vault={vault}
+                onEditNote={(fileId) => {
+                  setSelectedNoteId(fileId);
+                  setMode('tree');
+                }}
+                onNodeDeleted={(fileId) => {
+                  if (fileId === selectedNoteId) setSelectedNoteId(null);
+                }}
+              />
+            </Suspense>
+          </GrafosViewErrorBoundary>
         </div>
       ) : (
         <div className="grafos-view-body">
-          <Suspense fallback={<p className="muted">Carregando sistema solar…</p>}>
-            <GrafosSolarSystemView
-              vault={vault}
-              onEditNote={(fileId) => {
-                setSelectedNoteId(fileId);
-                setMode('tree');
-              }}
-              onNodeDeleted={(fileId) => {
-                if (fileId === selectedNoteId) setSelectedNoteId(null);
-              }}
-            />
-          </Suspense>
+          <GrafosViewErrorBoundary fallbackTitle="O sistema solar encontrou um erro inesperado.">
+            <Suspense fallback={<p className="muted">Carregando sistema solar…</p>}>
+              <GrafosSolarSystemView
+                vault={vault}
+                onEditNote={(fileId) => {
+                  setSelectedNoteId(fileId);
+                  setMode('tree');
+                }}
+                onNodeDeleted={(fileId) => {
+                  if (fileId === selectedNoteId) setSelectedNoteId(null);
+                }}
+              />
+            </Suspense>
+          </GrafosViewErrorBoundary>
         </div>
       )}
 
