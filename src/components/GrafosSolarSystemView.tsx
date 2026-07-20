@@ -7,9 +7,11 @@ import {
 } from '../lib/grafosSolarSystem';
 import { EXCLUDED_NAMES } from '../lib/grafosExcludedNames';
 import { useThemeColors, type CssVarReader } from '../lib/grafosColors';
+import { useThrottledValue } from '../lib/useThrottledValue';
 import { driveIconKind } from '../lib/driveFileIcons';
 import { buildRenamedFileName, stripMdExtension } from '../lib/grafosWikilink';
 import type { useGrafosVault } from '../lib/grafosTree';
+import type { DriveNode } from '../lib/grafosNode';
 import { GrafosNoteGraphCard } from './GrafosNoteGraphCard';
 import { GrafosFilePreviewCard } from './GrafosFilePreviewCard';
 import { GrafosHtmlViewerDialog } from './GrafosHtmlViewerDialog';
@@ -18,10 +20,15 @@ import { GrafosMoveDialog } from './GrafosMoveDialog';
 
 type Vault = ReturnType<typeof useGrafosVault>;
 
-// Quantas pastas o crawl eager pode buscar em paralelo — alto o bastante pra
-// mapear o vault rápido, baixo o bastante pra não disparar centenas de
-// requisições simultâneas ao Drive de uma vez (ver crawlVault abaixo).
-const MAX_CONCURRENT_FOLDER_LOADS = 6;
+// Quantas pastas o carregamento de UM NÍVEL pode buscar em paralelo — alto
+// o bastante pra um nível carregar rápido, baixo o bastante pra não
+// disparar dezenas de requisições simultâneas ao Drive de uma vez (ver
+// loadLevel no componente abaixo).
+const MAX_CONCURRENT_FOLDER_LOADS = 4;
+
+// Backoff pra falhas transitórias (rate limit, erro 500 "internal" etc.)
+// durante o carregamento de um nível — ver loadFolderChildrenWithRetry.
+const RETRY_DELAYS_MS = [500, 1500, 4000];
 
 // Mesmos valores de GrafosGraphView.tsx — long-press (touch) detectado na
 // mão porque `contextmenu` nativo não dispara de forma confiável no WebView
@@ -33,6 +40,15 @@ const MIN_SCALE = 0.05;
 const MAX_SCALE = 8;
 const ZOOM_BUTTON_FACTOR = 1.3;
 const LABEL_SCALE_THRESHOLD = 0.9;
+
+// O crawl eager dispara ~2 dispatches de estado por pasta carregada
+// (grafosTree.ts) — sem throttle, `buildSolarSystemData` recalcularia a
+// árvore INTEIRA já conhecida a cada uma dessas mudanças (O(N²) no total
+// pra N pastas). Amostrar `vault.state` no máximo a cada
+// SOLAR_DATA_THROTTLE_MS limita o número de recomputações à duração do
+// crawl dividida por esse intervalo, independente de N — ver
+// useThrottledValue.ts.
+const SOLAR_DATA_THROTTLE_MS = 350;
 
 // Mesmas unidades/valores usados no cartão de preview do grafo (ver
 // GrafosGraphView.tsx) — ponto de partida ainda não validado com um vault
@@ -167,6 +183,25 @@ function drawBody(
   ctx.fill();
 }
 
+// Margem extra além do raio de um corpo/anel pra decidir se ele toca a
+// tela — cobre o rótulo de texto (que se estende além do círculo) e evita
+// um "pop" perceptível bem na borda do canvas.
+const CULL_MARGIN_PX = 80;
+
+// Testa se um círculo (raio `r`, centro em coordenadas de TELA) toca o
+// retângulo `[0,w] x [0,h]` do canvas — distância do centro até o ponto
+// mais próximo do retângulo, comparada ao raio. Usado pra não desenhar
+// (nem gastar `ctx.arc`/`fillText`) anéis/corpos totalmente fora da vista,
+// o que importa em mapas com muitos nós e o usuário com zoom aplicado (só
+// uma fração do mapa realmente visível por vez).
+function circleOnScreen(cx: number, cy: number, r: number, w: number, h: number): boolean {
+  const closestX = clamp(cx, 0, w);
+  const closestY = clamp(cy, 0, h);
+  const dx = cx - closestX;
+  const dy = cy - closestY;
+  return dx * dx + dy * dy <= r * r;
+}
+
 function draw(
   canvas: HTMLCanvasElement | null,
   nodes: SolarNode[],
@@ -198,8 +233,10 @@ function draw(
     const parent = nodesById.get(n.parentId);
     if (!parent) continue;
     const center = worldToScreen(camera, size.w, size.h, parent.x, parent.y);
+    const ringRadiusPx = n.orbitRadius * camera.scale;
+    if (!circleOnScreen(center.x, center.y, ringRadiusPx + CULL_MARGIN_PX, size.w, size.h)) continue;
     ctx.beginPath();
-    ctx.arc(center.x, center.y, n.orbitRadius * camera.scale, 0, 2 * Math.PI);
+    ctx.arc(center.x, center.y, ringRadiusPx, 0, 2 * Math.PI);
     ctx.stroke();
   }
 
@@ -207,6 +244,7 @@ function draw(
     if (!visibleIds.has(n.id) || n.id === previewId) continue;
     const screen = worldToScreen(camera, size.w, size.h, n.x, n.y);
     const radiusPx = bodyRadiusFor(n.bodyKind, n.depth) * camera.scale;
+    if (!circleOnScreen(screen.x, screen.y, radiusPx + CULL_MARGIN_PX, size.w, size.h)) continue;
     drawBody(ctx, screen.x, screen.y, radiusPx, n, colors);
     if (camera.scale > LABEL_SCALE_THRESHOLD) {
       ctx.font = '13px sans-serif';
@@ -245,34 +283,71 @@ function createSemaphore(limit: number) {
   return { acquire };
 }
 
-// Crawl recursivo de TODA pasta do vault a partir da raiz — é o que torna
-// "todo o universo visível" verdade: diferente da árvore/grafo (que só
-// mostram o que foi expandido manualmente), o sistema solar carrega tudo
-// sozinho ao montar. `vault.loadFolderChildren` é cache-aware e não busca
-// conteúdo de nota (`fetchNoteContent: false`), então não desperdiça
-// requisições em texto que esta visualização nunca usa. Erros de uma pasta
-// individual não abortam o crawl inteiro — a pasta problemática só fica sem
-// filhos no mapa.
-async function crawlVault(vault: Vault, rootId: string, isCancelled: () => boolean): Promise<void> {
-  const seen = new Set<string>([rootId]);
-  const semaphore = createSemaphore(MAX_CONCURRENT_FOLDER_LOADS);
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
 
-  async function visit(folderId: string): Promise<void> {
-    if (isCancelled()) return;
-    const release = await semaphore.acquire();
-    let children: Awaited<ReturnType<Vault['loadFolderChildren']>>;
-    try {
-      children = await vault.loadFolderChildren(folderId);
-    } finally {
-      release();
-    }
-    if (isCancelled()) return;
+// `vault.loadFolderChildren` devolve `undefined` (distinto de `[]`, pasta
+// genuinamente vazia) quando a busca falhou — tenta de novo com backoff
+// antes de desistir. Sem isso, uma única falha transitória (rate limit,
+// erro 500 "internal" intermitente) deixava a pasta permanentemente sem
+// filhos no mapa, mesmo que uma nova tentativa pudesse ter funcionado.
+// Depois de esgotar as tentativas, mantém o mesmo fallback de antes: trata
+// como "sem filhos por enquanto" (devolve `[]`), sem abortar o resto do
+// crawl.
+async function loadFolderChildrenWithRetry(vault: Vault, folderId: string): Promise<DriveNode[]> {
+  for (let attempt = 0; ; attempt++) {
+    const children = await vault.loadFolderChildren(folderId);
+    if (children !== undefined) return children;
+    if (attempt >= RETRY_DELAYS_MS.length) return [];
+    await sleep(RETRY_DELAYS_MS[attempt]);
+  }
+}
+
+// Aplica `fn` a cada item de `items`, no máximo `limit` de cada vez, e só
+// devolve depois que TODOS terminarem — ao contrário de disparar `fn` pra
+// toda a árvore de uma vez (só limitando quantos rodam por vez, mas não
+// quantos ficam "na fila" esperando), isto processa um lote de tamanho
+// fixo (`items.length`) e não cresce mais que isso. Usado por
+// loadFolderLevel pra processar UM NÍVEL de profundidade por vez.
+async function mapWithConcurrency<T, R>(items: T[], limit: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+  const semaphore = createSemaphore(limit);
+  return Promise.all(
+    items.map(async (item) => {
+      const release = await semaphore.acquire();
+      try {
+        return await fn(item);
+      } finally {
+        release();
+      }
+    }),
+  );
+}
+
+// Carrega UM NÍVEL de profundidade (a lista de pastas em `frontier`) e
+// devolve o próximo nível (as subpastas descobertas dentro delas) — não
+// tem laço nem pausa entre níveis: quem decide QUANDO carregar o próximo é
+// o componente, via um botão "Carregar próximo nível" (controle manual
+// pedido pelo usuário depois que o avanço automático, mesmo pausado a cada
+// meio segundo, continuou derrubando o app em vaults grandes — sinal de que
+// a causa mais provável não era o RITMO do carregamento, e sim o TAMANHO de
+// um nível específico ou o total acumulado; controle manual deixa o usuário
+// avançar na própria dose e observar exatamente em que nível o problema
+// aparece). `vault.loadFolderChildren` é cache-aware e não busca conteúdo
+// de nota (`fetchNoteContent: false`), então não desperdiça requisições em
+// texto que esta visualização nunca usa. Erros de uma pasta individual
+// (mesmo após as tentativas de `loadFolderChildrenWithRetry`) não abortam o
+// nível inteiro — a pasta problemática só fica sem filhos no mapa. `seen` é
+// mutado em nome de quem chama (sobrevive entre cliques) — evita descobrir
+// a mesma subpasta duas vezes.
+async function loadFolderLevel(vault: Vault, frontier: string[], seen: Set<string>): Promise<string[]> {
+  const nextLevelBatches = await mapWithConcurrency(frontier, MAX_CONCURRENT_FOLDER_LOADS, async (folderId) => {
+    const children = await loadFolderChildrenWithRetry(vault, folderId);
     const subfolders = children.filter((c) => c.isFolder && !EXCLUDED_NAMES.has(c.name) && !seen.has(c.id));
     for (const sf of subfolders) seen.add(sf.id);
-    await Promise.all(subfolders.map((sf) => visit(sf.id)));
-  }
-
-  await visit(rootId);
+    return subfolders.map((sf) => sf.id);
+  });
+  return nextLevelBatches.flat();
 }
 
 // Visualização "sistema solar" (releitura orbital da mesma hierarquia de
@@ -298,7 +373,16 @@ export function GrafosSolarSystemView({
     sizeRef.current = size;
   }, [size]);
 
-  const [crawling, setCrawling] = useState(true);
+  // Carregamento por nível, controlado manualmente por um botão (ver JSX
+  // mais abaixo) — não avança sozinho. `seenRef` acumula todo id de pasta
+  // já descoberto (sobrevive entre cliques); `frontierRef` guarda o
+  // PRÓXIMO nível a carregar quando o usuário clicar de novo. `levelNumber`
+  // é só o contador exibido na tela (0 = ainda só a raiz).
+  const seenRef = useRef<Set<string>>(new Set());
+  const frontierRef = useRef<string[]>([]);
+  const [levelNumber, setLevelNumber] = useState(0);
+  const [loadingLevel, setLoadingLevel] = useState(false);
+  const [hasMoreLevels, setHasMoreLevels] = useState(true);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [htmlViewerNode, setHtmlViewerNode] = useState<SolarNode | null>(null);
   const [actionNode, setActionNode] = useState<SolarNode | null>(null);
@@ -318,9 +402,13 @@ export function GrafosSolarSystemView({
   const cardRef = useRef<HTMLDivElement>(null);
 
   const nodesCacheRef = useRef<Map<string, SolarNode>>(new Map());
+  // Amostrado, não `vault.state` cru — ver comentário de
+  // SOLAR_DATA_THROTTLE_MS acima (evita recalcular a árvore inteira a cada
+  // pasta que o crawl carrega).
+  const throttledVaultState = useThrottledValue(vault.state, SOLAR_DATA_THROTTLE_MS);
   const solarData = useMemo(
-    () => reconcileSolarNodes(buildSolarSystemData(vault.state), nodesCacheRef.current),
-    [vault.state],
+    () => reconcileSolarNodes(buildSolarSystemData(throttledVaultState), nodesCacheRef.current),
+    [throttledVaultState],
   );
   const nodesByIdRef = useRef<Map<string, SolarNode>>(new Map());
   useEffect(() => {
@@ -347,18 +435,47 @@ export function GrafosSolarSystemView({
 
   const previewNode = previewId ? solarData.nodes.find((n) => n.id === previewId) : undefined;
 
-  // --- Crawl eager: dispara ao montar (e se a raiz do vault mudar) ---
+  // Evita atualizar estado depois que o componente desmontou (troca de modo
+  // no meio de um carregamento de nível) — compartilhado entre o efeito de
+  // montagem abaixo e o clique manual do botão "Carregar próximo nível".
+  const mountedRef = useRef(true);
+  useEffect(() => {
+    mountedRef.current = true;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, []);
+
+  // Carrega um nível (lista de ids em `frontier`) e avança o estado de
+  // progresso — chamado tanto pelo efeito de montagem (nível 0, a raiz)
+  // quanto pelo botão manual "Carregar próximo nível" (ver JSX abaixo).
+  const loadNextLevel = useCallback(
+    async (frontier: string[]) => {
+      if (frontier.length === 0) return;
+      setLoadingLevel(true);
+      try {
+        const next = await loadFolderLevel(vault, frontier, seenRef.current);
+        if (!mountedRef.current) return;
+        frontierRef.current = next;
+        setHasMoreLevels(next.length > 0);
+        setLevelNumber((n) => n + 1);
+      } finally {
+        if (mountedRef.current) setLoadingLevel(false);
+      }
+    },
+    [vault],
+  );
+
+  // --- Carrega só o nível 0 (a raiz) automaticamente ao montar — os
+  // demais níveis são manuais, ver botão "Carregar próximo nível" no JSX.
   useEffect(() => {
     const rootId = vault.state.rootId;
     if (!rootId) return;
-    let cancelled = false;
-    setCrawling(true);
-    crawlVault(vault, rootId, () => cancelled).finally(() => {
-      if (!cancelled) setCrawling(false);
-    });
-    return () => {
-      cancelled = true;
-    };
+    seenRef.current = new Set([rootId]);
+    frontierRef.current = [];
+    setLevelNumber(0);
+    setHasMoreLevels(true);
+    void loadNextLevel([rootId]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [vault.state.rootId]);
 
@@ -737,11 +854,27 @@ export function GrafosSolarSystemView({
     <div className="grafos-solar-view" ref={containerRef}>
       <canvas ref={canvasRef} />
 
-      {crawling && (
-        <p className="muted grafos-status-line">
-          Mapeando o universo… {solarData.nodes.length} corpos encontrados até agora
-        </p>
-      )}
+      <div className="grafos-solar-crawl-controls grafos-status-line">
+        <span className="muted">
+          Nível {levelNumber} carregado · {solarData.nodes.length} corpos no mapa
+        </span>
+        {hasMoreLevels ? (
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={loadingLevel || frontierRef.current.length === 0}
+            onClick={() => void loadNextLevel(frontierRef.current)}
+          >
+            {loadingLevel
+              ? 'Carregando…'
+              : `Carregar nível ${levelNumber + 1} (${frontierRef.current.length} pasta${
+                  frontierRef.current.length === 1 ? '' : 's'
+                })`}
+          </button>
+        ) : (
+          <span className="muted">Universo completo.</span>
+        )}
+      </div>
 
       <div className="grafos-graph-controls">
         <button

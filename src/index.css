@@ -5975,6 +5975,19 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   margin: 0.3rem 0;
   font-size: 0.85rem;
 }
+.grafos-view-error {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 1.5rem;
+}
+.grafos-solar-crawl-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
 
 .grafos-editor {
   flex: 1;
