@@ -129,7 +129,7 @@ public class MainActivity extends BridgeActivity {
                 payload.put("url", "");
                 JSONObject image = new JSONObject();
                 image.put("data", Base64.encodeToString(bytes, Base64.NO_WRAP));
-                image.put("mimeType", mimeType != null ? mimeType : "image/jpeg");
+                image.put("mimeType", resolveImageMimeType(imageUri, mimeType, bytes));
                 payload.put("image", image);
             } catch (JSONException e) {
                 return;
@@ -153,6 +153,48 @@ public class MainActivity extends BridgeActivity {
         final String url = base.buildUpon().path("/").clearQuery().build().toString();
         final String js = "sessionStorage.setItem('pendingShare', " + JSONObject.quote(payloadJson) + ");";
         webView.evaluateJavascript(js, value -> webView.loadUrl(url));
+    }
+
+    /**
+     * Alguns apps de origem (ex.: certas galerias) mandam o Intent com um
+     * tipo genérico "image/*" em vez de um tipo concreto — o Gemini rejeita
+     * isso ("Unsupported MIME type: image/*"). Tenta, em ordem: o tipo do
+     * Intent (se concreto), o tipo que o ContentResolver da URI resolve, e
+     * por fim identifica o formato pelos bytes do próprio arquivo (magic
+     * number) — sempre cai num tipo concreto.
+     */
+    private String resolveImageMimeType(Uri imageUri, String intentMimeType, byte[] bytes) {
+        if (isConcreteImageMimeType(intentMimeType)) return intentMimeType;
+
+        String resolverType = getContentResolver().getType(imageUri);
+        if (isConcreteImageMimeType(resolverType)) return resolverType;
+
+        String sniffed = sniffImageMimeType(bytes);
+        return sniffed != null ? sniffed : "image/jpeg";
+    }
+
+    private static boolean isConcreteImageMimeType(String type) {
+        return type != null && type.startsWith("image/") && !type.endsWith("/*");
+    }
+
+    private static String sniffImageMimeType(byte[] b) {
+        if (b.length >= 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) {
+            return "image/jpeg";
+        }
+        if (b.length >= 8 && (b[0] & 0xFF) == 0x89 && b[1] == 0x50 && b[2] == 0x4E && b[3] == 0x47) {
+            return "image/png";
+        }
+        if (b.length >= 6 && b[0] == 'G' && b[1] == 'I' && b[2] == 'F') {
+            return "image/gif";
+        }
+        if (b.length >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') {
+            return "image/webp";
+        }
+        if (b.length >= 2 && b[0] == 'B' && b[1] == 'M') {
+            return "image/bmp";
+        }
+        return null;
     }
 
     private static byte[] readAllBytes(InputStream in) throws IOException {
