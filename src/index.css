@@ -6246,6 +6246,22 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   display: block;
 }
 
+/* Tela cheia das órbitas (botão "Tela cheia" no componente) — cobre a
+   viewport inteira, inclusive a topbar da aba (mesmo z-index 200 usado
+   pelos outros overlays de página inteira do Grafos: visualizador de HTML,
+   diálogo de conflito), em vez de ficar confinada ao cartão de altura fixa
+   (`min-height: 50vh`) do layout normal da aba. Sair: o próprio botão
+   "Sair"/Esc/voltar do Android (ver os efeitos de tela cheia no
+   componente). */
+.grafos-solar-view--fullscreen {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  border: none;
+  border-radius: 0;
+  background: var(--bg);
+}
+
 .grafos-graph-controls {
   position: absolute;
   bottom: 0.5rem;
