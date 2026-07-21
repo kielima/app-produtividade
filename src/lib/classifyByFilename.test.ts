@@ -33,4 +33,25 @@ describe('classifyByFileName', () => {
   it('não confunde um número de página/capítulo com o ano', () => {
     expect(classifyByFileName('Anexo 12, 3456.pdf')).toBeNull();
   });
+
+  it('reconhece norma "NBR ....pdf"', () => {
+    expect(classifyByFileName('NBR 5410.pdf')).toBe('Normas Técnicas');
+  });
+
+  it('reconhece norma "ISO ....pdf"', () => {
+    expect(classifyByFileName('ISO 9001-2015.pdf')).toBe('Normas Técnicas');
+  });
+
+  it('reconhece norma mesmo com padrão de autor-ano (prioriza norma)', () => {
+    expect(classifyByFileName('NBR 5410, 2004.pdf')).toBe('Normas Técnicas');
+  });
+
+  it('ignora prefixo NBR/ISO em minúsculas', () => {
+    expect(classifyByFileName('nbr 5410.pdf')).toBeNull();
+    expect(classifyByFileName('iso 9001.pdf')).toBeNull();
+  });
+
+  it('não confunde palavra que só começa com ISO com a norma', () => {
+    expect(classifyByFileName('ISOLAMENTO térmico.pdf')).toBeNull();
+  });
 });
