@@ -67,6 +67,18 @@ const MIN_PLANET_RADIUS = 2.2;
 
 const MOON_SPACING = 3;
 const MOON_MIN_ORBIT = 6;
+// Reserva de arco por lua proporcional ao nome do arquivo — sem isso, uma
+// pasta com POUCOS arquivos (o caso que colapsa pro piso `MOON_MIN_ORBIT`,
+// dimensionado só pra caber os CÍRCULOS lado a lado) deixava os RÓTULOS de
+// texto se sobrepondo pesadamente: `packRadius`/`draw()` garantem que os
+// círculos não colidem, mas nunca reservaram espaço pro texto (desenhado
+// num tamanho fixo em pixels de tela, independente do zoom — ver
+// LABEL_SCALE_THRESHOLD em GrafosSolarSystemView.tsx), que se estende bem
+// além do raio de 2.5 unidades de uma lua. Heurística grosseira (não há
+// medição real de fonte aqui, é layout puro sem canvas) — ajustar se ainda
+// sobrepor com nomes muito compridos.
+const MOON_LABEL_ARC_PER_CHAR = 2;
+const MOON_LABEL_ARC_BASE = 6;
 const PLANET_SPACING = 6;
 const PLANET_GAP = 8; // garante que a shell de planetas nunca fica mais perto do centro que a de luas
 const ANGULAR_SPEED_K = 0.6; // rad·raio^0.5/s
@@ -83,6 +95,28 @@ function clamp(v: number, min: number, max: number): number {
 function packRadius(count: number, bodyRadius: number, spacing: number, minRadius: number): number {
   if (count <= 0) return 0;
   return Math.max(minRadius, (count * (2 * bodyRadius + spacing)) / (2 * Math.PI));
+}
+
+// Arco reservado pra UMA lua — o maior entre "cabe o círculo" (mesma conta
+// de `packRadius`) e "cabe o nome" (heurística por comprimento, ver
+// MOON_LABEL_ARC_PER_CHAR acima). Nomes curtos não mudam nada (o círculo já
+// dominava); nomes compridos em pastas com poucos arquivos são o caso que
+// isto corrige.
+function moonArcFor(name: string): number {
+  const circleArc = 2 * BASE_BODY_RADIUS.moon + MOON_SPACING;
+  const labelArc = name.length * MOON_LABEL_ARC_PER_CHAR + MOON_LABEL_ARC_BASE;
+  return Math.max(circleArc, labelArc);
+}
+
+// Mesma ideia de `packRadius`, mas somando o arco INDIVIDUAL de cada lua
+// (via `moonArcFor`) em vez de multiplicar um arco uniforme pela contagem —
+// necessário porque luas têm nomes de comprimentos bem diferentes entre si,
+// ao contrário de planetas/estrelas (cujo "arco" já vem do maior `extent`
+// entre os irmãos, ver computeExtent).
+function packMoonRadius(moons: SolarNode[], minRadius: number): number {
+  if (moons.length === 0) return 0;
+  const totalArc = moons.reduce((sum, m) => sum + moonArcFor(m.name), 0);
+  return Math.max(minRadius, totalArc / (2 * Math.PI));
 }
 
 // Exportado para o componente de renderização (GrafosSolarSystemView.tsx)
@@ -208,7 +242,7 @@ export function buildSolarSystemData(state: VaultState): SolarSystemData {
 
     const fileChildren = children.filter((c) => c.dataKind !== 'folder');
     const folderChildren = children.filter((c) => c.dataKind === 'folder');
-    const moonShellRadius = packRadius(fileChildren.length, BASE_BODY_RADIUS.moon, MOON_SPACING, MOON_MIN_ORBIT);
+    const moonShellRadius = packMoonRadius(fileChildren, MOON_MIN_ORBIT);
 
     let maxChildExtent = 0;
     for (const fc of folderChildren) {
