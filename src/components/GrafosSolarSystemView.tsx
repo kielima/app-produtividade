@@ -36,6 +36,16 @@ const RETRY_DELAYS_MS = [500, 1500, 4000];
 const LONG_PRESS_MS = 500;
 const LONG_PRESS_MOVE_TOLERANCE_PX = 10;
 
+// Piso PADRÃO pro zoom manual (wheel/pinch/+/-) — impede o usuário de
+// encolher o mapa até um ponto sem uso prático, quando a árvore é pequena o
+// bastante pra isso importar. Nunca usado sozinho, porém: tanto "Ajustar"
+// (fitToView) quanto o zoom manual usam o menor entre isto e a escala que
+// enquadra a árvore INTEIRA (`computeFitScale`, via `minScaleRef` mais
+// abaixo) — sem isso, uma árvore grande o bastante (níveis profundos
+// carregados, muitos arquivos de nome comprido espalhando as luas, ver
+// moonArcFor em grafosSolarSystem.ts) deixava tanto "Ajustar" quanto o
+// zoom manual presos acima da escala necessária pra ver tudo (sintoma
+// relatado: "não da pra dar zoom out o suficiente pra ver tudo").
 const MIN_SCALE = 0.05;
 const MAX_SCALE = 8;
 const ZOOM_BUTTON_FACTOR = 1.3;
@@ -98,6 +108,18 @@ type Camera = { x: number; y: number; scale: number };
 
 function worldToScreen(camera: Camera, w: number, h: number, wx: number, wy: number) {
   return { x: wx * camera.scale + camera.x + w / 2, y: wy * camera.scale + camera.y + h / 2 };
+}
+
+// Escala que enquadra TODOS os nós de `nodes` na viewport `w`x`h` — usada
+// tanto por fitToView (o botão "Ajustar") quanto pelo piso dinâmico do zoom
+// manual (`minScaleRef`, ver comentário de MIN_SCALE mais abaixo), pra que
+// as duas noções de "cabe tudo" nunca divirjam.
+function computeFitScale(nodes: SolarNode[], w: number, h: number): number {
+  let maxAbs = 1;
+  for (const n of nodes) {
+    maxAbs = Math.max(maxAbs, Math.abs(n.x), Math.abs(n.y));
+  }
+  return Math.min(w, h) / (2 * maxAbs * 1.2);
 }
 
 function screenToWorld(camera: Camera, w: number, h: number, sx: number, sy: number) {
@@ -601,13 +623,29 @@ export function GrafosSolarSystemView({
   const fitToView = useCallback(() => {
     const s = sizeRef.current;
     if (s.w === 0 || s.h === 0 || solarData.nodes.length === 0) return;
-    let maxAbs = 1;
-    for (const n of solarData.nodes) {
-      maxAbs = Math.max(maxAbs, Math.abs(n.x), Math.abs(n.y));
-    }
-    const scale = clamp(Math.min(s.w, s.h) / (2 * maxAbs * 1.2), MIN_SCALE, MAX_SCALE);
+    // Sem piso mínimo aqui (ver comentário de MIN_SCALE) — só um teto pra
+    // não ampliar demais quando a árvore é pequena o bastante pra caber
+    // numa escala maior que MAX_SCALE.
+    const scale = Math.min(computeFitScale(solarData.nodes, s.w, s.h), MAX_SCALE);
     cameraRef.current = { x: 0, y: 0, scale };
   }, [solarData]);
+
+  // Piso EFETIVO do zoom manual (wheel/pinch/+/-) — normalmente MIN_SCALE,
+  // mas nunca maior que a escala que fitToView calcularia pra árvore atual:
+  // sem isso, uma árvore grande o bastante (mais níveis carregados, luas
+  // com nomes compridos — ver comentário de MIN_SCALE) deixava o zoom
+  // manual preso acima da escala necessária pra ver tudo, mesmo depois de
+  // "Ajustar" já ter mostrado a árvore inteira uma vez — o usuário conseguia
+  // VER o mapa completo só no instante do fit, e perdia pedaços dele de
+  // novo no primeiro toque no "−"/pinça/wheel.
+  const minScaleRef = useRef(MIN_SCALE);
+  useEffect(() => {
+    const s = sizeRef.current;
+    minScaleRef.current =
+      s.w === 0 || s.h === 0 || solarData.nodes.length === 0
+        ? MIN_SCALE
+        : Math.min(MIN_SCALE, computeFitScale(solarData.nodes, s.w, s.h));
+  }, [solarData, size]);
 
   useEffect(() => {
     if (didInitialFitRef.current || solarData.nodes.length <= 1) return;
@@ -744,7 +782,7 @@ export function GrafosSolarSystemView({
       const s = sizeRef.current;
       const camera = cameraRef.current;
       const before = screenToWorld(camera, s.w, s.h, screenX, screenY);
-      camera.scale = clamp(camera.scale * factor, MIN_SCALE, MAX_SCALE);
+      camera.scale = clamp(camera.scale * factor, minScaleRef.current, MAX_SCALE);
       const after = worldToScreen(camera, s.w, s.h, before.x, before.y);
       camera.x += screenX - after.x;
       camera.y += screenY - after.y;
@@ -1026,7 +1064,7 @@ export function GrafosSolarSystemView({
             const s = sizeRef.current;
             const camera = cameraRef.current;
             const before = screenToWorld(camera, s.w, s.h, s.w / 2, s.h / 2);
-            camera.scale = clamp(camera.scale * ZOOM_BUTTON_FACTOR, MIN_SCALE, MAX_SCALE);
+            camera.scale = clamp(camera.scale * ZOOM_BUTTON_FACTOR, minScaleRef.current, MAX_SCALE);
             const after = worldToScreen(camera, s.w, s.h, before.x, before.y);
             camera.x += s.w / 2 - after.x;
             camera.y += s.h / 2 - after.y;
@@ -1041,7 +1079,7 @@ export function GrafosSolarSystemView({
             const s = sizeRef.current;
             const camera = cameraRef.current;
             const before = screenToWorld(camera, s.w, s.h, s.w / 2, s.h / 2);
-            camera.scale = clamp(camera.scale / ZOOM_BUTTON_FACTOR, MIN_SCALE, MAX_SCALE);
+            camera.scale = clamp(camera.scale / ZOOM_BUTTON_FACTOR, minScaleRef.current, MAX_SCALE);
             const after = worldToScreen(camera, s.w, s.h, before.x, before.y);
             camera.x += s.w / 2 - after.x;
             camera.y += s.h / 2 - after.y;
