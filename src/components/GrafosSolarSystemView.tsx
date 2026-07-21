@@ -372,6 +372,32 @@ async function loadFolderLevel(vault: Vault, frontier: string[], seen: Set<strin
   return nextLevelBatches.flat();
 }
 
+// Botão "Atualizar" (ver JSX abaixo) — refaz a busca de toda pasta JÁ
+// carregada (`folderIds`, filtrado pra status 'loaded' por quem chama),
+// pra pegar mudanças feitas fora do app direto no Drive (arquivo novo,
+// renomeado, removido) sem depender de reabrir a aba. Usa
+// `vault.refreshFolderSilently` (não `loadFolderChildren`/
+// `loadFolderChildrenWithRetry`): esse método NUNCA passa a pasta por
+// `status: 'loading'`/`'error'`, o que faria sua subárvore inteira
+// sumir/piscar no mapa enquanto a busca está em andamento (ver comentário
+// dele em grafosTree.ts) — inaceitável rodando em paralelo pra dezenas de
+// pastas de uma vez. Sem retry (diferente de loadFolderChildrenWithRetry):
+// isto é uma ação manual e repetível — uma pasta que falhar aqui só
+// mantém os dados antigos, e o usuário pode clicar "Atualizar" nesta
+// pasta de novo. Subpastas NOVAS descobertas aqui (criadas no Drive depois
+// do último crawl) entram em `seen` e são devolvidas, pra o contador de
+// "Carregar nível N" continuar batendo com a realidade.
+async function refreshLoadedFolders(vault: Vault, folderIds: string[], seen: Set<string>): Promise<string[]> {
+  const discoveredBatches = await mapWithConcurrency(folderIds, MAX_CONCURRENT_FOLDER_LOADS, async (folderId) => {
+    const children = await vault.refreshFolderSilently(folderId);
+    if (!children) return [];
+    const subfolders = children.filter((c) => c.isFolder && !EXCLUDED_NAMES.has(c.name) && !seen.has(c.id));
+    for (const sf of subfolders) seen.add(sf.id);
+    return subfolders.map((sf) => sf.id);
+  });
+  return discoveredBatches.flat();
+}
+
 // Visualização "sistema solar" (releitura orbital da mesma hierarquia de
 // contenção que a árvore/grafo já mostram) — canvas cru, sem
 // react-force-graph-2d (não é uma simulação de física, é um layout
@@ -405,6 +431,7 @@ export function GrafosSolarSystemView({
   const [levelNumber, setLevelNumber] = useState(0);
   const [loadingLevel, setLoadingLevel] = useState(false);
   const [hasMoreLevels, setHasMoreLevels] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [htmlViewerNode, setHtmlViewerNode] = useState<SolarNode | null>(null);
   const [actionNode, setActionNode] = useState<SolarNode | null>(null);
@@ -581,6 +608,36 @@ export function GrafosSolarSystemView({
     },
     [vault],
   );
+
+  // Botão "Atualizar" (ver JSX abaixo) — busca de novo toda pasta já
+  // RENDERIZADA no mapa (status 'loaded'; exclui o que só está na fronteira
+  // esperando um "Carregar nível", ver refreshLoadedFolders acima), pra
+  // trazer mudanças feitas fora do app direto no Drive. Não toca em
+  // followId/paused/fullscreen/câmera — só troca `vault.state`, que já flui
+  // pro mapa pelo caminho reativo de sempre (buildSolarSystemData +
+  // reconcileSolarNodes preserva o ângulo de quem não mudou), então quem
+  // estava seguindo um nó, com zoom/tela cheia aplicados, continua exatamente
+  // como estava.
+  const refreshFiles = useCallback(async () => {
+    if (refreshing) return;
+    const folderIds = Array.from(seenRef.current).filter(
+      (id) => vault.state.folders.get(id)?.status === 'loaded',
+    );
+    if (folderIds.length === 0) return;
+    setRefreshing(true);
+    try {
+      const discovered = await refreshLoadedFolders(vault, folderIds, seenRef.current);
+      if (!mountedRef.current) return;
+      if (discovered.length > 0) {
+        frontierRef.current = [...frontierRef.current, ...discovered];
+        setHasMoreLevels(true);
+      }
+    } catch (e) {
+      if (mountedRef.current) setFatalError(e instanceof Error ? e.message : String(e));
+    } finally {
+      if (mountedRef.current) setRefreshing(false);
+    }
+  }, [vault, refreshing]);
 
   // --- Carrega só o nível 0 (a raiz) automaticamente ao montar — os
   // demais níveis são manuais, ver botão "Carregar próximo nível" no JSX.
@@ -1033,7 +1090,7 @@ export function GrafosSolarSystemView({
             <button
               type="button"
               className="btn-secondary"
-              disabled={loadingLevel || frontierRef.current.length === 0}
+              disabled={loadingLevel || refreshing || frontierRef.current.length === 0}
               onClick={() => void loadNextLevel(frontierRef.current)}
             >
               {loadingLevel
@@ -1045,6 +1102,16 @@ export function GrafosSolarSystemView({
           ) : (
             <span className="muted">Universo completo.</span>
           )}
+          <button
+            type="button"
+            className="btn-secondary"
+            disabled={refreshing || loadingLevel}
+            onClick={() => void refreshFiles()}
+            aria-label="Atualizar arquivos e pastas já carregados a partir do Drive"
+            title="Buscar de novo mudanças feitas direto no Drive, sem mudar zoom/tela cheia/seguir"
+          >
+            {refreshing ? 'Atualizando…' : 'Atualizar'}
+          </button>
         </div>
       )}
 

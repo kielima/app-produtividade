@@ -75,6 +75,25 @@ export function useGrafosVault(uid: string) {
     [getToken],
   );
 
+  // Busca crua (Drive + favoritos mesclados) — extraído do corpo de
+  // `loadFolder` pra ser reaproveitado por `refreshFolderSilently` abaixo,
+  // que precisa do MESMO merge mas SEM os dispatches de
+  // `FOLDER_LOAD_START`/`FOLDER_ERROR` em volta (ver comentário lá).
+  const fetchFolderChildren = useCallback(
+    async (folderId: string, includeStarred: boolean): Promise<DriveNode[]> => {
+      const token = await getToken();
+      const [children, starredItems] = await Promise.all([
+        listFolderChildren(token, folderId),
+        includeStarred ? listStarredItems(token) : Promise.resolve([]),
+      ]);
+      const seenIds = new Set(children.map((c) => c.id));
+      return starredItems.length > 0
+        ? [...children, ...starredItems.filter((f) => !seenIds.has(f.id))]
+        : children;
+    },
+    [getToken],
+  );
+
   // `fetchNoteContent` distingue o pré-carregamento inicial da raiz (spec
   // item 1: só nomes/metadados) de uma expansão explícita de subpasta (spec
   // item 2: nomes + conteúdo de todas as notas .md daquela pasta).
@@ -95,16 +114,7 @@ export function useGrafosVault(uid: string) {
     ): Promise<DriveNode[] | undefined> => {
       dispatch({ type: 'FOLDER_LOAD_START', folderId });
       try {
-        const token = await getToken();
-        const [children, starredItems] = await Promise.all([
-          listFolderChildren(token, folderId),
-          opts.includeStarred ? listStarredItems(token) : Promise.resolve([]),
-        ]);
-        const seenIds = new Set(children.map((c) => c.id));
-        const combined =
-          starredItems.length > 0
-            ? [...children, ...starredItems.filter((f) => !seenIds.has(f.id))]
-            : children;
+        const combined = await fetchFolderChildren(folderId, !!opts.includeStarred);
         dispatch({ type: 'FOLDER_LOADED', folderId, children: combined });
         if (opts.fetchNoteContent) {
           const markdownChildren = combined.filter((c) => !c.isFolder && isMarkdownFile(c));
@@ -120,7 +130,36 @@ export function useGrafosVault(uid: string) {
         return undefined;
       }
     },
-    [getToken, loadNoteContent],
+    [fetchFolderChildren, loadNoteContent],
+  );
+
+  // Recarrega uma pasta JÁ carregada sem passar por `status: 'loading'`/
+  // `'error'` — usado pelo botão "Atualizar" do sistema solar
+  // (GrafosSolarSystemView.tsx) pra buscar mudanças feitas fora do app
+  // (direto no Drive) SEM perturbar a visualização em andamento. `loadFolder`
+  // dispatcha `FOLDER_LOAD_START` antes de buscar, o que passa `status` pra
+  // 'loading' — `buildSolarSystemData` (grafosSolarSystem.ts) só visita
+  // pastas com `status === 'loaded'`, então QUALQUER pasta nesse estado
+  // "loading" (por mais breve que seja) faz sua subárvore inteira sumir do
+  // mapa até a busca terminar, e reaparecer como nó "novo" (ângulo
+  // orbital resetado, câmera parando de seguir se o nó seguido for um
+  // deles) — inaceitável quando o refresh mexe em DEZENAS de pastas em
+  // paralelo (ver refreshLoadedFolders no componente). Por isso: nenhum
+  // dispatch de "iniciando"; e em caso de erro, mantém os dados antigos
+  // (não marca como 'error', que teria o mesmo efeito de esconder a
+  // subárvore) — falha nessa pasta específica só significa "continua com o
+  // que já tínhamos", sem quebrar o resto do refresh.
+  const refreshFolderSilently = useCallback(
+    async (folderId: string): Promise<DriveNode[] | undefined> => {
+      try {
+        const combined = await fetchFolderChildren(folderId, folderId === stateRef.current.rootId);
+        dispatch({ type: 'FOLDER_LOADED', folderId, children: combined });
+        return combined;
+      } catch {
+        return undefined;
+      }
+    },
+    [fetchFolderChildren],
   );
 
   useEffect(() => {
@@ -403,6 +442,7 @@ export function useGrafosVault(uid: string) {
     expandFolder,
     collapseFolder,
     loadFolderChildren,
+    refreshFolderSilently,
     openNote,
     editNote,
     saveNote,
