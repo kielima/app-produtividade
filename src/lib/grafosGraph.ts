@@ -157,20 +157,17 @@ export function buildGraphData(state: VaultState): GraphData {
 }
 
 // Variante de `buildGraphData` restrita a uma única pasta (spec: "ver como
-// grafo, mas só os arquivos desta pasta") — em vez de percorrer
-// `state.expandedIds` (que reflete o que o usuário expandiu na árvore/grafo
-// geral), desce recursivamente por `state.folders` a partir de
-// `scopeFolderId`, incluindo toda subpasta já carregada nesta sessão,
-// independente de estar "expandida" em algum outro modo de visualização.
+// grafo, mas só os arquivos desta pasta") — estilo Obsidian: SEM pastas, só
+// arquivos e as ligações de wikilink entre eles (sem aresta de contenção).
+// Desce recursivamente por `state.folders` a partir de `scopeFolderId`
+// (incluindo toda subpasta já carregada nesta sessão, independente de estar
+// "expandida" em algum outro modo de visualização) só pra DESCOBRIR quais
+// arquivos pertencem à pasta — as subpastas em si nunca viram nó nem aresta.
 // Notas soltas (sem pasta-mãe conhecida) nunca entram aqui — não pertencem a
 // nenhuma pasta, então "arquivos desta pasta" não as inclui. Arestas de
 // wikilink só aparecem quando AMBAS as pontas já estão no escopo (sem nó
 // fantasma pra alvo fora da pasta — poluiria uma visão que é pra ser local).
-export function buildScopedGraphData(
-  state: VaultState,
-  scopeFolderId: string,
-  scopeFolderName: string,
-): GraphData {
+export function buildScopedGraphData(state: VaultState, scopeFolderId: string): GraphData {
   const nodes = new Map<string, GraphNode>();
   const links: GraphLink[] = [];
   const edgeKeys = new Set<string>();
@@ -185,8 +182,6 @@ export function buildScopedGraphData(
     links.push({ source, target, kind });
   };
 
-  addNode(scopeFolderId, scopeFolderName, 'folder');
-
   const visitedFolders = new Set<string>();
   const stack = [scopeFolderId];
   while (stack.length > 0) {
@@ -197,10 +192,12 @@ export function buildScopedGraphData(
     if (!folder || folder.status !== 'loaded') continue;
     for (const child of folder.children) {
       if (EXCLUDED_NAMES.has(child.name)) continue;
-      const kind: GraphNodeKind = child.isFolder ? 'folder' : isMarkdownFile(child) ? 'note' : 'file';
+      if (child.isFolder) {
+        stack.push(child.id);
+        continue;
+      }
+      const kind: GraphNodeKind = isMarkdownFile(child) ? 'note' : 'file';
       addNode(child.id, child.name, kind, child.mimeType);
-      addLink(folderId, child.id, 'containment');
-      if (child.isFolder) stack.push(child.id);
     }
   }
 

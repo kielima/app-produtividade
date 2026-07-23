@@ -386,7 +386,7 @@ describe('reconcileGraphNodes', () => {
 });
 
 describe('buildScopedGraphData', () => {
-  it('mostra a pasta escolhida e seus filhos, independente de expandedIds', () => {
+  it('mostra só os arquivos da pasta escolhida — sem nó de pasta, independente de expandedIds', () => {
     const state: VaultState = {
       ...initialVaultState(),
       rootId: 'root',
@@ -396,15 +396,13 @@ describe('buildScopedGraphData', () => {
       ]),
       expandedIds: new Set(), // nada expandido — não deveria importar aqui
     };
-    const { nodes, links } = buildScopedGraphData(state, 'p1', 'Projetos');
-    expect(nodes).toEqual([
-      { id: 'p1', name: 'Projetos', kind: 'folder', mimeType: undefined },
-      { id: 'n1', name: 'A.md', kind: 'note', mimeType: 'text/markdown' },
-    ]);
-    expect(findLink(links, 'p1', 'n1', 'containment')).toBeTruthy();
+    const { nodes, links } = buildScopedGraphData(state, 'p1');
+    expect(nodes).toEqual([{ id: 'n1', name: 'A.md', kind: 'note', mimeType: 'text/markdown' }]);
+    expect(nodes.some((n) => n.kind === 'folder')).toBe(false);
+    expect(links).toEqual([]);
   });
 
-  it('desce recursivamente por subpastas já carregadas', () => {
+  it('desce recursivamente por subpastas já carregadas, sem incluí-las como nó', () => {
     const state: VaultState = {
       ...initialVaultState(),
       rootId: 'root',
@@ -414,13 +412,11 @@ describe('buildScopedGraphData', () => {
         ['sub', folder([file({ id: 'n1', name: 'A.md' })])],
       ]),
     };
-    const { nodes, links } = buildScopedGraphData(state, 'p1', 'Projetos');
-    expect(nodes.map((n) => n.id).sort()).toEqual(['n1', 'p1', 'sub']);
-    expect(findLink(links, 'p1', 'sub', 'containment')).toBeTruthy();
-    expect(findLink(links, 'sub', 'n1', 'containment')).toBeTruthy();
+    const { nodes } = buildScopedGraphData(state, 'p1');
+    expect(nodes.map((n) => n.id)).toEqual(['n1']);
   });
 
-  it('não mostra nada fora da pasta escolhida (nem a raiz do vault)', () => {
+  it('não mostra nada fora da pasta escolhida (nem a raiz do vault, nem a própria pasta)', () => {
     const state: VaultState = {
       ...initialVaultState(),
       rootId: 'root',
@@ -435,9 +431,19 @@ describe('buildScopedGraphData', () => {
         ['p1', folder([file({ id: 'n1', name: 'A.md' })])],
       ]),
     };
-    const { nodes } = buildScopedGraphData(state, 'p1', 'Projetos');
+    const { nodes } = buildScopedGraphData(state, 'p1');
     expect(nodes.some((n) => n.id === 'root')).toBe(false);
+    expect(nodes.some((n) => n.id === 'p1')).toBe(false);
     expect(nodes.some((n) => n.id === 'outside.md')).toBe(false);
+  });
+
+  it('mostra arquivo não-markdown como nó "file", sem pastas no meio', () => {
+    const state: VaultState = {
+      ...initialVaultState(),
+      folders: new Map([['p1', folder([file({ id: 'img', name: 'foto.png', mimeType: 'image/png' })])]]),
+    };
+    const { nodes } = buildScopedGraphData(state, 'p1');
+    expect(nodes).toEqual([{ id: 'img', name: 'foto.png', kind: 'file', mimeType: 'image/png' }]);
   });
 
   it('aresta de wikilink só aparece quando as duas pontas estão no escopo (sem fantasma pro que está fora)', () => {
@@ -450,9 +456,9 @@ describe('buildScopedGraphData', () => {
         ['n2', note({ name: 'B.md', parentFolderId: 'p1', content: '' })],
       ]),
     };
-    const { nodes, links } = buildScopedGraphData(state, 'p1', 'Projetos');
+    const { nodes, links } = buildScopedGraphData(state, 'p1');
     expect(nodes.some((n) => n.kind === 'ghost')).toBe(false);
     expect(findLink(links, 'n1', 'n2', 'wikilink')).toBeTruthy();
-    expect(links.filter((l) => l.kind === 'wikilink')).toHaveLength(1);
+    expect(links).toHaveLength(1);
   });
 });
