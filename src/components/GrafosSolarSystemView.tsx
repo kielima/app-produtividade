@@ -478,43 +478,6 @@ export function GrafosSolarSystemView({
     setFollowIdState(id);
   }, []);
 
-  // Tela cheia — o layout normal da aba confina o canvas a um cartão de
-  // altura fixa (`.grafos-solar-view`, `min-height: 50vh`); este estado troca
-  // pra um overlay cobrindo a viewport inteira (ver `.grafos-solar-view--
-  // fullscreen` no CSS), mesmo z-index 200 usado pelos outros overlays de
-  // página inteira do Grafos (visualizador de HTML, diálogo de conflito).
-  const [fullscreen, setFullscreen] = useState(false);
-
-  // Esc sai da tela cheia — só escuta enquanto ela está ativa.
-  useEffect(() => {
-    if (!fullscreen) return;
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === 'Escape') setFullscreen(false);
-    }
-    window.addEventListener('keydown', onKeyDown);
-    return () => window.removeEventListener('keydown', onKeyDown);
-  }, [fullscreen]);
-
-  // Gesto/botão de voltar do Android sai da tela cheia em vez de sair do app
-  // — mesmo padrão de GrafosHtmlViewerDialog.tsx: empurra uma entrada de
-  // histórico sintética ao entrar em tela cheia e escuta `popstate`; se o
-  // usuário sair pelo próprio botão (não pelo back), o cleanup consome essa
-  // entrada com `history.back()` pra não deixar um "fantasma" no histórico.
-  useEffect(() => {
-    if (!fullscreen) return;
-    let exitedViaBack = false;
-    window.history.pushState({ grafosSolarFullscreen: true }, '');
-    const onPopState = () => {
-      exitedViaBack = true;
-      setFullscreen(false);
-    };
-    window.addEventListener('popstate', onPopState);
-    return () => {
-      window.removeEventListener('popstate', onPopState);
-      if (!exitedViaBack) window.history.back();
-    };
-  }, [fullscreen]);
-
   const colors = useSolarColors();
   const cameraRef = useRef<Camera>({ x: 0, y: 0, scale: 1 });
   const didInitialFitRef = useRef(false);
@@ -1069,7 +1032,7 @@ export function GrafosSolarSystemView({
   );
 
   return (
-    <div className={`grafos-solar-view${fullscreen ? ' grafos-solar-view--fullscreen' : ''}`} ref={containerRef}>
+    <div className="grafos-solar-view" ref={containerRef}>
       <canvas ref={canvasRef} />
 
       {fatalError && (
@@ -1157,15 +1120,6 @@ export function GrafosSolarSystemView({
         </button>
         <button type="button" onClick={fitToView}>
           Ajustar
-        </button>
-        <button
-          type="button"
-          className={fullscreen ? 'active' : undefined}
-          onClick={() => setFullscreen((f) => !f)}
-          aria-label={fullscreen ? 'Sair da tela cheia' : 'Ver órbitas em tela cheia'}
-          aria-pressed={fullscreen}
-        >
-          {fullscreen ? 'Sair' : 'Tela cheia'}
         </button>
       </div>
 
