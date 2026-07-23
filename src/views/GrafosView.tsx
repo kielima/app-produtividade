@@ -133,6 +133,11 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
   // Órbitas é o modo padrão ao abrir a aba — o grafo é a alternativa (ver
   // MODE_TOGGLE_TARGET), a árvore de pastas foi removida como visualização.
   const [mode, setMode] = useState<'graph' | 'solar'>('solar');
+  // Restringe o modo grafo a uma única pasta quando aberto a partir do botão
+  // "Ver grafo desta pasta" no sistema solar (ver GrafosSolarSystemView) — o
+  // toggle genérico do topbar (MODE_TOGGLE_TARGET) sempre limpa isto, então
+  // ele continua mostrando o grafo do vault inteiro como antes.
+  const [graphScopeFolder, setGraphScopeFolder] = useState<{ id: string; name: string } | null>(null);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [linkWarning, setLinkWarning] = useState<string | null>(null);
   const [renameStatus, setRenameStatus] = useState<string | null>(null);
@@ -285,7 +290,10 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
             className="grafos-mode-toggle-btn"
             aria-label={MODE_TOGGLE_TARGET[mode].label}
             title={MODE_TOGGLE_TARGET[mode].label}
-            onClick={() => setMode(MODE_TOGGLE_TARGET[mode].key)}
+            onClick={() => {
+              setGraphScopeFolder(null);
+              setMode(MODE_TOGGLE_TARGET[mode].key);
+            }}
           >
             {MODE_TOGGLE_TARGET[mode].icon}
           </button>
@@ -311,6 +319,8 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
             <Suspense fallback={<p className="muted">Carregando grafo…</p>}>
               <GrafosGraphView
                 vault={vault}
+                scopeFolder={graphScopeFolder}
+                onClearScope={() => setGraphScopeFolder(null)}
                 onEditNote={(fileId) => {
                   setSelectedNoteId(fileId);
                   void vault.openNote(fileId);
@@ -334,6 +344,10 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
                 }}
                 onNodeDeleted={(fileId) => {
                   if (fileId === selectedNoteId) setSelectedNoteId(null);
+                }}
+                onOpenFolderGraph={(folderId, folderName) => {
+                  setGraphScopeFolder({ id: folderId, name: folderName });
+                  setMode('graph');
                 }}
               />
             </Suspense>

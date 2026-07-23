@@ -408,10 +408,15 @@ export function GrafosSolarSystemView({
   vault,
   onEditNote,
   onNodeDeleted,
+  onOpenFolderGraph,
 }: {
   vault: Vault;
   onEditNote: (fileId: string) => void;
   onNodeDeleted?: (fileId: string) => void;
+  // "Ver grafo desta pasta" no menu de ações de uma pasta (ver JSX abaixo) —
+  // troca pro modo grafo restrito a essa pasta (GrafosView.tsx decide o que
+  // fazer com isso, já que é quem controla o modo grafo/órbitas).
+  onOpenFolderGraph?: (folderId: string, folderName: string) => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -448,12 +453,6 @@ export function GrafosSolarSystemView({
   // travar tudo — o loop de animação também para de se reagendar quando
   // isto é setado, pra não crashar/logar em rajada a 60fps.
   const [fatalError, setFatalError] = useState<string | null>(null);
-  // Colapso/expansão aqui é puramente visual — os dados já vêm todos
-  // carregados pelo crawl eager, então não há nada pra "buscar" ao clicar
-  // numa pasta; só decide o que fica escondido do desenho/hit-test, sem
-  // mexer em `vault.state.expandedIds` (isso continua controlando só a
-  // árvore/grafo).
-  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(new Set());
 
   // Pausa manual da animação orbital (botão Pausar/Retomar) — controle
   // explícito do usuário, à parte do respeito automático a
@@ -497,23 +496,10 @@ export function GrafosSolarSystemView({
     nodesByIdRef.current = new Map(solarData.nodes.map((n) => [n.id, n]));
   }, [solarData]);
 
-  const visibleIds = useMemo(() => {
-    const nodesById = nodesByIdRef.current;
-    const cache = new Map<string, boolean>();
-    function isVisible(id: string): boolean {
-      const cached = cache.get(id);
-      if (cached !== undefined) return cached;
-      const node = nodesById.get(id);
-      if (!node) return false;
-      const value = node.parentId == null ? true : !collapsedIds.has(node.parentId) && isVisible(node.parentId);
-      cache.set(id, value);
-      return value;
-    }
-    const visible = new Set<string>();
-    for (const n of solarData.nodes) if (isVisible(n.id)) visible.add(n.id);
-    return visible;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [solarData, collapsedIds]);
+  // Itens de dentro de uma pasta ficam sempre visíveis (não há mais
+  // colapso/expansão visual ao clicar) — clicar numa pasta abre a barra de
+  // ações em vez de esconder/reexibir seu conteúdo (ver onNodeTap abaixo).
+  const visibleIds = useMemo(() => new Set(solarData.nodes.map((n) => n.id)), [solarData]);
 
   const previewNode = previewId ? solarData.nodes.find((n) => n.id === previewId) : undefined;
 
@@ -758,23 +744,16 @@ export function GrafosSolarSystemView({
   // (affine 2D simples, ver worldToScreen/screenToWorld acima) ---
   const canOpenActionMenu = useCallback((n: SolarNode) => n.id !== vault.state.rootId, [vault.state.rootId]);
 
-  const toggleCollapse = useCallback((folderId: string) => {
-    setCollapsedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(folderId)) next.delete(folderId);
-      else next.add(folderId);
-      return next;
-    });
-  }, []);
-
   const onNodeTap = useCallback(
     (node: SolarNode) => {
       const camera = cameraRef.current;
       camera.x = -node.x * camera.scale;
       camera.y = -node.y * camera.scale;
       if (node.dataKind === 'folder') {
-        if (node.id === vault.state.rootId) return;
-        toggleCollapse(node.id);
+        // Conteúdo da pasta fica sempre visível — um toque nela abre a barra
+        // de ações (mesmo menu que o long-press/clique-direito já abrem),
+        // em vez de esconder/reexibir o que tem dentro.
+        if (canOpenActionMenu(node)) setActionNode(node);
         return;
       }
       if (node.dataKind === 'note') {
@@ -791,7 +770,7 @@ export function GrafosSolarSystemView({
         }
       }
     },
-    [vault, toggleCollapse],
+    [vault, canOpenActionMenu],
   );
 
   useEffect(() => {
@@ -1173,6 +1152,17 @@ export function GrafosSolarSystemView({
             >
               Mover para pasta…
             </button>
+            {actionNode.dataKind === 'folder' && onOpenFolderGraph && (
+              <button
+                type="button"
+                onClick={() => {
+                  onOpenFolderGraph(actionNode.id, actionNode.name);
+                  setActionNode(null);
+                }}
+              >
+                Ver grafo desta pasta
+              </button>
+            )}
             {actionNode.dataKind !== 'folder' && (
               <button type="button" className="danger" onClick={() => void handleDeleteNode(actionNode)}>
                 Excluir

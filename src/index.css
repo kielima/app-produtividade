@@ -5957,6 +5957,25 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   border: 1px solid var(--border);
   border-radius: 6px;
 }
+/* Mesmo padrão de `.grafos-solar-crawl-controls` (position: absolute, topo
+   abaixo do topbar sticky) — indica ao usuário que o grafo atual é só o
+   "recorte" de uma pasta, com um jeito de voltar pro grafo completo. */
+.grafos-graph-scope-banner {
+  position: absolute;
+  top: calc(3.5rem + env(safe-area-inset-top, 0px));
+  left: 0.5rem;
+  right: 0.5rem;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+  z-index: 2;
+  padding: 0.4rem 0.6rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  margin: 0;
+}
 .grafos-solar-fatal-error {
   position: absolute;
   top: calc(3.5rem + env(safe-area-inset-top, 0px));
