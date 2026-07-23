@@ -7,6 +7,7 @@ import ForceGraph2D, {
 import { forceCollide } from 'd3-force-3d';
 import {
   buildGraphData,
+  buildScopedGraphData,
   reconcileGraphNodes,
   type GraphLink,
   type GraphNode,
@@ -132,6 +133,8 @@ export function GrafosGraphView({
   vault,
   onEditNote,
   onNodeDeleted,
+  scopeFolder,
+  onClearScope,
 }: {
   vault: Vault;
   onEditNote: (fileId: string) => void;
@@ -140,6 +143,12 @@ export function GrafosGraphView({
   // editor (o editor não fica visível ao mesmo tempo que o grafo, mas a
   // seleção sobrevive à troca de modo).
   onNodeDeleted?: (fileId: string) => void;
+  // Quando presente, restringe o grafo a uma única pasta (aberta a partir do
+  // menu de ações de uma pasta no sistema solar, "Ver grafo desta pasta") —
+  // ver buildScopedGraphData em grafosGraph.ts. `null`/ausente mostra o grafo
+  // do vault inteiro, como sempre.
+  scopeFolder?: { id: string; name: string } | null;
+  onClearScope?: () => void;
 }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const graphRef = useRef<ForceGraphMethods<GraphNode, GraphLink>>();
@@ -157,6 +166,18 @@ export function GrafosGraphView({
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const colors = useGraphColors();
   const didInitialFitRef = useRef(false);
+  // Trocar de escopo (ou entrar/sair dele) é, pro usuário, basicamente abrir
+  // um grafo "novo" — sem isto, `didInitialFitRef` (já true desde o primeiro
+  // fit do grafo geral) impediria o reenquadramento automático ao entrar
+  // numa pasta, deixando o zoom/pan onde estava no grafo anterior.
+  const scopeKeyRef = useRef<string | null>(null);
+  useEffect(() => {
+    const key = scopeFolder ? scopeFolder.id : null;
+    if (scopeKeyRef.current !== key) {
+      scopeKeyRef.current = key;
+      didInitialFitRef.current = false;
+    }
+  }, [scopeFolder]);
 
   // Posição (mundo) do nó em preview, atualizada a cada frame dentro de
   // `nodeCanvasObject` — lida logo em seguida por `syncPreviewOverlay`
@@ -218,8 +239,14 @@ export function GrafosGraphView({
   }, []);
 
   const graphData = useMemo(
-    () => reconcileGraphNodes(buildGraphData(vault.state), nodeObjectsRef.current),
-    [vault.state],
+    () =>
+      reconcileGraphNodes(
+        scopeFolder
+          ? buildScopedGraphData(vault.state, scopeFolder.id, scopeFolder.name)
+          : buildGraphData(vault.state),
+        nodeObjectsRef.current,
+      ),
+    [vault.state, scopeFolder],
   );
   // Kind/mimeType do nó em preview (pra decidir qual cartão renderizar) —
   // dado estático, já disponível em `graphData` sem precisar esperar o
@@ -231,9 +258,10 @@ export function GrafosGraphView({
   // renomear/mover/excluir/fixar) nunca abrem o menu de contexto — guarda
   // compartilhada pelo clique-direito nativo (desktop) e pelo long-press
   // manual (touch) abaixo.
+  const scopeRootId = scopeFolder ? scopeFolder.id : vault.state.rootId;
   const canOpenActionMenu = useCallback(
-    (n: GraphNode) => n.kind !== 'ghost' && !(n.kind === 'folder' && n.id === vault.state.rootId),
-    [vault.state.rootId],
+    (n: GraphNode) => n.kind !== 'ghost' && !(n.kind === 'folder' && n.id === scopeRootId),
+    [scopeRootId],
   );
 
   // Detecção manual de long-press E de toque simples (touch) — ver
@@ -439,7 +467,11 @@ export function GrafosGraphView({
       if (n.x != null && n.y != null) graphRef.current?.centerAt(n.x, n.y, 400);
       pendingCenterNodeIdRef.current = n.id;
       if (n.kind === 'folder') {
-        if (n.id === vault.state.rootId) return;
+        if (n.id === scopeRootId) return;
+        // Em modo escopado a subárvore inteira já é mostrada de uma vez (ver
+        // buildScopedGraphData) — não há "expandir" pra fazer aqui, só
+        // centralizar (já feito acima).
+        if (scopeFolder) return;
         if (vault.state.expandedIds.has(n.id)) vault.collapseFolder(n.id);
         else void vault.expandFolder(n.id);
         return;
@@ -483,7 +515,7 @@ export function GrafosGraphView({
         })();
       }
     },
-    [vault],
+    [vault, scopeRootId, scopeFolder],
   );
 
   // Clique direito (desktop) — no touch, quem abre o menu é o long-press
@@ -704,6 +736,17 @@ export function GrafosGraphView({
         onRenderFramePost={syncPreviewOverlay}
         cooldownTicks={100}
       />
+
+      {scopeFolder && (
+        <div className="grafos-status-line grafos-graph-scope-banner">
+          <span className="muted">Grafo local: {scopeFolder.name}</span>
+          {onClearScope && (
+            <button type="button" className="btn-secondary" onClick={onClearScope}>
+              Ver grafo completo
+            </button>
+          )}
+        </div>
+      )}
 
       <div className="grafos-graph-controls">
         <button
