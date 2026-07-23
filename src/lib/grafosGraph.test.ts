@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { buildGraphData, reconcileGraphNodes, type GraphLink, type GraphNode } from './grafosGraph';
+import { buildGraphData, buildScopedGraphData, reconcileGraphNodes, type GraphLink, type GraphNode } from './grafosGraph';
 import { initialVaultState, type FolderState, type NoteContentState, type VaultState } from './grafosTreeState';
 import type { DriveNode } from './grafosNode';
 
@@ -382,5 +382,77 @@ describe('reconcileGraphNodes', () => {
       cache,
     );
     expect(result.links).toBe(links);
+  });
+});
+
+describe('buildScopedGraphData', () => {
+  it('mostra a pasta escolhida e seus filhos, independente de expandedIds', () => {
+    const state: VaultState = {
+      ...initialVaultState(),
+      rootId: 'root',
+      folders: new Map([
+        ['root', folder([file({ id: 'p1', name: 'Projetos', mimeType: 'application/vnd.google-apps.folder', isFolder: true })])],
+        ['p1', folder([file({ id: 'n1', name: 'A.md' })])],
+      ]),
+      expandedIds: new Set(), // nada expandido — não deveria importar aqui
+    };
+    const { nodes, links } = buildScopedGraphData(state, 'p1', 'Projetos');
+    expect(nodes).toEqual([
+      { id: 'p1', name: 'Projetos', kind: 'folder', mimeType: undefined },
+      { id: 'n1', name: 'A.md', kind: 'note', mimeType: 'text/markdown' },
+    ]);
+    expect(findLink(links, 'p1', 'n1', 'containment')).toBeTruthy();
+  });
+
+  it('desce recursivamente por subpastas já carregadas', () => {
+    const state: VaultState = {
+      ...initialVaultState(),
+      rootId: 'root',
+      folders: new Map([
+        ['root', folder([file({ id: 'p1', name: 'Projetos', mimeType: 'application/vnd.google-apps.folder', isFolder: true })])],
+        ['p1', folder([file({ id: 'sub', name: 'Sub', mimeType: 'application/vnd.google-apps.folder', isFolder: true })])],
+        ['sub', folder([file({ id: 'n1', name: 'A.md' })])],
+      ]),
+    };
+    const { nodes, links } = buildScopedGraphData(state, 'p1', 'Projetos');
+    expect(nodes.map((n) => n.id).sort()).toEqual(['n1', 'p1', 'sub']);
+    expect(findLink(links, 'p1', 'sub', 'containment')).toBeTruthy();
+    expect(findLink(links, 'sub', 'n1', 'containment')).toBeTruthy();
+  });
+
+  it('não mostra nada fora da pasta escolhida (nem a raiz do vault)', () => {
+    const state: VaultState = {
+      ...initialVaultState(),
+      rootId: 'root',
+      folders: new Map([
+        [
+          'root',
+          folder([
+            file({ id: 'p1', name: 'Projetos', mimeType: 'application/vnd.google-apps.folder', isFolder: true }),
+            file({ id: 'outside.md', name: 'Fora.md' }),
+          ]),
+        ],
+        ['p1', folder([file({ id: 'n1', name: 'A.md' })])],
+      ]),
+    };
+    const { nodes } = buildScopedGraphData(state, 'p1', 'Projetos');
+    expect(nodes.some((n) => n.id === 'root')).toBe(false);
+    expect(nodes.some((n) => n.id === 'outside.md')).toBe(false);
+  });
+
+  it('aresta de wikilink só aparece quando as duas pontas estão no escopo (sem fantasma pro que está fora)', () => {
+    const state: VaultState = {
+      ...initialVaultState(),
+      rootId: 'root',
+      folders: new Map([['p1', folder([file({ id: 'n1', name: 'A.md' }), file({ id: 'n2', name: 'B.md' })])]]),
+      notes: new Map([
+        ['n1', note({ name: 'A.md', parentFolderId: 'p1', content: '[[B]] [[Fora]]' })],
+        ['n2', note({ name: 'B.md', parentFolderId: 'p1', content: '' })],
+      ]),
+    };
+    const { nodes, links } = buildScopedGraphData(state, 'p1', 'Projetos');
+    expect(nodes.some((n) => n.kind === 'ghost')).toBe(false);
+    expect(findLink(links, 'n1', 'n2', 'wikilink')).toBeTruthy();
+    expect(links.filter((l) => l.kind === 'wikilink')).toHaveLength(1);
   });
 });

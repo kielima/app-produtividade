@@ -156,6 +156,77 @@ export function buildGraphData(state: VaultState): GraphData {
   return { nodes: Array.from(nodes.values()), links };
 }
 
+// Variante de `buildGraphData` restrita a uma única pasta (spec: "ver como
+// grafo, mas só os arquivos desta pasta") — em vez de percorrer
+// `state.expandedIds` (que reflete o que o usuário expandiu na árvore/grafo
+// geral), desce recursivamente por `state.folders` a partir de
+// `scopeFolderId`, incluindo toda subpasta já carregada nesta sessão,
+// independente de estar "expandida" em algum outro modo de visualização.
+// Notas soltas (sem pasta-mãe conhecida) nunca entram aqui — não pertencem a
+// nenhuma pasta, então "arquivos desta pasta" não as inclui. Arestas de
+// wikilink só aparecem quando AMBAS as pontas já estão no escopo (sem nó
+// fantasma pra alvo fora da pasta — poluiria uma visão que é pra ser local).
+export function buildScopedGraphData(
+  state: VaultState,
+  scopeFolderId: string,
+  scopeFolderName: string,
+): GraphData {
+  const nodes = new Map<string, GraphNode>();
+  const links: GraphLink[] = [];
+  const edgeKeys = new Set<string>();
+
+  const addNode = (id: string, name: string, kind: GraphNodeKind, mimeType?: string) => {
+    if (!nodes.has(id)) nodes.set(id, { id, name, kind, mimeType });
+  };
+  const addLink = (source: string, target: string, kind: GraphLinkKind) => {
+    const key = `${kind}:${source}:${target}`;
+    if (edgeKeys.has(key)) return;
+    edgeKeys.add(key);
+    links.push({ source, target, kind });
+  };
+
+  addNode(scopeFolderId, scopeFolderName, 'folder');
+
+  const visitedFolders = new Set<string>();
+  const stack = [scopeFolderId];
+  while (stack.length > 0) {
+    const folderId = stack.pop()!;
+    if (visitedFolders.has(folderId)) continue;
+    visitedFolders.add(folderId);
+    const folder = state.folders.get(folderId);
+    if (!folder || folder.status !== 'loaded') continue;
+    for (const child of folder.children) {
+      if (EXCLUDED_NAMES.has(child.name)) continue;
+      const kind: GraphNodeKind = child.isFolder ? 'folder' : isMarkdownFile(child) ? 'note' : 'file';
+      addNode(child.id, child.name, kind, child.mimeType);
+      addLink(folderId, child.id, 'containment');
+      if (child.isFolder) stack.push(child.id);
+    }
+  }
+
+  // Índice de nomes global (mesma convenção de buildGraphData) — precisa
+  // conhecer o vault inteiro pra resolver o alvo do wikilink pelo nome, mas
+  // a aresta só é emitida se o alvo resolvido também estiver no escopo.
+  const allListed: Array<{ id: string; name: string }> = [];
+  for (const folder of state.folders.values()) allListed.push(...folder.children);
+  for (const [noteId, n] of state.notes.entries()) {
+    if (n.parentFolderId === undefined && n.name) allListed.push({ id: noteId, name: n.name });
+  }
+  const nameIndex = buildNameIndex(allListed);
+
+  for (const [noteId, note] of state.notes.entries()) {
+    if (note.status !== 'loaded' && note.status !== 'saving') continue;
+    if (!nodes.has(noteId)) continue;
+    for (const link of parseWikilinks(note.content)) {
+      const targetId = resolveWikilinkTarget(nameIndex, link.target);
+      if (!targetId || targetId === noteId || !nodes.has(targetId)) continue;
+      addLink(noteId, targetId, 'wikilink');
+    }
+  }
+
+  return { nodes: Array.from(nodes.values()), links };
+}
+
 // `buildGraphData` acima monta objetos de nó NOVOS a cada chamada — mas o
 // d3-force por baixo do react-force-graph-2d (GrafosGraphView.tsx) só
 // preserva x/y/vx/vy/fx/fy de um nó se for literalmente o MESMO objeto JS de
