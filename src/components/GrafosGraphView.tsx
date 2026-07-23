@@ -241,9 +241,7 @@ export function GrafosGraphView({
   const graphData = useMemo(
     () =>
       reconcileGraphNodes(
-        scopeFolder
-          ? buildScopedGraphData(vault.state, scopeFolder.id, scopeFolder.name)
-          : buildGraphData(vault.state),
+        scopeFolder ? buildScopedGraphData(vault.state, scopeFolder.id) : buildGraphData(vault.state),
         nodeObjectsRef.current,
       ),
     [vault.state, scopeFolder],
