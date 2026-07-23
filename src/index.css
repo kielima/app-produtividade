@@ -5783,34 +5783,31 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   min-height: 60vh;
 }
 
-/* Segmented control de 3 vias (árvore/grafo/sistema solar), vive no topbar
-   do app (portal — ver App.tsx e GrafosView.tsx): cada botão mostra o
-   ícone do PRÓPRIO modo que representa, `.active` marca o modo atual. */
-.grafos-mode-segmented {
-  display: inline-flex;
-  gap: 0.15rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.15rem;
+/* Mensagens soltas dentro de `.grafos-view` (ex.: status da busca) ficam no
+   fluxo normal, abaixo do grafo/órbitas em tela cheia (`.grafos-graph-view`/
+   `.grafos-solar-view`, z-index: 40, `position: fixed`) a menos que
+   recebam sua própria posição/z-index acima dele. */
+.grafos-view-floating-status {
+  position: relative;
+  z-index: 41;
 }
+
+/* Botão toggle grafo/órbitas, vive no topbar do app (portal — ver App.tsx e
+   GrafosView.tsx): mostra o ícone do modo PRA ONDE o toque leva. */
 .grafos-mode-toggle-btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
-  border: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
   background: transparent;
   color: var(--fg);
   padding: 0.4rem 0.5rem;
-  border-radius: 4px;
   cursor: pointer;
   font: inherit;
 }
 .grafos-mode-toggle-btn:hover {
-  background: transparent;
-  color: var(--accent);
-}
-.grafos-mode-segmented .grafos-mode-toggle-btn.active {
   background: var(--surface-2);
   color: var(--accent);
 }
@@ -5893,63 +5890,17 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   }
 }
 
-.grafos-tree {
-  flex: 0 0 260px;
-  max-width: 260px;
+/* Editor de nota sobreposto (ver GrafosView.tsx) — flutua por cima do grafo
+   ou das órbitas em tela cheia, mesma convenção de overlay de página inteira
+   do `.grafos-html-viewer` (mesmo z-index, mesmo FAB de fechar). Aberto ao
+   editar uma nota a partir de qualquer visualização, sem trocar de modo. */
+.grafos-note-editor-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 201;
   overflow-y: auto;
-  border-right: 1px solid var(--border);
-  padding-right: 0.75rem;
-}
-@media (max-width: 720px) {
-  .grafos-tree {
-    flex: none;
-    max-width: none;
-    max-height: 40vh;
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-    padding-right: 0;
-    padding-bottom: 0.5rem;
-  }
-}
-
-.grafos-tree-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-
-.grafos-tree-status {
-  padding: 0.3rem 0;
-  font-size: 0.85rem;
-}
-
-.grafos-tree-row {
-  display: flex;
-  align-items: center;
-  gap: 0.4rem;
-  width: 100%;
-  padding: 0.3rem 0.4rem;
-  border: none;
-  border-radius: 4px;
-  background: transparent;
-  color: var(--fg);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-}
-.grafos-tree-row:hover:not(:disabled) {
-  background: var(--surface-2);
-}
-.grafos-tree-row.active {
-  background: var(--surface-2);
-  font-weight: 600;
-}
-.grafos-tree-row--readonly {
-  cursor: default;
-  opacity: 0.75;
-}
-.grafos-tree-row--folder {
-  font-weight: 500;
+  background: var(--bg);
+  padding: calc(0.75rem + env(safe-area-inset-top, 0px)) 0.75rem calc(0.75rem + env(safe-area-inset-bottom, 0px));
 }
 
 .grafos-editor-pane {
@@ -5957,6 +5908,8 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   min-width: 0;
   display: flex;
   flex-direction: column;
+  max-width: 720px;
+  margin: 0 auto;
 }
 
 .grafos-editor-toolbar {
@@ -5986,10 +5939,12 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
    bloco cai no fluxo normal do documento DEPOIS do <canvas>, que já ocupa
    100% da altura do contêiner (`.grafos-solar-view`, `overflow: hidden`);
    ficava sempre cortado/invisível, em qualquer dispositivo (não só
-   Android). */
+   Android). `top` soma a altura aproximada do `.topbar` sticky (que continua
+   visível por cima do canvas em tela cheia, ver `.grafos-solar-view`) pra
+   não nascer coberto por ele. */
 .grafos-solar-crawl-controls {
   position: absolute;
-  top: 0.5rem;
+  top: calc(3.5rem + env(safe-area-inset-top, 0px));
   left: 0.5rem;
   right: 0.5rem;
   display: flex;
@@ -6004,7 +5959,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 }
 .grafos-solar-fatal-error {
   position: absolute;
-  top: 0.5rem;
+  top: calc(3.5rem + env(safe-area-inset-top, 0px));
   left: 0.5rem;
   right: 0.5rem;
   z-index: 3;
@@ -6211,55 +6166,27 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   transform: translateY(1px);
 }
 
-/* Grafo unificado (Fase 3) */
-.grafos-graph-view {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  min-height: 50vh;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  /* O body do app usa touch-action: pan-y globalmente — precisa ser
-     sobrescrito aqui pra o pan/zoom/arrastar do force-graph (d3-zoom/
-     d3-drag) receberem os gestos de toque crus. */
-  touch-action: none;
-}
-.grafos-graph-view canvas {
-  display: block;
-}
-
-/* Sistema solar — mesmo container/controles do grafo, canvas cru (sem
-   react-force-graph-2d) com pan/zoom próprios, mesmo motivo do
-   touch-action: none acima. */
+/* Grafo e sistema solar (Fase 3) — tela cheia por padrão (sem botão pra
+   abrir): cobrem a viewport inteira (`position: fixed; inset: 0`), mas com
+   z-index ABAIXO do `.topbar` (z-index: 50, sticky), então o cabeçalho da
+   aba — botão de menu, alternador grafo/órbitas, busca — continua visível e
+   clicável por cima do canvas, sem precisar de um Esc/botão "Sair" dedicado
+   pra escapar do modo imersivo. */
+.grafos-graph-view,
 .grafos-solar-view {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  min-height: 50vh;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  overflow: hidden;
-  touch-action: none;
-}
-.grafos-solar-view canvas {
-  display: block;
-}
-
-/* Tela cheia das órbitas (botão "Tela cheia" no componente) — cobre a
-   viewport inteira, inclusive a topbar da aba (mesmo z-index 200 usado
-   pelos outros overlays de página inteira do Grafos: visualizador de HTML,
-   diálogo de conflito), em vez de ficar confinada ao cartão de altura fixa
-   (`min-height: 50vh`) do layout normal da aba. Sair: o próprio botão
-   "Sair"/Esc/voltar do Android (ver os efeitos de tela cheia no
-   componente). */
-.grafos-solar-view--fullscreen {
   position: fixed;
   inset: 0;
-  z-index: 200;
-  border: none;
-  border-radius: 0;
+  z-index: 40;
+  overflow: hidden;
   background: var(--bg);
+  /* O body do app usa touch-action: pan-y globalmente — precisa ser
+     sobrescrito aqui pra o pan/zoom/arrastar do force-graph (d3-zoom/
+     d3-drag) e do sistema solar receberem os gestos de toque crus. */
+  touch-action: none;
+}
+.grafos-graph-view canvas,
+.grafos-solar-view canvas {
+  display: block;
 }
 
 .grafos-graph-controls {

@@ -153,7 +153,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'today', label: 'Hoje' },
   { key: 'notes', label: 'Keep' },
   { key: 'leitura', label: 'Leitura' },
-  { key: 'grafos', label: 'Grafos' },
+  { key: 'grafos', label: 'Files' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
   { key: 'countdown', label: 'Agenda' },
