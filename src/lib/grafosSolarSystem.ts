@@ -65,7 +65,7 @@ const BASE_BODY_RADIUS: Record<SolarBodyKind, number> = { blackhole: 10, star: 8
 const PLANET_SHRINK_FACTOR = 0.85;
 const MIN_PLANET_RADIUS = 2.2;
 
-const MOON_SPACING = 3;
+const MOON_SPACING = 4;
 const MOON_MIN_ORBIT = 6;
 // Reserva de arco por lua proporcional ao nome do arquivo — sem isso, uma
 // pasta com POUCOS arquivos (o caso que colapsa pro piso `MOON_MIN_ORBIT`,
@@ -79,22 +79,20 @@ const MOON_MIN_ORBIT = 6;
 // sobrepor com nomes muito compridos.
 const MOON_LABEL_ARC_PER_CHAR = 2;
 const MOON_LABEL_ARC_BASE = 6;
-const PLANET_SPACING = 6;
-const PLANET_GAP = 8; // garante que a shell de planetas nunca fica mais perto do centro que a de luas
+const PLANET_SPACING = 9;
+const PLANET_GAP = 10; // garante que a shell de planetas nunca fica mais perto do centro que a de luas
+// Mesma heurística de MOON_LABEL_ARC_PER_CHAR/BASE, mas pro nome de
+// pastas (estrelas/planetas) — sem isso, `packRadius` só garantia que os
+// CÍRCULOS de pastas vizinhas não colidem, e os RÓTULOS (mais longos, em
+// geral, que os de arquivo) se sobrepunham como no caso relatado.
+const FOLDER_LABEL_ARC_PER_CHAR = 2.2;
+const FOLDER_LABEL_ARC_BASE = 10;
 const ANGULAR_SPEED_K = 0.6; // rad·raio^0.5/s
 const MIN_SPEED = 0.02;
 const MAX_SPEED = 0.9;
 
 function clamp(v: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, v));
-}
-
-// Garante que a circunferência da shell (2πraio) comporta `count` corpos
-// lado a lado sem sobrepor, cada um ocupando uma "fatia" de arco de
-// `2*bodyRadius + spacing`.
-function packRadius(count: number, bodyRadius: number, spacing: number, minRadius: number): number {
-  if (count <= 0) return 0;
-  return Math.max(minRadius, (count * (2 * bodyRadius + spacing)) / (2 * Math.PI));
 }
 
 // Arco reservado pra UMA lua — o maior entre "cabe o círculo" (mesma conta
@@ -116,6 +114,30 @@ function moonArcFor(name: string): number {
 function packMoonRadius(moons: SolarNode[], minRadius: number): number {
   if (moons.length === 0) return 0;
   const totalArc = moons.reduce((sum, m) => sum + moonArcFor(m.name), 0);
+  return Math.max(minRadius, totalArc / (2 * Math.PI));
+}
+
+// Arco reservado pra UMA pasta-filha (estrela/planeta) — maior entre "cabe
+// o círculo" (2*extent da subárvore + espaçamento) e "cabe o nome" (mesma
+// heurística de moonArcFor, ver FOLDER_LABEL_ARC_PER_CHAR acima).
+function folderArcFor(name: string, extent: number, spacing: number): number {
+  const circleArc = 2 * extent + spacing;
+  const labelArc = name.length * FOLDER_LABEL_ARC_PER_CHAR + FOLDER_LABEL_ARC_BASE;
+  return Math.max(circleArc, labelArc);
+}
+
+// Mesma ideia de packMoonRadius, mas pra pastas-filhas: soma o arco
+// INDIVIDUAL de cada uma (círculo OU rótulo, o que for maior) em vez de
+// multiplicar um arco uniforme pela contagem — nomes de pasta variam bem
+// mais em comprimento do que em profundidade/extent.
+function packFolderRadius(
+  folders: SolarNode[],
+  extents: number[],
+  spacing: number,
+  minRadius: number,
+): number {
+  if (folders.length === 0) return 0;
+  const totalArc = folders.reduce((sum, f, i) => sum + folderArcFor(f.name, extents[i], spacing), 0);
   return Math.max(minRadius, totalArc / (2 * Math.PI));
 }
 
@@ -245,13 +267,15 @@ export function buildSolarSystemData(state: VaultState): SolarSystemData {
     const moonShellRadius = packMoonRadius(fileChildren, MOON_MIN_ORBIT);
 
     let maxChildExtent = 0;
+    const folderExtents: number[] = [];
     for (const fc of folderChildren) {
       const e = computeExtent(fc.id);
+      folderExtents.push(e);
       if (e > maxChildExtent) maxChildExtent = e;
     }
-    const planetShellRadius = packRadius(
-      folderChildren.length,
-      maxChildExtent,
+    const planetShellRadius = packFolderRadius(
+      folderChildren,
+      folderExtents,
       PLANET_SPACING,
       moonShellRadius + PLANET_GAP,
     );
