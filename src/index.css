@@ -743,6 +743,12 @@ a:focus-visible {
 .duel-card:active:not(:disabled) { transform: translateY(0); }
 .duel-card:disabled { opacity: 0.5; cursor: wait; }
 .duel-card-name { font-size: 1.1rem; line-height: 1.3; }
+.duel-card-objective {
+  font-size: 0.8rem;
+  line-height: 1.3;
+  color: var(--muted);
+  font-weight: 400;
+}
 .duel-card-rating { font-size: 0.75rem; color: var(--muted); font-weight: 400; }
 .duel-card-badge {
   font-size: 0.7rem;
