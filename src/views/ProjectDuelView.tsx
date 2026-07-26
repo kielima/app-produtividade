@@ -380,6 +380,9 @@ function DuelCard({
       aria-label={`escolher ${project.name}`}
     >
       <span className="duel-card-name">{project.name}</span>
+      {project.objective && (
+        <span className="duel-card-objective">{project.objective}</span>
+      )}
       <span className="duel-card-rating">
         {Math.round(effective.r)} ± {Math.round(effective.rd)}
       </span>
