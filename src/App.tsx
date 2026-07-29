@@ -8,7 +8,6 @@ import {
   useRef,
   useState,
 } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
 import { App as CapacitorApp } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { Login } from './components/Login';
@@ -44,7 +43,7 @@ import { signOutCurrent } from './lib/auth';
 import { exportProjectsToPdf } from './lib/exportProjectsPdf';
 import { computeProgressByProject, filterAndSortProjects } from './lib/projectFilterSort';
 import { buildTaskCountByProject, isTopLevel } from './lib/taskHierarchy';
-import { auth } from './lib/firebase';
+import { useSupabaseUser } from './lib/useSession';
 import { NotesFiltersBar } from './components/NotesFiltersBar';
 import {
   LeituraFiltersBar,
@@ -217,7 +216,7 @@ function loadMenuOrder(): Tab[] {
 }
 
 export function App() {
-  const [user, loading, error] = useAuthState(auth);
+  const [user, loading, error] = useSupabaseUser();
   const [tab, setTab] = useState<Tab>(loadInitialTab);
   const [menuOpen, setMenuOpen] = useState(false);
   const [menuOrder, setMenuOrder] = useState<Tab[]>(loadMenuOrder);

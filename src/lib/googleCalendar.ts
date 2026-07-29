@@ -1,7 +1,7 @@
-import { httpsCallable } from 'firebase/functions';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
-import { auth, functions } from './firebase';
+import { callEdgeFunction } from './edgeFunctions';
+import { supabase } from './supabase';
 
 // =========================================================================
 // Aquisição de token — fluxo authorization-code com refresh token NO SERVIDOR.
@@ -31,18 +31,10 @@ type GetTokenResult =
   | { status: 'needs-reconnect' };
 type ConnectResult = { accessToken: string; expiresAt: number };
 
-const callGetToken = httpsCallable<void, GetTokenResult>(
-  functions,
-  'getCalendarAccessToken',
-);
-const callConnect = httpsCallable<{ code: string; redirectUri?: string }, ConnectResult>(
-  functions,
-  'connectCalendar',
-);
-const callDisconnect = httpsCallable<void, { status: string }>(
-  functions,
-  'disconnectCalendar',
-);
+const callGetToken = () => callEdgeFunction<GetTokenResult>('get-calendar-access-token');
+const callConnect = (body: { code: string; redirectUri?: string }) =>
+  callEdgeFunction<ConnectResult>('connect-calendar', body);
+const callDisconnect = () => callEdgeFunction<{ status: string }>('disconnect-calendar');
 
 // Disparar o silent refresh aos ~30min de um token de 1h (metade do TTL real),
 // bem antes da expiração efetiva, dá margem larga para retries em caso de
@@ -247,7 +239,10 @@ async function requestAuthCode(): Promise<string> {
   if (!oauth2) {
     throw new Error('Google Identity Services indisponível.');
   }
-  const email = auth.currentUser?.email;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const email = user?.email;
   return new Promise<string>((resolve, reject) => {
     const client = oauth2.initCodeClient({
       client_id: clientId,
@@ -288,7 +283,7 @@ export async function tryRefreshCalendarToken(
   for (let i = 0; i < backoffs.length; i++) {
     if (backoffs[i] > 0) await sleep(backoffs[i]);
     try {
-      const { data } = await callGetToken();
+      const data = await callGetToken();
       if (data.status === 'ok') {
         writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
         // Sucesso reaquece a flag — cobre o caso de outro dispositivo já ter
@@ -337,7 +332,7 @@ async function nativeGrantCalendar(uid: string): Promise<string> {
   // o 'postmessage' do fluxo popup web).
   if (serverAuthCode) {
     try {
-      const { data } = await callConnect({ code: serverAuthCode, redirectUri: '' });
+      const data = await callConnect({ code: serverAuthCode, redirectUri: '' });
       writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
       markEverConnected();
       return data.accessToken;
@@ -372,7 +367,7 @@ export async function grantCalendarAccess(uid: string): Promise<string> {
     return token;
   }
   const code = await requestAuthCode();
-  const { data } = await callConnect({ code });
+  const data = await callConnect({ code });
   writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
   markEverConnected();
   startCalendarTokenScheduler(uid);

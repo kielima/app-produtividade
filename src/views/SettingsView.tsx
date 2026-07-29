@@ -1,11 +1,10 @@
 import { useRef, useState } from 'react';
-import { useAuthState } from 'react-firebase-hooks/auth';
 import {
   getDefaultGeminiModel,
   getGeminiModel,
   setGeminiModel,
 } from '../lib/aiSubtasks';
-import { auth } from '../lib/firebase';
+import { useSupabaseUser } from '../lib/useSession';
 import {
   defaultFilename,
   downloadJson,
@@ -48,7 +47,7 @@ const IMPORT_STAT_LABELS: Record<keyof ImportStats, string> = {
 };
 
 export function SettingsView({ uid }: { uid: string }) {
-  const [user] = useAuthState(auth);
+  const [user] = useSupabaseUser();
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ExportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);

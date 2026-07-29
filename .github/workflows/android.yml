@@ -49,12 +49,9 @@ jobs:
           # Injeta o commit no bundle (__APP_COMMIT__) para o verificador
           # comparar com a última build publicada.
           APP_COMMIT: ${{ env.APP_COMMIT }}
-          VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}
-          VITE_FIREBASE_AUTH_DOMAIN: ${{ secrets.VITE_FIREBASE_AUTH_DOMAIN }}
-          VITE_FIREBASE_PROJECT_ID: ${{ secrets.VITE_FIREBASE_PROJECT_ID }}
-          VITE_FIREBASE_STORAGE_BUCKET: ${{ secrets.VITE_FIREBASE_STORAGE_BUCKET }}
-          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ secrets.VITE_FIREBASE_MESSAGING_SENDER_ID }}
-          VITE_FIREBASE_APP_ID: ${{ secrets.VITE_FIREBASE_APP_ID }}
+          # URL do Supabase não é segredo (só o RLS no banco isola os dados).
+          VITE_SUPABASE_URL: https://robwqxgllzxbxwnjkyic.supabase.co
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
           VITE_GOOGLE_OAUTH_CLIENT_ID: ${{ secrets.VITE_GOOGLE_OAUTH_CLIENT_ID }}
 
       - name: Setup Java 21
@@ -178,23 +175,26 @@ jobs:
           path: android/app/build/outputs/apk/debug/app-debug.apk
 
       # Canal de atualização in-app: hospeda o APK no Firebase Hosting (site
-      # DEDICADO, separado do site do PWA para não sobrescrevê-lo) e grava o doc
-      # `app/versao` no Firestore com o commit + URL. O verificador dentro do app
-      # lê esse doc, compara com o commit instalado (__APP_COMMIT__) e baixa o
-      # APK se houver versão nova. Só fora de PR (o commit do PR não é a versão
-      # publicada). Reaproveita a service account escrita pelo passo anterior.
+      # DEDICADO, separado do site do PWA para não sobrescrevê-lo) e grava a
+      # linha `app_version` no Supabase com o commit + URL. O verificador
+      # dentro do app lê essa linha, compara com o commit instalado
+      # (__APP_COMMIT__) e baixa o APK se houver versão nova. Só fora de PR (o
+      # commit do PR não é a versão publicada). Reaproveita a service account
+      # do Firebase escrita pelo passo anterior (só para o deploy do Hosting).
       #
       # PRÉ-REQUISITO (uma vez): criar o site de distribuição no Firebase Console
       # (Hosting → Adicionar outro site) com o id abaixo. O plano gratuito
       # (Spark) permite hospedar o APK; o Storage exigiria o plano Blaze. Se usar
       # outro id, defina a Variable PRODUTIVIDADE_HOSTING_SITE no repositório.
-      - name: Publicar atualização no Firebase (Hosting + Firestore)
+      - name: Publicar atualização (Firebase Hosting + Supabase)
         if: ${{ always() && github.event_name != 'pull_request' }}
         env:
           # Site de Hosting DEDICADO à distribuição do APK. Sem a Variable, usa
           # 'app-produtividade-builds'. O APK fica em
           # https://<site>.web.app/builds/produtividade.zip
           HOSTING_SITE: ${{ vars.PRODUTIVIDADE_HOSTING_SITE || 'app-produtividade-builds' }}
+          SUPABASE_URL: https://robwqxgllzxbxwnjkyic.supabase.co
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
         run: |
           set -euo pipefail
           if [ ! -f "$RUNNER_TEMP/firebase-sa.json" ]; then
@@ -230,7 +230,7 @@ jobs:
               exit "$DEPLOY_RC"
             fi
           fi
-          # Registra a versão (commit + URL) no Firestore. firebase-admin já vem
-          # das devDependencies instaladas por `npm ci`.
+          # Registra a versão (commit + URL) na tabela app_version do Supabase.
+          # @supabase/supabase-js já vem das dependencies instaladas por `npm ci`.
           APK_URL="https://$HOSTING_SITE.web.app/builds/produtividade.zip" \
             node scripts/publicar-firebase.mjs

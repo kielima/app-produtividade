@@ -1,16 +1,16 @@
-// Verificação e instalação de atualização do app via Firebase.
+// Verificação e instalação de atualização do app.
 //
-// O workflow "Android APK" publica cada build na main no Firebase: hospeda o
-// APK no Firebase Hosting e grava o doc global `app/versao` no Firestore com o
-// commit construído e a URL do APK. Aqui lemos esse doc (leitura pública, sem
-// login), comparamos o commit publicado com o da build instalada
-// (__APP_COMMIT__) e, no Android, baixamos o APK e abrimos o instalador via o
-// plugin nativo `Atualizador`. Nada de código nem dados pessoais transita por
-// aqui — o doc só tem o commit e a URL do APK.
+// O workflow "Android APK" publica cada build na main: hospeda o APK no
+// Firebase Hosting e grava a linha singleton `app_version` no Supabase com o
+// commit construído e a URL do APK. Aqui lemos essa linha (leitura pública,
+// sem login — RLS permite `select` para todo mundo), comparamos o commit
+// publicado com o da build instalada (__APP_COMMIT__) e, no Android, baixamos
+// o APK e abrimos o instalador via o plugin nativo `Atualizador`. Nada de
+// código nem dados pessoais transita por aqui — a linha só tem o commit e a
+// URL do APK.
 
 import { Capacitor, registerPlugin } from '@capacitor/core';
-import { doc, getDoc } from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase } from './supabase';
 
 interface AtualizadorPlugin {
   // Baixa o APK da URL e abre o instalador do Android. Resolve quando o
@@ -46,27 +46,25 @@ export function buildIdentificavel(): boolean {
   return COMMIT_ATUAL.length > 0;
 }
 
-// O verificador depende do Firebase (é de lá que vem a versão publicada).
+// O verificador depende do Supabase (é de lá que vem a versão publicada).
 export function servicoDisponivel(): boolean {
-  return Boolean(import.meta.env.VITE_FIREBASE_API_KEY);
+  return Boolean(import.meta.env.VITE_SUPABASE_URL);
 }
 
 export async function verificarAtualizacao(): Promise<InfoAtualizacao> {
-  const snap = await getDoc(doc(db, 'app', 'versao'));
-  if (!snap.exists()) {
+  const { data, error } = await supabase
+    .from('app_version')
+    .select('commit, apk_url, atualizado_em')
+    .eq('id', 1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data) {
     throw new Error('Nenhuma build publicada ainda.');
   }
-  const data = snap.data() as {
-    commit?: string;
-    apkUrl?: string;
-    atualizadoEm?: { toDate?: () => Date };
-  };
 
-  const commitRemoto = data.commit ? data.commit.slice(0, 7) : null;
-  const urlApk = data.apkUrl ?? null;
-  const publicadoEm = data.atualizadoEm?.toDate
-    ? data.atualizadoEm.toDate()
-    : null;
+  const commitRemoto = data.commit ? (data.commit as string).slice(0, 7) : null;
+  const urlApk = (data.apk_url as string | null) ?? null;
+  const publicadoEm = data.atualizado_em ? new Date(data.atualizado_em as string) : null;
 
   const atualCurto = COMMIT_ATUAL.slice(0, 7);
   const disponivel = Boolean(

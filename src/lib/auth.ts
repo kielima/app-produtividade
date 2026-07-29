@@ -1,21 +1,24 @@
-import {
-  GoogleAuthProvider,
-  signInWithCredential,
-  signInWithPopup,
-  signOut,
-} from 'firebase/auth';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
-import { auth } from './firebase';
+import { supabase } from './supabase';
 
-const provider = new GoogleAuthProvider();
-
-// No navegador o login é via popup OAuth. Dentro do WebView do app (Capacitor)
-// o popup do Google não devolve o resultado — o fluxo trava no "Entrando…".
-// Por isso, no APK usamos o Google Sign-In NATIVO (@capacitor-firebase/
-// authentication): ele abre o seletor de contas do Android, devolve um idToken
-// e nós trocamos esse token por uma credencial do Firebase (signInWithCredential),
-// sem popup nenhum.
+// No navegador o login é via popup OAuth (Supabase Auth + provider Google).
+// Dentro do WebView do app (Capacitor) o popup não devolve o resultado — o
+// fluxo trava no "Entrando…". Por isso, no APK usamos o Google Sign-In
+// NATIVO via @capacitor-firebase/authentication com `skipNativeAuth: true`
+// (ver capacitor.config.ts): nesse modo o plugin SÓ abre o seletor de contas
+// nativo do Android e devolve um idToken do Google — ele nunca estabelece
+// sessão com o Firebase. Como esse idToken é um ID token genuíno do Google,
+// entregamos direto pro Supabase (`signInWithIdToken`), sem popup e sem
+// depender de mais nada do Firebase.
+//
+// A dependência `firebase` continua no package.json só porque o bundle WEB
+// do @capacitor-firebase/authentication importa estaticamente `firebase/auth`
+// (fallback pra rodar no navegador) — sem o pacote instalado o build do Vite
+// quebra, mesmo esse código nunca sendo executado aqui (só chamamos
+// FirebaseAuthentication em Capacitor.isNativePlatform()). Trocar por um
+// plugin de Google Sign-In nativo puro (Fase 5 do plano de migração) remove
+// essa dependência de vez.
 export async function signInWithGoogle(): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     const result = await FirebaseAuthentication.signInWithGoogle();
@@ -23,11 +26,16 @@ export async function signInWithGoogle(): Promise<void> {
     if (!idToken) {
       throw new Error('Login nativo do Google não retornou idToken.');
     }
-    const credential = GoogleAuthProvider.credential(idToken);
-    await signInWithCredential(auth, credential);
+    const { error } = await supabase.auth.signInWithIdToken({ provider: 'google', token: idToken });
+    if (error) throw error;
     return;
   }
-  await signInWithPopup(auth, provider);
+
+  const { error } = await supabase.auth.signInWithOAuth({
+    provider: 'google',
+    options: { redirectTo: window.location.origin },
+  });
+  if (error) throw error;
 }
 
 export async function signOutCurrent(): Promise<void> {
@@ -36,16 +44,15 @@ export async function signOutCurrent(): Promise<void> {
     // conta anterior sem perguntar.
     await FirebaseAuthentication.signOut().catch(() => {});
   }
-  await signOut(auth);
+  await supabase.auth.signOut();
 }
 
 export function isPopupClosedByUser(e: unknown): boolean {
   if (typeof e !== 'object' || e === null) return false;
+  const message = (e as { message?: string }).message ?? '';
   const code = (e as { code?: string }).code;
   return (
-    code === 'auth/popup-closed-by-user' ||
-    code === 'auth/cancelled-popup-request' ||
-    // Equivalentes do fluxo nativo quando o usuário fecha o seletor de contas.
+    /popup/i.test(message) ||
     code === '12501' ||
     code === 'sign_in_canceled'
   );

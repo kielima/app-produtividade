@@ -1,23 +1,19 @@
-// Grava a versão publicada do app no Firestore, para o verificador de
-// atualização in-app.
+// Grava a versão publicada do app na tabela `app_version` do Supabase, para
+// o verificador de atualização in-app.
 //
-// O APK em si é hospedado no Firebase Hosting (plano gratuito) pelo workflow
-// "Android APK" — o Storage do Firebase exige o plano pago (Blaze). Aqui só
-// escrevemos, com a service account, o doc global `app/versao` com o commit
-// construído e a URL pública do APK no Hosting. O app lê esse doc (leitura
-// pública, sem dados pessoais), compara o commit com o da build instalada e
-// baixa o APK se houver versão nova.
-//
-// A credencial vem da variável GOOGLE_APPLICATION_CREDENTIALS (caminho do JSON
-// da service account), que o workflow define a partir do segredo. O admin SDK a
-// usa automaticamente via applicationDefault().
+// O APK em si continua hospedado no Firebase Hosting (plano gratuito) pelo
+// workflow "Android APK" — só o registro da versão (commit + URL do APK)
+// migrou do Firestore para o Supabase. `app_version` tem RLS de leitura
+// pública mas escrita só via service_role — por isso este script usa a
+// service role key, nunca a anon key.
 //
 // Variáveis de ambiente:
-//   GOOGLE_APPLICATION_CREDENTIALS  caminho do JSON da service account (workflow)
-//   APP_COMMIT                      commit realmente construído (vai no doc)
-//   APK_URL                         URL pública do APK no Hosting (obrigatório)
+//   SUPABASE_URL                 URL do projeto Supabase
+//   SUPABASE_SERVICE_ROLE_KEY    service role key (bypassa RLS) — segredo de CI
+//   APP_COMMIT                   commit realmente construído
+//   APK_URL                      URL pública do APK no Firebase Hosting (obrigatório)
 
-import admin from 'firebase-admin';
+import { createClient } from '@supabase/supabase-js';
 
 const commit = process.env.APP_COMMIT || '';
 const apkUrl = process.env.APK_URL || '';
@@ -26,13 +22,23 @@ if (!apkUrl) {
   process.exit(1);
 }
 
-admin.initializeApp({ credential: admin.credential.applicationDefault() });
+const supabaseUrl = process.env.SUPABASE_URL;
+const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+if (!supabaseUrl || !serviceRoleKey) {
+  console.error('SUPABASE_URL/SUPABASE_SERVICE_ROLE_KEY ausentes — não dá para publicar.');
+  process.exit(1);
+}
 
-await admin.firestore().doc('app/versao').set({
-  commit,
-  apkUrl,
-  atualizadoEm: admin.firestore.FieldValue.serverTimestamp(),
-});
+const supabase = createClient(supabaseUrl, serviceRoleKey);
+
+const { error } = await supabase
+  .from('app_version')
+  .upsert({ id: 1, commit, apk_url: apkUrl, atualizado_em: new Date().toISOString() });
+
+if (error) {
+  console.error('Falha ao publicar versão no Supabase:', error.message);
+  process.exit(1);
+}
 
 console.log(`Versão publicada · commit ${commit || '(vazio)'}`);
 console.log(`APK: ${apkUrl}`);
