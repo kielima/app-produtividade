@@ -1,34 +1,13 @@
-import { collection, doc, getDoc, getDocs } from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase } from './supabase';
+import { rowToTask } from '../repositories/tasksRepo';
+import { rowToProject } from '../repositories/projectsRepo';
+import { rowToNote } from '../repositories/notesRepo';
 import {
   EXPORT_VERSION,
   type ExportPayload,
   type GlickoEntry,
   type MemoryDoc,
 } from './exportData';
-import { DEFAULT_RATING } from './glicko2';
-import type { Note, Project, Section, Task } from '../types';
-
-async function fetchCollection<T>(uid: string, path: string): Promise<T[]> {
-  const snap = await getDocs(collection(db, 'users', uid, ...path.split('/')));
-  return snap.docs.map((d) => ({ ...(d.data() as Omit<T, 'id'>), id: d.id }) as T);
-}
-
-async function fetchDocContent(uid: string, ...pathSegs: string[]): Promise<string | null> {
-  const ref = doc(db, 'users', uid, ...pathSegs);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) return null;
-  const data = snap.data() as { content?: string };
-  return data.content ?? null;
-}
-
-async function fetchMemorySubcollection(uid: string, subcoll: string): Promise<MemoryDoc[]> {
-  const snap = await getDocs(collection(db, 'users', uid, 'memory', subcoll, 'docs'));
-  return snap.docs.map((d) => {
-    const data = d.data() as { content?: string };
-    return { id: d.id, content: data.content ?? '' };
-  });
-}
 
 /**
  * Coleta todos os dados do usuário em um único objeto JSON serializável.
@@ -37,34 +16,58 @@ async function fetchMemorySubcollection(uid: string, subcoll: string): Promise<M
  * inverso (não implementado ainda, fora do escopo do M5).
  *
  * Anti-lock-in: roda no client, escreve em disco local — o usuário sai
- * do Firebase sem nada preso na nuvem.
+ * do Supabase sem nada preso na nuvem.
  */
+
+async function fetchMemoryContent(uid: string, namespace: string): Promise<string | null> {
+  const { data } = await supabase
+    .from('memory_docs')
+    .select('content')
+    .eq('user_id', uid)
+    .eq('namespace', namespace)
+    .eq('slug', '')
+    .maybeSingle();
+  return (data?.content as string | undefined) ?? null;
+}
+
+async function fetchMemorySubcollection(uid: string, namespace: string): Promise<MemoryDoc[]> {
+  const { data } = await supabase
+    .from('memory_docs')
+    .select('slug, content')
+    .eq('user_id', uid)
+    .eq('namespace', namespace)
+    .neq('slug', '');
+  return (data ?? []).map((row) => ({
+    id: row.slug as string,
+    content: (row.content as string) ?? '',
+  }));
+}
+
 async function fetchGlicko(uid: string): Promise<GlickoEntry[]> {
-  const snap = await getDocs(collection(db, 'users', uid, 'glicko'));
-  return snap.docs.map((d) => {
-    const data = d.data() as Partial<GlickoEntry>;
-    return {
-      id: d.id,
-      r: typeof data.r === 'number' ? data.r : DEFAULT_RATING.r,
-      rd: typeof data.rd === 'number' ? data.rd : DEFAULT_RATING.rd,
-      sigma: typeof data.sigma === 'number' ? data.sigma : DEFAULT_RATING.sigma,
-    };
-  });
+  const { data } = await supabase
+    .from('project_ratings')
+    .select('project_id, r, rd, sigma')
+    .eq('user_id', uid);
+  return (data ?? []).map((row) => ({
+    id: row.project_id as string,
+    r: row.r as number,
+    rd: row.rd as number,
+    sigma: row.sigma as number,
+  }));
 }
 
 export async function exportAllData(uid: string): Promise<ExportPayload> {
-  const [sections, tasks, projects, notes, glicko] = await Promise.all([
-    fetchCollection<Section>(uid, 'sections'),
-    fetchCollection<Task>(uid, 'tasks'),
-    fetchCollection<Project>(uid, 'projects'),
-    fetchCollection<Note>(uid, 'notes'),
+  const [tasksRes, projectsRes, notesRes, glicko] = await Promise.all([
+    supabase.from('tasks').select('*').eq('user_id', uid),
+    supabase.from('projects').select('*').eq('user_id', uid),
+    supabase.from('notes').select('*').eq('user_id', uid),
     fetchGlicko(uid),
   ]);
 
   const [glossary, claude, projectsContext, automations, context] = await Promise.all([
-    fetchDocContent(uid, 'memory', 'glossary'),
-    fetchDocContent(uid, 'memory', 'claude'),
-    fetchMemorySubcollection(uid, 'projectsContext'),
+    fetchMemoryContent(uid, 'glossary'),
+    fetchMemoryContent(uid, 'claude'),
+    fetchMemorySubcollection(uid, 'projects_context'),
     fetchMemorySubcollection(uid, 'automations'),
     fetchMemorySubcollection(uid, 'context'),
   ]);
@@ -73,10 +76,12 @@ export async function exportAllData(uid: string): Promise<ExportPayload> {
     exportedAt: new Date().toISOString(),
     uid,
     version: EXPORT_VERSION,
-    sections,
-    tasks,
-    projects,
-    notes,
+    // Coleção legada (sections) foi absorvida por `projects` — não existe
+    // mais no Postgres, então o export sempre a traz vazia.
+    sections: [],
+    tasks: (tasksRes.data ?? []).map(rowToTask),
+    projects: (projectsRes.data ?? []).map(rowToProject),
+    notes: (notesRes.data ?? []).map(rowToNote),
     glicko,
     memory: { glossary, claude, projectsContext, automations, context },
   };

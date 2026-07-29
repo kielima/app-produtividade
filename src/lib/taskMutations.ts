@@ -1,5 +1,4 @@
-import { doc, getDoc, serverTimestamp } from 'firebase/firestore';
-import { db } from './firebase';
+import { supabase } from './supabase';
 import { getDisplayTitle, serializeTitle } from './parser';
 import { getChildren } from './taskHierarchy';
 import { nextTaskId, upsertTask } from '../repositories/tasksRepo';
@@ -49,17 +48,18 @@ export async function patchTask(
     let projectName: string | null = null;
     if (merged.section) {
       try {
-        const psnap = await getDoc(doc(db, 'users', uid, 'projects', merged.section));
-        if (psnap.exists()) {
-          const data = psnap.data() as { name?: string };
-          projectName = data.name ?? null;
-        }
+        const { data } = await supabase
+          .from('projects')
+          .select('name')
+          .eq('user_id', uid)
+          .eq('id', merged.section)
+          .maybeSingle();
+        projectName = (data?.name as string | undefined) ?? null;
       } catch {
         // snapshot do nome é best-effort
       }
     }
-    // serverTimestamp() é um sentinel — escapa do tipo Task aqui de propósito.
-    (merged as unknown as { completedAt: unknown }).completedAt = serverTimestamp();
+    merged.completedAt = new Date();
     merged.completedFromSectionName = projectName;
   } else if (isReopening) {
     merged.completedAt = null;

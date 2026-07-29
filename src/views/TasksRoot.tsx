@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef } from 'react';
+import { useMemo } from 'react';
 import { NewTaskFab } from '../components/NewTaskFab';
 import type { TaskFiltersState } from '../components/TaskFiltersBar';
 import {
@@ -11,7 +11,6 @@ import { normalizeForSearch } from '../lib/searchNormalize';
 import { isSnoozed } from '../lib/snooze';
 import { buildChildStatsMap, isTopLevel } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
-import { migrateCompletedTasksIntoTasks } from '../repositories/tasksRepo';
 import type { Task } from '../types';
 import { PrioridadeView } from './PrioridadeView';
 import { TaskMoscowMatrix } from './TaskMoscowMatrix';
@@ -89,16 +88,6 @@ export function TasksRoot({
   filters: TaskFiltersState;
   searchQuery: string;
 }) {
-  const migratedOnLoad = useRef(false);
-
-  useEffect(() => {
-    if (migratedOnLoad.current) return;
-    migratedOnLoad.current = true;
-    migrateCompletedTasksIntoTasks(uid).catch(() => {
-      // erro silencioso — a próxima montagem tenta de novo se persistir
-    });
-  }, [uid]);
-
   // Subtarefas (filhas) ficam ocultas da lista principal — só aparecem dentro
   // da página do pai. Mantemos `data.tasks` completo para calcular o progresso
   // das filhas via `childStats`. Tarefas com `parentId` órfão (pai apagado sem

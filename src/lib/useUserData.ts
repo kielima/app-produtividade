@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { patchProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks } from '../repositories/tasksRepo';
-import { migrateSectionsToProjects } from './migrateSectionsToProjects';
 import { computeBlockTransitions } from './projectBlocking';
 import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
@@ -17,9 +16,8 @@ export interface UserData {
 
 /**
  * Assina tasks + projects em real-time e computa o contexto de score
- * (depMap + potentialScoreMap). Antes de assinar, garante que a migração
- * one-shot de sections → projects rodou (idempotente). Compartilhado por
- * todas as views do grupo Tarefas — evita re-subscribe ao trocar de view.
+ * (depMap + potentialScoreMap). Compartilhado por todas as views do grupo
+ * Tarefas — evita re-subscribe ao trocar de view.
  */
 export function useUserData(uid: string): UserData {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -27,25 +25,11 @@ export function useUserData(uid: string): UserData {
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    let cancelled = false;
-    let unsubTasks: (() => void) | undefined;
-    let unsubProjects: (() => void) | undefined;
-
-    (async () => {
-      try {
-        await migrateSectionsToProjects(uid);
-      } catch {
-        // segue mesmo se a migração falhar (próximo load tenta de novo)
-      }
-      if (cancelled) return;
-      unsubTasks = subscribeToTasks(uid, setTasks, setError);
-      unsubProjects = subscribeToProjects(uid, setProjects, setError);
-    })();
-
+    const unsubTasks = subscribeToTasks(uid, setTasks, setError);
+    const unsubProjects = subscribeToProjects(uid, setProjects, setError);
     return () => {
-      cancelled = true;
-      unsubTasks?.();
-      unsubProjects?.();
+      unsubTasks();
+      unsubProjects();
     };
   }, [uid]);
 

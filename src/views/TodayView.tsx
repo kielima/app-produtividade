@@ -37,7 +37,6 @@ function useDragScroll() {
   }, []);
   return ref;
 }
-import { useAuthState } from 'react-firebase-hooks/auth';
 import { TaskCard } from '../components/TaskCard';
 import { TodayFab } from '../components/TodayFab';
 import {
@@ -46,7 +45,7 @@ import {
   weatherLabel,
   type WeatherKind,
 } from '../components/WeatherIcon';
-import { auth } from '../lib/firebase';
+import { useSupabaseUser } from '../lib/useSession';
 import {
   CalendarAuthError,
   daysUntil,
@@ -727,7 +726,7 @@ export function TodayView({
   onCreateEventNeedsAuth,
 }: TodayViewProps) {
   const { openProject, openProjectTasks } = useProjectNavigation();
-  const [user] = useAuthState(auth);
+  const [user] = useSupabaseUser();
   const [now, setNow] = useState(() => new Date());
 
   // Atualiza a cada minuto para a saudação trocar ao virar a hora.

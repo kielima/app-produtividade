@@ -1,34 +1,87 @@
-import {
-  collection,
-  deleteDoc,
-  doc,
-  getDoc,
-  getDocs,
-  onSnapshot,
-  serverTimestamp,
-  setDoc,
-  Timestamp,
-  writeBatch,
-  type Unsubscribe,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase';
+import { supabase } from '../lib/supabase';
+import { subscribeTable, type Unsubscribe } from './realtimeTable';
 import type { Task } from '../types';
 
-function tasksCol(uid: string) {
-  return collection(db, 'users', uid, 'tasks');
+interface TaskRow {
+  id: string;
+  user_id: string;
+  task_id: number | null;
+  title: string;
+  note: string | null;
+  checked: boolean;
+  in_progress: boolean;
+  moscow: string | null;
+  modo: string | null;
+  esforco: string | null;
+  deadline: string | null;
+  added_date: string | null;
+  depends_on: string[] | null;
+  subtasks: unknown;
+  parent_id: string | null;
+  order: number | null;
+  project_id: string | null;
+  completed_at: string | null;
+  completed_from_section_name: string | null;
+  snoozed_until: string | null;
+  source_item_id: string | null;
+  source_annotation_id: string | null;
+}
+
+export function rowToTask(row: TaskRow): Task {
+  return {
+    id: row.id,
+    taskId: row.task_id,
+    title: row.title,
+    note: row.note ?? '',
+    checked: row.checked,
+    inProgress: row.in_progress,
+    moscow: (row.moscow as Task['moscow']) ?? '',
+    modo: (row.modo as Task['modo']) ?? 'manual',
+    esforco: (row.esforco as Task['esforco']) ?? '',
+    deadline: row.deadline ?? '',
+    addedDate: row.added_date ?? '',
+    dependsOn: row.depends_on ?? [],
+    subtasks: (row.subtasks as Task['subtasks']) ?? [],
+    parentId: row.parent_id ?? null,
+    order: row.order ?? null,
+    section: row.project_id ?? '',
+    completedAt: row.completed_at ? new Date(row.completed_at) : null,
+    completedFromSectionName: row.completed_from_section_name ?? null,
+    snoozedUntil: row.snoozed_until ?? null,
+    ...(row.source_item_id != null ? { sourceItemId: row.source_item_id } : {}),
+    ...(row.source_annotation_id != null ? { sourceAnnotationId: row.source_annotation_id } : {}),
+  };
 }
 
 function taskDocId(task: Pick<Task, 'taskId' | 'id'>): string {
   return task.taskId != null ? String(task.taskId) : task.id;
 }
 
-function readCompletedAt(raw: unknown): Date | null {
-  if (raw instanceof Timestamp) return raw.toDate();
-  if (raw && typeof raw === 'object' && 'seconds' in (raw as object)) {
-    return new Date((raw as { seconds: number }).seconds * 1000);
-  }
-  if (raw instanceof Date) return raw;
-  return null;
+export function taskToRow(uid: string, task: Task): Omit<TaskRow, 'user_id'> & { user_id: string } {
+  return {
+    id: taskDocId(task),
+    user_id: uid,
+    task_id: task.taskId,
+    title: task.title,
+    note: task.note,
+    checked: task.checked,
+    in_progress: task.inProgress,
+    moscow: task.moscow,
+    modo: task.modo,
+    esforco: task.esforco,
+    deadline: task.deadline,
+    added_date: task.addedDate,
+    depends_on: task.dependsOn,
+    subtasks: task.subtasks,
+    parent_id: task.parentId ?? null,
+    order: task.order ?? null,
+    project_id: task.section || null,
+    completed_at: task.completedAt ? task.completedAt.toISOString() : null,
+    completed_from_section_name: task.completedFromSectionName ?? null,
+    snoozed_until: task.snoozedUntil ?? null,
+    source_item_id: task.sourceItemId ?? null,
+    source_annotation_id: task.sourceAnnotationId ?? null,
+  };
 }
 
 export function subscribeToTasks(
@@ -36,29 +89,24 @@ export function subscribeToTasks(
   cb: (tasks: Task[]) => void,
   onError?: (err: Error) => void,
 ): Unsubscribe {
-  return onSnapshot(
-    tasksCol(uid),
-    (snap) => {
-      const tasks: Task[] = snap.docs.map((d) => {
-        const data = d.data() as Omit<Task, 'id'>;
-        const completedAt = readCompletedAt(
-          (data as { completedAt?: unknown }).completedAt,
-        );
-        return { ...data, id: d.id, completedAt };
-      });
-      cb(tasks);
-    },
-    (err) => onError?.(err),
+  return subscribeTable<TaskRow, Task>(
+    { table: 'tasks', uid, mapRow: rowToTask, idOf: (t) => t.id, onError },
+    cb,
   );
 }
 
 export async function upsertTask(uid: string, task: Task): Promise<void> {
-  const id = taskDocId(task);
-  await setDoc(doc(db, 'users', uid, 'tasks', id), { ...task, id }, { merge: true });
+  const { error } = await supabase.from('tasks').upsert(taskToRow(uid, task));
+  if (error) throw new Error(error.message);
 }
 
 export async function deleteTask(uid: string, task: Pick<Task, 'taskId' | 'id'>): Promise<void> {
-  await deleteDoc(doc(db, 'users', uid, 'tasks', taskDocId(task)));
+  const { error } = await supabase
+    .from('tasks')
+    .delete()
+    .eq('user_id', uid)
+    .eq('id', taskDocId(task));
+  if (error) throw new Error(error.message);
 }
 
 /**
@@ -74,97 +122,49 @@ export async function setTaskCompleted(
   completed: boolean,
 ): Promise<void> {
   const id = taskDocId(task);
-  const ref = doc(db, 'users', uid, 'tasks', id);
   if (completed) {
     let projectName: string | null = null;
     if (task.section) {
-      try {
-        const psnap = await getDoc(doc(db, 'users', uid, 'projects', task.section));
-        if (psnap.exists()) {
-          const data = psnap.data() as { name?: string };
-          projectName = data.name ?? null;
-        }
-      } catch {
-        // ignora — snapshot do nome é best-effort.
-      }
+      const { data } = await supabase
+        .from('projects')
+        .select('name')
+        .eq('user_id', uid)
+        .eq('id', task.section)
+        .maybeSingle();
+      projectName = (data?.name as string | undefined) ?? null;
     }
-    await setDoc(
-      ref,
-      {
+    const { error } = await supabase
+      .from('tasks')
+      .update({
         checked: true,
-        completedAt: serverTimestamp(),
-        completedFromSectionName: projectName,
-      },
-      { merge: true },
-    );
+        completed_at: new Date().toISOString(),
+        completed_from_section_name: projectName,
+      })
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw new Error(error.message);
   } else {
-    await setDoc(
-      ref,
-      { checked: false, completedAt: null, completedFromSectionName: null },
-      { merge: true },
-    );
+    const { error } = await supabase
+      .from('tasks')
+      .update({ checked: false, completed_at: null, completed_from_section_name: null })
+      .eq('user_id', uid)
+      .eq('id', id);
+    if (error) throw new Error(error.message);
   }
 }
 
 /**
- * Atribui o próximo `taskId` (max+1 em `tasks/`) ao criar uma nova tarefa.
- * Lê uma vez todas as tarefas pra encontrar o max — aceitável pra o volume
- * esperado (~500 docs); paginar só quando passar de alguns milhares.
+ * Atribui o próximo `taskId` (max+1 entre as tarefas do usuário) ao criar
+ * uma nova tarefa.
  */
 export async function nextTaskId(uid: string): Promise<number> {
-  const snap = await getDocs(tasksCol(uid));
-  let max = 0;
-  snap.forEach((d) => {
-    const t = d.data() as Task;
-    if (t.taskId != null && t.taskId > max) max = t.taskId;
-  });
+  const { data, error } = await supabase
+    .from('tasks')
+    .select('task_id')
+    .eq('user_id', uid)
+    .order('task_id', { ascending: false, nullsFirst: false })
+    .limit(1);
+  if (error) throw new Error(error.message);
+  const max = (data?.[0]?.task_id as number | null | undefined) ?? 0;
   return max + 1;
-}
-
-/**
- * Migração one-shot: move tudo que estiver em `completedTasks/` para
- * `tasks/`, traduzindo `archivedAt`→`completedAt` e
- * `archivedFromSectionName`→`completedFromSectionName`. Idempotente: se
- * `completedTasks/` estiver vazia, retorna 0 sem escrever nada. Roda no
- * load da app até a coleção velha ser drenada.
- */
-export async function migrateCompletedTasksIntoTasks(uid: string): Promise<number> {
-  const completedRef = collection(db, 'users', uid, 'completedTasks');
-  const snap = await getDocs(completedRef);
-  if (snap.empty) return 0;
-
-  const BATCH_LIMIT = 200;
-  const docs = snap.docs;
-  for (let i = 0; i < docs.length; i += BATCH_LIMIT) {
-    const slice = docs.slice(i, i + BATCH_LIMIT);
-    const batch = writeBatch(db);
-    for (const d of slice) {
-      const raw = d.data() as Record<string, unknown>;
-      const id = d.id;
-      const archivedAt = raw.archivedAt ?? raw.completedAt ?? null;
-      const archivedFromSectionName =
-        (raw.archivedFromSectionName as string | null | undefined) ??
-        (raw.completedFromSectionName as string | null | undefined) ??
-        null;
-      // Limpa campos antigos para não poluir os docs migrados.
-      const cleaned = { ...raw };
-      delete cleaned.archivedAt;
-      delete cleaned.archivedFromSection;
-      delete cleaned.archivedFromSectionName;
-      batch.set(
-        doc(db, 'users', uid, 'tasks', id),
-        {
-          ...cleaned,
-          id,
-          checked: true,
-          completedAt: archivedAt,
-          completedFromSectionName: archivedFromSectionName,
-        },
-        { merge: true },
-      );
-      batch.delete(d.ref);
-    }
-    await batch.commit();
-  }
-  return docs.length;
 }

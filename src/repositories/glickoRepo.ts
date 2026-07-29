@@ -1,72 +1,63 @@
-import {
-  collection,
-  doc,
-  getDoc,
-  onSnapshot,
-  writeBatch,
-  type Unsubscribe,
-} from 'firebase/firestore';
-import { db } from '../lib/firebase';
-import {
-  DEFAULT_RATING,
-  clampRD,
-  type GlickoRating,
-} from '../lib/glicko2';
+import { supabase } from '../lib/supabase';
+import { DEFAULT_RATING, clampRD, type GlickoRating } from '../lib/glicko2';
+import { subscribeTable, type Unsubscribe } from './realtimeTable';
 
 /**
- * Persistência dos ratings Glicko-2 dos projetos, em coleção própria
- * (`users/{uid}/glicko/{projectId}`). Fica isolada da coleção `projects`
- * para que a matemática do duelo NUNCA contamine os campos do projeto
- * em si — a única ponte é a ordem da lista (campo `order`).
+ * Persistência dos ratings Glicko-2 dos projetos, em tabela própria
+ * (`project_ratings`, PK = project_id). Fica isolada da tabela `projects`
+ * para que a matemática do duelo NUNCA contamine os campos do projeto em si
+ * — a única ponte é a ordem da lista (campo `order`).
  */
 
-function glickoCol(uid: string) {
-  return collection(db, 'users', uid, 'glicko');
-}
-
-function glickoDoc(uid: string, projectId: string) {
-  return doc(db, 'users', uid, 'glicko', projectId);
+interface RatingRow {
+  project_id: string;
+  user_id: string;
+  r: number;
+  rd: number;
+  sigma: number;
 }
 
 export type GlickoMap = Record<string, GlickoRating>;
+
+function rowToRating(row: RatingRow): GlickoRating {
+  return {
+    r: typeof row.r === 'number' ? row.r : DEFAULT_RATING.r,
+    rd: typeof row.rd === 'number' ? row.rd : DEFAULT_RATING.rd,
+    sigma: typeof row.sigma === 'number' ? row.sigma : DEFAULT_RATING.sigma,
+  };
+}
 
 export function subscribeToGlickoRatings(
   uid: string,
   cb: (ratings: GlickoMap) => void,
   onError?: (err: Error) => void,
 ): Unsubscribe {
-  return onSnapshot(
-    glickoCol(uid),
-    (snap) => {
+  return subscribeTable<RatingRow, { id: string; rating: GlickoRating }>(
+    {
+      table: 'project_ratings',
+      uid,
+      rowIdColumn: 'project_id',
+      mapRow: (row) => ({ id: row.project_id, rating: rowToRating(row) }),
+      idOf: (item) => item.id,
+      onError,
+    },
+    (items) => {
       const out: GlickoMap = {};
-      snap.forEach((d) => {
-        const data = d.data() as Partial<GlickoRating>;
-        out[d.id] = {
-          r: typeof data.r === 'number' ? data.r : DEFAULT_RATING.r,
-          rd: typeof data.rd === 'number' ? data.rd : DEFAULT_RATING.rd,
-          sigma:
-            typeof data.sigma === 'number' ? data.sigma : DEFAULT_RATING.sigma,
-        };
-      });
+      for (const item of items) out[item.id] = item.rating;
       cb(out);
     },
-    (err) => onError?.(err),
   );
 }
 
-export async function getRatingOrDefault(
-  uid: string,
-  projectId: string,
-): Promise<GlickoRating> {
-  const snap = await getDoc(glickoDoc(uid, projectId));
-  if (!snap.exists()) return { ...DEFAULT_RATING };
-  const data = snap.data() as Partial<GlickoRating>;
-  return {
-    r: typeof data.r === 'number' ? data.r : DEFAULT_RATING.r,
-    rd: typeof data.rd === 'number' ? data.rd : DEFAULT_RATING.rd,
-    sigma:
-      typeof data.sigma === 'number' ? data.sigma : DEFAULT_RATING.sigma,
-  };
+export async function getRatingOrDefault(uid: string, projectId: string): Promise<GlickoRating> {
+  const { data } = await supabase
+    .from('project_ratings')
+    .select('r, rd, sigma')
+    .eq('user_id', uid)
+    .eq('project_id', projectId)
+    .maybeSingle();
+  if (!data) return { ...DEFAULT_RATING };
+  return rowToRating({ ...data, project_id: projectId, user_id: uid });
 }
 
 function sanitize(r: GlickoRating): GlickoRating {
@@ -74,27 +65,22 @@ function sanitize(r: GlickoRating): GlickoRating {
 }
 
 /**
- * Persiste, num único batch, os ratings finais de uma sessão de duelos.
- * Recebe o mapa de projetos que mudaram (tipicamente a saída de
- * `applySessionDuels`). Não escreve nada se o mapa estiver vazio.
+ * Persiste, num único upsert, os ratings finais de uma sessão de duelos.
  */
-export async function persistRatings(
-  uid: string,
-  ratings: GlickoMap,
-): Promise<void> {
+export async function persistRatings(uid: string, ratings: GlickoMap): Promise<void> {
   const entries = Object.entries(ratings);
   if (entries.length === 0) return;
-  const batch = writeBatch(db);
-  for (const [id, rating] of entries) {
-    batch.set(glickoDoc(uid, id), sanitize(rating), { merge: true });
-  }
-  await batch.commit();
+  const rows = entries.map(([projectId, rating]) => {
+    const s = sanitize(rating);
+    return { project_id: projectId, user_id: uid, r: s.r, rd: s.rd, sigma: s.sigma };
+  });
+  const { error } = await supabase.from('project_ratings').upsert(rows);
+  if (error) throw new Error(error.message);
 }
 
 /**
- * Retorna ratings para uma lista de projetos, usando o default para os
- * que ainda não têm rating persistido. Não persiste — útil para ler e
- * ordenar sem efeitos colaterais.
+ * Retorna ratings para uma lista de projetos, usando o default para os que
+ * ainda não têm rating persistido. Não persiste.
  */
 export function ratingsFor(
   ratings: GlickoMap,
