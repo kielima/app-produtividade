@@ -1,7 +1,7 @@
-import { httpsCallable } from 'firebase/functions';
 import { Capacitor } from '@capacitor/core';
 import { FirebaseAuthentication } from '@capacitor-firebase/authentication';
-import { auth, functions } from './firebase';
+import { callEdgeFunction } from './edgeFunctions';
+import { supabase } from './supabase';
 
 // =========================================================================
 // Acesso ao Google Drive (aba Leitura) — mesmo fluxo do Google Calendar:
@@ -28,12 +28,10 @@ type GetTokenResult =
   | { status: 'needs-reconnect' };
 type ConnectResult = { accessToken: string; expiresAt: number };
 
-const callGetToken = httpsCallable<void, GetTokenResult>(functions, 'getDriveAccessToken');
-const callConnect = httpsCallable<{ code: string; redirectUri?: string }, ConnectResult>(
-  functions,
-  'connectDrive',
-);
-const callDisconnect = httpsCallable<void, { status: string }>(functions, 'disconnectDrive');
+const callGetToken = () => callEdgeFunction<GetTokenResult>('get-drive-access-token');
+const callConnect = (body: { code: string; redirectUri?: string }) =>
+  callEdgeFunction<ConnectResult>('connect-drive', body);
+const callDisconnect = () => callEdgeFunction<{ status: string }>('disconnect-drive');
 
 type StoredToken = { accessToken: string; expiresAt: number; uid: string };
 
@@ -167,7 +165,10 @@ async function requestAuthCode(): Promise<string> {
   await loadGisScript();
   const oauth2 = (window.google?.accounts as { oauth2?: GisOAuth2 } | undefined)?.oauth2;
   if (!oauth2) throw new Error('Google Identity Services indisponível.');
-  const email = auth.currentUser?.email;
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const email = user?.email;
   return new Promise<string>((resolve, reject) => {
     const client = oauth2.initCodeClient({
       client_id: clientId,
@@ -219,7 +220,7 @@ async function nativeGrantDrive(uid: string): Promise<string> {
   // o 'postmessage' do fluxo popup web).
   if (serverAuthCode) {
     try {
-      const { data } = await callConnect({ code: serverAuthCode, redirectUri: '' });
+      const data = await callConnect({ code: serverAuthCode, redirectUri: '' });
       writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
       markEverConnected();
       return data.accessToken;
@@ -249,7 +250,7 @@ export async function tryRefreshDriveToken(uid: string): Promise<string | null> 
     // 1) Se a conexão foi feita via serverAuthCode, o servidor tem refresh token:
     //    renova por lá (silencioso e permanente).
     try {
-      const { data } = await callGetToken();
+      const data = await callGetToken();
       if (data.status === 'ok') {
         writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
         markEverConnected();
@@ -267,7 +268,7 @@ export async function tryRefreshDriveToken(uid: string): Promise<string | null> 
   for (let i = 0; i < backoffs.length; i++) {
     if (backoffs[i] > 0) await sleep(backoffs[i]);
     try {
-      const { data } = await callGetToken();
+      const data = await callGetToken();
       if (data.status === 'ok') {
         writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
         markEverConnected();
@@ -293,7 +294,7 @@ export async function grantDriveAccess(uid: string): Promise<string> {
     return nativeGrantDrive(uid);
   }
   const code = await requestAuthCode();
-  const { data } = await callConnect({ code });
+  const data = await callConnect({ code });
   writeStored({ accessToken: data.accessToken, expiresAt: data.expiresAt, uid });
   markEverConnected();
   return data.accessToken;

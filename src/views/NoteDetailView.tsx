@@ -11,7 +11,6 @@ import { normalizeTags } from '../lib/tags';
 import { useReadingNavigation } from '../lib/readingNavigation';
 import { deleteNote, patchNote } from '../repositories/notesRepo';
 import { nextTaskId, upsertTask } from '../repositories/tasksRepo';
-import { deleteField } from 'firebase/firestore';
 import { patchAnnotation } from '../repositories/annotationsRepo';
 import type { Note, Project, Subtask, Task } from '../types';
 
@@ -208,7 +207,7 @@ export function NoteDetailView({
       // a tarefa recém-criada em vez da nota apagada.
       if (note.sourceItemId && note.sourceAnnotationId) {
         await patchAnnotation(uid, note.sourceItemId, note.sourceAnnotationId, {
-          linkedNoteId: deleteField(),
+          linkedNoteId: null,
           linkedTaskId: String(taskId),
         });
       }
