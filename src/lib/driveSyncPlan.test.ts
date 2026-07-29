@@ -167,4 +167,26 @@ describe('planDriveSyncItem', () => {
     });
     expect(plan).toEqual({ kind: 'update', patch: { fileName: 'novo-nome, 2020.pdf' } });
   });
+
+  it('classifica como norma técnica um item antigo mesmo já carimbado por uma tentativa de IA sem sucesso', () => {
+    // A classificação por IA do ReaderView carimba `autoClassifiedAt` mesmo
+    // quando não reconhece o tipo (deixa itemType em 'other'). A
+    // resincronização precisa continuar tentando pelo nome nesse caso —
+    // senão o item fica preso em 'other' pra sempre.
+    const existing = item({
+      itemType: 'other',
+      fileName: 'NBR 5410.pdf',
+      autoClassifiedAt: '2026-01-02T00:00:00.000Z',
+    });
+    const plan = planDriveSyncItem(existing, {
+      id: 'f1',
+      name: 'NBR 5410.pdf',
+      folderId: existing.folderId,
+      folderPath: existing.folderPath,
+    });
+    expect(plan.kind).toBe('update');
+    if (plan.kind !== 'update') throw new Error('expected update');
+    expect(plan.patch.itemType).toBe('Normas Técnicas');
+    expect(plan.patch.autoClassifiedAt).toEqual(expect.any(String));
+  });
 });

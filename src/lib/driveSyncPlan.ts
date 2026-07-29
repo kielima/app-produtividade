@@ -75,10 +75,15 @@ export function planDriveSyncItem(
   if (file.folderPath != null && existing.folderPath !== file.folderPath) {
     patch.folderPath = file.folderPath;
   }
-  // Item antigo, ainda sem tipo definido: aproveita a resincronização para
-  // classificar (EPUB vira 'book' direto; PDF ainda depende do nome), sem
-  // esperar o usuário abrir o arquivo um por um.
-  if (existing.itemType === 'other' && !existing.autoClassifiedAt) {
+  // Item ainda em 'other': aproveita a resincronização para tentar
+  // classificar pelo nome (EPUB vira 'book' direto; PDF ainda depende do
+  // nome), sem esperar o usuário abrir o arquivo um por um. Roda mesmo se
+  // `autoClassifiedAt` já foi carimbado pela classificação por IA do
+  // `ReaderView` — aquela tentativa, ao não reconhecer o conteúdo, também
+  // marca `autoClassifiedAt` e deixa o item preso em 'other' para sempre; a
+  // heurística de nome, mais barata e mais confiável para casos como
+  // NBR/ISO, precisa continuar tentando enquanto o tipo não for definido.
+  if (existing.itemType === 'other') {
     const byName = classifyByFormat(existing.format) ?? classifyByFileName(file.name);
     if (byName) {
       patch.itemType = byName;
