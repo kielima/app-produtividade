@@ -316,20 +316,16 @@ Detalhes de implementação:
 
 ## 5. Script de migração de dados
 
-**Abordagem:** como é 1 usuário só, a forma mais simples é reaproveitar o recurso de export/import JSON que a própria app já tem em Settings (`src/lib/exportFetcher.ts` já percorre todas as coleções — `tasks`, `projects`, `notes`, `readingItems` + `annotations`, `glicko`, `memory/*` — num único `ExportPayload`). Isso evita escrever de novo a lógica de leitura recursiva do Firestore.
+**Status: implementado** em `scripts/migrate-to-supabase/index.ts` (`npm run migrate:supabase -- [--dry-run]`).
 
-Passo a passo (`scripts/migrate-to-supabase/index.ts`, novo script na mesma família de `scripts/migrate/`):
+**Abordagem:** como a Fase 3 corrigiu o schema pra usar `id text` (o mesmo id de documento do Firestore, não um `bigint identity` gerado pelo banco — ver §2.2), a migração não precisa remapear ids em duas passadas como um schema com PK numérica exigiria. O script lê `users/{uid}/**` direto do Firestore via `firebase-admin` (mesmo padrão de `scripts/migrate/firebase-admin.ts`) e grava no Supabase via `@supabase/supabase-js` com a `service_role` key (bypassa RLS):
 
-1. **Login no app migrado uma vez** com a conta Google real, pra obter o novo `auth.users.id` (UUID) do Supabase. Guardar em `MIGRATE_SUPABASE_UID` (novo env var, análogo ao `MIGRATE_UID` existente).
-2. **Exportar o snapshot atual** via o botão de export do Settings (gera o `ExportPayload` JSON) — ou, alternativamente, rodar o script direto com `firebase-admin` (mesmo padrão de `scripts/migrate/firebase-admin.ts`) lendo `users/{uid}/**` recursivamente.
-3. **Transformar e inserir em duas passadas**, na ordem de dependência, usando `@supabase/supabase-js` com a `service_role` key (bypassa RLS):
-   - Passada 1 — inserir `projects` (sem `depends_on` ainda) e capturar mapa `firestoreProjectId → novo bigint id`.
-   - Passada 1 — inserir `tasks` (sem `parent_id`/`depends_on`/`source_item_id`/`source_annotation_id`), usando o mapa de projects pra resolver `project_id`; capturar mapa `firestoreTaskId → novo bigint id`.
-   - Passada 1 — inserir `notes`, `reading_items` (capturando seus próprios mapas de id), `project_ratings` (usando o mapa de projects), `memory_docs`.
-   - Passada 2 — `UPDATE` para preencher `tasks.parent_id`, `tasks.depends_on`, `tasks.source_item_id/source_annotation_id`, `notes.source_item_id/source_annotation_id` e inserir `annotations` (que dependem de `reading_items.id` já existir, e podem referenciar `linked_task_id`/`linked_note_id`).
-   - Conversões: Firestore `Timestamp` → `.toDate().toISOString()`; datas já em ISO string (caso de `annotations.createdAt`) passam direto.
-4. **Validar contagens**: comparar `count()` por coleção no Firestore vs. `count(*)` por tabela no Postgres antes de considerar a migração bem-sucedida.
-5. Rodar tudo primeiro contra um **projeto Supabase de teste/branch** (não o de produção), revisar os dados manualmente, só depois repetir contra o projeto real.
+1. **Login no app migrado uma vez** com a conta Google real, pra obter o novo `auth.users.id` (UUID) do Supabase. Guardar em `MIGRATE_SUPABASE_UID`.
+2. **Ler do Firestore**: `tasks` (+ `completedTasks` legado, traduzindo `archivedAt`→`completed_at`), `projects` (+ `sections` legado, só para quem não tem projeto com o mesmo id — mesma lógica que `migrateSectionsToProjects.ts` tinha antes de ser removido na Fase 3), `notes`, `glicko`, `readingItems` (+ subcoleção `annotations` de cada item — não coberto pelo export/import JSON de Settings, que nunca incluiu a aba Leitura), e `memory/{glossary,claude,projectsContext,automations,context}`.
+3. **Inserir em ordem de FK**: `projects` → `tasks`/`notes`/`reading_items` (todos referenciam `projects.id`) → `annotations` (referencia `reading_items.id`) → `project_ratings`/`memory_docs`. As duas únicas auto-referências (`tasks.parent_id`, `projects.depends_on`) ficam `null` na primeira passada e são preenchidas num `UPDATE` final, evitando violação de FK ao inserir um filho antes do pai no mesmo lote.
+   - Conversões: Firestore `Timestamp`/`{seconds}` → `.toDate().toISOString()` (só `completed_at` precisa disso — os demais campos de data já são strings simples, ver §2.3).
+4. **Validar contagens**: o script já imprime, ao final, quantas linhas leu do Firestore vs. quantas escreveu (ou escreveria, em `--dry-run`) no Supabase.
+5. Rodar primeiro com `--dry-run` pra conferir as contagens antes da escrita real; revisar os dados no Supabase manualmente depois.
 
 ---
 
