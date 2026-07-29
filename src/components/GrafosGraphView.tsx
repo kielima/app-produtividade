@@ -15,6 +15,7 @@ import {
 } from '../lib/grafosGraph';
 import { filterExactNameMatches } from '../lib/grafosBacklinks';
 import { useThemeColors, type CssVarReader } from '../lib/grafosColors';
+import { EXCLUDED_NAMES } from '../lib/grafosExcludedNames';
 import { driveIconKind } from '../lib/driveFileIcons';
 import { buildRenamedFileName, stripMdExtension } from '../lib/grafosWikilink';
 import type { useGrafosVault } from '../lib/grafosTree';
@@ -178,6 +179,39 @@ export function GrafosGraphView({
       didInitialFitRef.current = false;
     }
   }, [scopeFolder]);
+
+  // `vault` muda de identidade a cada dispatch (novo `state` no hook) — lido
+  // via ref (sempre o mais recente) pra o crawl abaixo poder depender só de
+  // `scopeFolder?.id` sem reiniciar a cada mudança de estado do vault.
+  const vaultRef = useRef(vault);
+  vaultRef.current = vault;
+
+  // O sistema solar carrega o vault por NÍVEL (raiz primeiro, resto sob
+  // demanda — ver GrafosSolarSystemView.tsx), então uma pasta a alguns
+  // níveis de profundidade pode não ter seus próprios filhos buscados ainda
+  // quando o usuário abre "Ver grafo desta pasta" nela — sem isto,
+  // `buildScopedGraphData` (que só lê pastas já com status 'loaded') via um
+  // grafo vazio, sem nenhum feedback do porquê. Busca (cache-aware, ver
+  // `vault.loadFolderChildren`) a pasta escolhida e TODA subpasta dela,
+  // recursivamente, só uma vez por escopo aberto.
+  useEffect(() => {
+    if (!scopeFolder) return;
+    let cancelled = false;
+    const seen = new Set<string>();
+    async function crawl(folderId: string) {
+      if (cancelled || seen.has(folderId)) return;
+      seen.add(folderId);
+      const children = await vaultRef.current.loadFolderChildren(folderId);
+      if (cancelled || !children) return;
+      const subfolders = children.filter((c) => c.isFolder && !EXCLUDED_NAMES.has(c.name));
+      await Promise.all(subfolders.map((sf) => crawl(sf.id)));
+    }
+    void crawl(scopeFolder.id);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [scopeFolder?.id]);
 
   // Posição (mundo) do nó em preview, atualizada a cada frame dentro de
   // `nodeCanvasObject` — lida logo em seguida por `syncPreviewOverlay`
