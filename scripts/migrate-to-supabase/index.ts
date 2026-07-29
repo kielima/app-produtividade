@@ -311,6 +311,25 @@ async function main() {
     };
   });
 
+  // --- normaliza project_id órfão (aponta pra um projeto que não existe mais
+  // — o Firestore não tem FK e deixou isso "pendurado" silenciosamente ao
+  // longo dos anos; o Postgres recusaria a escrita). Trata como "sem
+  // projeto", igual a UI já mostraria.
+  const finalProjectIds = new Set(projectRows.map((r) => r.id as string));
+  let orphanedRefs = 0;
+  for (const rows of [taskRows, noteRows, readingItemRows]) {
+    for (const row of rows) {
+      const pid = row.project_id as string | null;
+      if (pid && !finalProjectIds.has(pid)) {
+        row.project_id = null;
+        orphanedRefs++;
+      }
+    }
+  }
+  if (orphanedRefs > 0) {
+    console.log(`  [aviso] ${orphanedRefs} referência(s) a projeto inexistente zerada(s) (tratadas como "sem projeto").`);
+  }
+
   // --- annotations (dependem de reading_items já existirem) ---
   const annotationRows: Record<string, unknown>[] = [];
   for (const [itemId, snap] of annotationsByItem) {
