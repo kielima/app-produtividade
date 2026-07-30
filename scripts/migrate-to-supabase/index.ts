@@ -376,17 +376,31 @@ async function main() {
     }
   }
 
-  // --- project_ratings (glicko) ---
-  const ratingRows: Record<string, unknown>[] = glickoSnap.docs.map((d) => {
-    const data = d.data();
-    return {
-      project_id: d.id,
-      user_id: supabaseUid,
-      r: typeof data.r === 'number' ? data.r : 1500,
-      rd: typeof data.rd === 'number' ? data.rd : 350,
-      sigma: typeof data.sigma === 'number' ? data.sigma : 0.06,
-    };
-  });
+  // --- project_ratings (glicko) — project_id é a PK (não anulável), então
+  // ratings de projetos que não existem mais são descartados (não têm pra
+  // que servir sem o projeto).
+  const droppedRatings: string[] = [];
+  const ratingRows: Record<string, unknown>[] = glickoSnap.docs
+    .filter((d) => {
+      const exists = finalProjectIds.has(d.id);
+      if (!exists) droppedRatings.push(d.id);
+      return exists;
+    })
+    .map((d) => {
+      const data = d.data();
+      return {
+        project_id: d.id,
+        user_id: supabaseUid,
+        r: typeof data.r === 'number' ? data.r : 1500,
+        rd: typeof data.rd === 'number' ? data.rd : 350,
+        sigma: typeof data.sigma === 'number' ? data.sigma : 0.06,
+      };
+    });
+  if (droppedRatings.length > 0) {
+    console.log(
+      `  [aviso] ${droppedRatings.length} rating(s) de glicko descartado(s) (projeto inexistente): ${droppedRatings.join(', ')}`,
+    );
+  }
 
   // --- memory_docs ---
   const memoryRows: Record<string, unknown>[] = [];
