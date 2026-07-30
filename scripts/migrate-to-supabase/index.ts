@@ -30,7 +30,7 @@ import { parseArgs } from 'node:util';
 import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { adminDb } from '../migrate/firebase-admin';
 
-const CHUNK_SIZE = 500;
+const CHUNK_SIZE = 150;
 
 function parseCliArgs(): { dryRun: boolean } {
   const { values } = parseArgs({
@@ -79,6 +79,12 @@ function toIso(raw: unknown): string | null {
   return null;
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+// Timeouts/resets de rede num lote isolado são comuns em runs longos (milhares
+// de linhas); retentar o MESMO lote é seguro porque upsert é idempotente.
 async function upsertChunked(
   supabase: SupabaseClient,
   table: string,
@@ -87,10 +93,24 @@ async function upsertChunked(
 ): Promise<number> {
   if (rows.length === 0) return 0;
   if (dryRun) return rows.length;
+  const backoffsMs = [0, 2_000, 5_000, 10_000];
   for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
     const slice = rows.slice(i, i + CHUNK_SIZE);
-    const { error } = await supabase.from(table).upsert(slice);
-    if (error) throw new Error(`upsert ${table} falhou: ${error.message}`);
+    let lastError: string | undefined;
+    let ok = false;
+    for (const backoff of backoffsMs) {
+      if (backoff > 0) {
+        console.log(`  [retry] ${table} lote ${i}-${i + slice.length}: tentando de novo em ${backoff}ms...`);
+        await sleep(backoff);
+      }
+      const { error } = await supabase.from(table).upsert(slice);
+      if (!error) {
+        ok = true;
+        break;
+      }
+      lastError = error.message;
+    }
+    if (!ok) throw new Error(`upsert ${table} falhou (lote ${i}-${i + slice.length}): ${lastError}`);
   }
   return rows.length;
 }
