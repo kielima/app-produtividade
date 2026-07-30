@@ -90,6 +90,7 @@ async function upsertChunked(
   table: string,
   rows: Record<string, unknown>[],
   dryRun: boolean,
+  onConflict?: string,
 ): Promise<number> {
   if (rows.length === 0) return 0;
   if (dryRun) return rows.length;
@@ -103,7 +104,7 @@ async function upsertChunked(
         console.log(`  [retry] ${table} lote ${i}-${i + slice.length}: tentando de novo em ${backoff}ms...`);
         await sleep(backoff);
       }
-      const { error } = await supabase.from(table).upsert(slice);
+      const { error } = await supabase.from(table).upsert(slice, onConflict ? { onConflict } : undefined);
       if (!error) {
         ok = true;
         break;
@@ -442,7 +443,7 @@ async function main() {
     readingItems: await upsertChunked(supabase, 'reading_items', readingItemRows, dryRun),
     annotations: await upsertChunked(supabase, 'annotations', annotationRows, dryRun),
     projectRatings: await upsertChunked(supabase, 'project_ratings', ratingRows, dryRun),
-    memoryDocs: await upsertChunked(supabase, 'memory_docs', memoryRows, dryRun),
+    memoryDocs: await upsertChunked(supabase, 'memory_docs', memoryRows, dryRun, 'user_id,namespace,slug'),
   };
 
   if (!dryRun) {
