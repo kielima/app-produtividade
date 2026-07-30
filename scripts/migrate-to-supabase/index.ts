@@ -446,7 +446,14 @@ async function main() {
   };
 
   if (!dryRun) {
+    const finalTaskIds = new Set(taskRows.map((r) => r.id as string));
+    let droppedDependsOn = 0;
+    let droppedParentId = 0;
     for (const [projectId, dependsOn] of projectDependsOn) {
+      if (!finalProjectIds.has(dependsOn)) {
+        droppedDependsOn++;
+        continue; // referência a projeto que não existe mais — ignora, fica null
+      }
       const { error } = await supabase
         .from('projects')
         .update({ depends_on: dependsOn })
@@ -455,6 +462,10 @@ async function main() {
       if (error) throw new Error(`update projects.depends_on falhou (${projectId}): ${error.message}`);
     }
     for (const [taskId, parentId] of taskParentId) {
+      if (!finalTaskIds.has(parentId)) {
+        droppedParentId++;
+        continue; // referência a tarefa que não existe mais — ignora, fica null
+      }
       const { error } = await supabase
         .from('tasks')
         .update({ parent_id: parentId })
@@ -462,6 +473,8 @@ async function main() {
         .eq('id', taskId);
       if (error) throw new Error(`update tasks.parent_id falhou (${taskId}): ${error.message}`);
     }
+    if (droppedDependsOn > 0) console.log(`  [aviso] ${droppedDependsOn} projects.depends_on órfão(s) ignorado(s).`);
+    if (droppedParentId > 0) console.log(`  [aviso] ${droppedParentId} tasks.parent_id órfão(s) ignorado(s).`);
   }
 
   console.log(`${dryRun ? 'Seria escrito' : 'Escrito'} no Supabase:`);
