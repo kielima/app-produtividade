@@ -18,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
+import { ExportToDriveButton } from '../components/ExportToDriveButton';
 import LinkIcon from '../components/LinkIcon';
 import { DepPicker } from '../components/DepPicker';
 import { InlineEdit } from '../components/InlineEdit';
@@ -929,6 +930,7 @@ export function TaskDetailView({
                 </button>
               )}
               <CopyMarkdownButton value={task.note} ariaLabel="copiar nota em markdown" />
+              <ExportToDriveButton uid={uid} title={display} content={task.note} />
             </div>
           </div>
           <MarkdownNote

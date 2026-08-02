@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
+import { ExportToDriveButton } from '../components/ExportToDriveButton';
 import { InlineEdit } from '../components/InlineEdit';
 import LinkIcon from '../components/LinkIcon';
 import { MarkdownNote } from '../components/MarkdownNote';
@@ -349,6 +350,7 @@ export function NoteDetailView({
                 </button>
               )}
               <CopyMarkdownButton value={note.note} ariaLabel="copiar nota em markdown" />
+              <ExportToDriveButton uid={uid} title={note.title} content={note.note} />
             </div>
           </div>
           <MarkdownNote
