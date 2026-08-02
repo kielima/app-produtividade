@@ -167,6 +167,14 @@ export function GrafosGraphView({
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   const colors = useGraphColors();
   const didInitialFitRef = useRef(false);
+  // Quantos nós tinha o grafo na última vez que `zoomToFit` rodou (só usado
+  // em modo escopado, ver efeito abaixo) — deixa o reenquadramento acontecer
+  // de novo enquanto o crawl da pasta (GrafosGraphView acima) ainda está
+  // trazendo mais arquivos, em vez de travar no zoom calculado pro punhado
+  // de nós que existia no primeiríssimo instante (quase vazio, antes do
+  // crawl completar), que ficava minúsculo demais assim que o resto da
+  // pasta aparecia.
+  const lastFitNodeCountRef = useRef(0);
   // Trocar de escopo (ou entrar/sair dele) é, pro usuário, basicamente abrir
   // um grafo "novo" — sem isto, `didInitialFitRef` (já true desde o primeiro
   // fit do grafo geral) impediria o reenquadramento automático ao entrar
@@ -177,6 +185,7 @@ export function GrafosGraphView({
     if (scopeKeyRef.current !== key) {
       scopeKeyRef.current = key;
       didInitialFitRef.current = false;
+      lastFitNodeCountRef.current = 0;
     }
   }, [scopeFolder]);
 
@@ -187,13 +196,15 @@ export function GrafosGraphView({
   vaultRef.current = vault;
 
   // O sistema solar carrega o vault por NÍVEL (raiz primeiro, resto sob
-  // demanda — ver GrafosSolarSystemView.tsx), então uma pasta a alguns
-  // níveis de profundidade pode não ter seus próprios filhos buscados ainda
-  // quando o usuário abre "Ver grafo desta pasta" nela — sem isto,
-  // `buildScopedGraphData` (que só lê pastas já com status 'loaded') via um
-  // grafo vazio, sem nenhum feedback do porquê. Busca (cache-aware, ver
-  // `vault.loadFolderChildren`) a pasta escolhida e TODA subpasta dela,
-  // recursivamente, só uma vez por escopo aberto.
+  // demanda — ver GrafosSolarSystemView.tsx) e SEM conteúdo de nota (aquela
+  // visualização não desenha wikilink nenhum), então uma pasta a alguns
+  // níveis de profundidade pode não ter seus próprios filhos (nem o texto
+  // das notas) buscados ainda quando o usuário abre "Ver grafo desta pasta"
+  // nela — sem isto, `buildScopedGraphData` (que só lê pastas com status
+  // 'loaded' e notas com status 'loaded'/'saving' pra achar wikilinks) via
+  // um grafo vazio ou sem nenhuma aresta, sem feedback do porquê. Busca
+  // (cache-aware, ver `vault.loadFolderChildrenWithNotes`) a pasta escolhida
+  // e TODA subpasta dela, recursivamente, junto do conteúdo de cada nota.
   useEffect(() => {
     if (!scopeFolder) return;
     let cancelled = false;
@@ -201,7 +212,7 @@ export function GrafosGraphView({
     async function crawl(folderId: string) {
       if (cancelled || seen.has(folderId)) return;
       seen.add(folderId);
-      const children = await vaultRef.current.loadFolderChildren(folderId);
+      const children = await vaultRef.current.loadFolderChildrenWithNotes(folderId);
       if (cancelled || !children) return;
       const subfolders = children.filter((c) => c.isFolder && !EXCLUDED_NAMES.has(c.name));
       await Promise.all(subfolders.map((sf) => crawl(sf.id)));
@@ -285,6 +296,18 @@ export function GrafosGraphView({
   // próximo frame do canvas (diferente de `previewNodePosRef`, que só tem
   // x/y, que SIM muda a cada frame durante a simulação/pan/zoom).
   const previewNode = previewId ? graphData.nodes.find((n) => n.id === previewId) : undefined;
+
+  // Só em modo escopado: cada vez que o grafo GANHA nós (crawl progressivo
+  // trazendo mais arquivos da pasta), pede um reenquadramento novo — o modo
+  // grafo geral nunca faz isso (comentário de `handleEngineStop` abaixo
+  // explica por quê: "puxaria o tapete" de quem já está navegando um grafo
+  // que muda de tamanho o tempo todo por expandir/recolher pastas).
+  useEffect(() => {
+    if (!scopeFolder) return;
+    if (graphData.nodes.length > lastFitNodeCountRef.current) {
+      didInitialFitRef.current = false;
+    }
+  }, [scopeFolder, graphData.nodes.length]);
 
   // Fantasma (não é item real do Drive) e a raiz do vault (não tem pai pra
   // renomear/mover/excluir/fixar) nunca abrem o menu de contexto — guarda
@@ -455,6 +478,7 @@ export function GrafosGraphView({
   const handleEngineStop = useCallback(() => {
     if (!didInitialFitRef.current) {
       didInitialFitRef.current = true;
+      lastFitNodeCountRef.current = graphData.nodes.length;
       graphRef.current?.zoomToFit(400, 60);
     }
     const pendingId = pendingCenterNodeIdRef.current;
