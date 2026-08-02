@@ -11,6 +11,7 @@ export type DriveNode = {
   modifiedTime?: string;
   size?: string;
   isFolder: boolean;
+  properties?: Record<string, string>;
 };
 
 // O Drive não marca mimeType de forma confiável para arquivos .md enviados
@@ -24,4 +25,8 @@ export function isMarkdownFile(node: Pick<DriveNode, 'name' | 'mimeType'>): bool
   if (node.mimeType.startsWith('application/vnd.google-apps.')) return false;
   if (node.name.toLowerCase().endsWith('.md')) return true;
   return node.mimeType === 'text/markdown';
+}
+
+export function isImageFile(node: Pick<DriveNode, 'mimeType'>): boolean {
+  return node.mimeType.startsWith('image/');
 }
