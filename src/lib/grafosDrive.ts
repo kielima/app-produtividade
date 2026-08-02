@@ -25,6 +25,7 @@ function toDriveNode(file: {
   mimeType?: string;
   modifiedTime?: string;
   size?: string;
+  properties?: Record<string, string>;
 }): DriveNode {
   return {
     id: file.id ?? '',
@@ -33,6 +34,7 @@ function toDriveNode(file: {
     modifiedTime: file.modifiedTime,
     size: file.size,
     isFolder: file.mimeType === FOLDER_MIME_TYPE,
+    properties: file.properties,
   };
 }
 
@@ -52,6 +54,7 @@ type DriveListResponse = {
     mimeType?: string;
     modifiedTime?: string;
     size?: string;
+    properties?: Record<string, string>;
   }>;
   nextPageToken?: string;
 };
@@ -71,7 +74,7 @@ async function runDriveQuery(
   do {
     const params = new URLSearchParams({
       q,
-      fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size)',
+      fields: 'nextPageToken, files(id, name, mimeType, modifiedTime, size, properties)',
       pageSize: '200',
       spaces: 'drive',
       includeItemsFromAllDrives: 'true',
@@ -147,6 +150,35 @@ export async function searchFilesContainingText(
   if (!trimmed) return [];
   const q = `fullText contains '${escapeDriveQueryValue(trimmed)}' and trashed=false`;
   return runDriveQuery(token, q, maxResults != null ? { maxResults } : undefined);
+}
+
+// Todas as imagens do Drive inteiro (não só da pasta atual) — base da aba
+// Galeria (spec #949). `mimeType contains 'image/'` cobre o Drive todo numa
+// única busca, sem precisar percorrer pastas recursivamente.
+export async function listAllImages(token: string): Promise<DriveNode[]> {
+  return runDriveQuery(token, "mimeType contains 'image/' and trashed=false", {
+    orderBy: 'modifiedTime desc',
+  });
+}
+
+// Sobrescreve as `properties` custom de um arquivo (usado pelas tags da
+// Galeria) — chaves omitidas aqui não são tocadas pela API, então quem chama
+// deve mandar o objeto de tags completo (ver setImageTags em grafosTree.ts).
+export async function updateFileProperties(
+  token: string,
+  fileId: string,
+  properties: Record<string, string>,
+): Promise<void> {
+  const params = new URLSearchParams({ fields: 'id', supportsAllDrives: 'true' });
+  await driveFetch(
+    token,
+    `https://www.googleapis.com/drive/v3/files/${encodeURIComponent(fileId)}?${params.toString()}`,
+    {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ properties }),
+    },
+  );
 }
 
 // Conteúdo bruto de uma nota .md (alt=media assume texto simples/UTF-8).
