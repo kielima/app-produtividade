@@ -227,6 +227,34 @@ export function useGrafosVault(uid: string) {
     [loadFolder],
   );
 
+  // Igual a `loadFolderChildren` (cache-aware, não marca `expandedIds`), mas
+  // também busca o CONTEÚDO de toda nota .md filha — usado pelo grafo local
+  // por pasta (GrafosGraphView.tsx, "Ver grafo desta pasta"), que precisa do
+  // texto das notas pra parsear `[[wikilinks]]` (buildScopedGraphData). O
+  // crawl eager do sistema solar deliberadamente NÃO busca conteúdo de nota
+  // (ver `loadFolderChildren` acima) porque aquela visualização não desenha
+  // wikilink nenhum — o grafo escopado desenha, então precisa deste caminho
+  // à parte. Cache-aware pra nota também: uma nota já carregada/carregando
+  // não é buscada de novo.
+  const loadFolderChildrenWithNotes = useCallback(
+    async (folderId: string): Promise<DriveNode[] | undefined> => {
+      const children = await loadFolderChildren(folderId);
+      if (!children) return undefined;
+      const markdownChildren = children.filter((c) => !c.isFolder && isMarkdownFile(c));
+      await Promise.all(
+        markdownChildren.map((child) => {
+          const existing = stateRef.current.notes.get(child.id);
+          if (existing && (existing.status === 'loaded' || existing.status === 'loading' || existing.status === 'saving')) {
+            return Promise.resolve();
+          }
+          return loadNoteContent(child.id, { name: child.name, parentFolderId: folderId });
+        }),
+      );
+      return children;
+    },
+    [loadFolderChildren, loadNoteContent],
+  );
+
   const expandFolder = useCallback(
     async (folderId: string) => {
       dispatch({ type: 'EXPANDED_SET', folderId, expanded: true });
@@ -463,6 +491,7 @@ export function useGrafosVault(uid: string) {
     expandFolder,
     collapseFolder,
     loadFolderChildren,
+    loadFolderChildrenWithNotes,
     refreshFolderSilently,
     openNote,
     editNote,
