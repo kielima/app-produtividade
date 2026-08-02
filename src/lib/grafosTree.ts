@@ -5,15 +5,18 @@ import {
   getFileModifiedTime,
   getRootFolderId,
   isMarkdownFile,
+  listAllImages,
   listFolderChildren,
   listStarredItems,
   readBinaryContent,
   readMarkdownContent,
   searchFilesByName,
   searchFilesContainingText,
+  updateFileProperties,
   writeMarkdownContent,
   type DriveNode,
 } from './grafosDrive';
+import { serializeTags, TAGS_PROPERTY_KEY } from './grafosGallery';
 import { moveDriveFile, renameDriveFile, trashDriveFile } from './googleDrive';
 import { hasConflict } from './grafosConflict';
 import { renameNoteAndFixLinks, type RenameOutcome } from './grafosRename';
@@ -377,6 +380,24 @@ export function useGrafosVault(uid: string) {
     [getToken],
   );
 
+  // Todas as imagens do Drive inteiro, pra aba Galeria (spec #949) — não
+  // depende da árvore de pastas já carregada (ao contrário do resto deste
+  // hook), busca direto via listAllImages.
+  const loadGalleryImages = useCallback(async (): Promise<DriveNode[]> => {
+    const token = await getToken();
+    return listAllImages(token);
+  }, [getToken]);
+
+  // Sobrescreve as tags de uma imagem da Galeria (armazenadas nas
+  // `properties` do arquivo no Drive — ver grafosGallery.ts).
+  const setImageTags = useCallback(
+    async (fileId: string, tags: string[]): Promise<void> => {
+      const token = await getToken();
+      await updateFileProperties(token, fileId, { [TAGS_PROPERTY_KEY]: serializeTags(tags) });
+    },
+    [getToken],
+  );
+
   // Renomeia a nota selecionada e corrige os wikilinks que a citam em
   // qualquer lugar do Drive (spec item 7); depois recarrega a pasta-mãe pra
   // a árvore refletir o nome novo. Notas "soltas" (sem pasta-mãe conhecida)
@@ -452,6 +473,8 @@ export function useGrafosVault(uid: string) {
     searchNotes,
     searchVaultWide,
     readFilePreview,
+    loadGalleryImages,
+    setImageTags,
     renameNote,
     renameFolderOrFile,
     moveNode,

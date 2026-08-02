@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
 import {
   grantDriveAccess,
@@ -47,6 +47,26 @@ function GraphIcon() {
     </svg>
   );
 }
+function GalleryIcon() {
+  return (
+    <svg
+      width="16"
+      height="16"
+      viewBox="0 0 24 24"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.6"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      aria-hidden="true"
+      focusable="false"
+    >
+      <rect x="3" y="4" width="18" height="14" rx="2" />
+      <circle cx="8.5" cy="9" r="1.5" />
+      <path d="M3 15.5l5-4.5 3.5 3 3-2.5L21 15" />
+    </svg>
+  );
+}
 function SolarIcon() {
   return (
     <svg
@@ -85,6 +105,12 @@ const GrafosGraphView = lazy(() =>
 // duas visualizações não se acoplarem no bundle uma da outra).
 const GrafosSolarSystemView = lazy(() =>
   import('../components/GrafosSolarSystemView').then((m) => ({ default: m.GrafosSolarSystemView })),
+);
+// Galeria (spec #949) — mesmo motivo de code-split das duas acima, e além
+// disso só é montada quando o usuário efetivamente abre a aba (evita listar
+// o Drive inteiro por imagens sem necessidade).
+const GrafosGalleryView = lazy(() =>
+  import('../components/GrafosGalleryView').then((m) => ({ default: m.GrafosGalleryView })),
 );
 
 const AUTOSAVE_DELAY_MS = 2800;
@@ -132,7 +158,15 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
   const vault = useGrafosVault(uid);
   // Órbitas é o modo padrão ao abrir a aba — o grafo é a alternativa (ver
   // MODE_TOGGLE_TARGET), a árvore de pastas foi removida como visualização.
-  const [mode, setMode] = useState<'graph' | 'solar'>('solar');
+  // 'gallery' (spec #949) é um terceiro modo à parte: não faz parte do
+  // toggle binário grafo/órbitas (MODE_TOGGLE_TARGET só cobre os dois),
+  // tem botão próprio no topbar (ver galleryToggle abaixo) e sempre volta
+  // pro último modo grafo/órbitas ativo ao ser fechado.
+  const [mode, setMode] = useState<'graph' | 'solar' | 'gallery'>('solar');
+  const lastGraphOrSolarModeRef = useRef<'graph' | 'solar'>('solar');
+  useEffect(() => {
+    if (mode !== 'gallery') lastGraphOrSolarModeRef.current = mode;
+  }, [mode]);
   // Restringe o modo grafo a uma única pasta quando aberto a partir do botão
   // "Ver grafo desta pasta" no sistema solar (ver GrafosSolarSystemView) — o
   // toggle genérico do topbar (MODE_TOGGLE_TARGET) sempre limpa isto, então
@@ -284,18 +318,35 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
       ) : (
         <>
           {/* Botão toggle único — o ícone mostra o modo PRA ONDE o toque
-              leva (não o atual), igual ao antigo cíclico binário. */}
+              leva (não o atual), igual ao antigo cíclico binário. Escondido
+              em modo galeria (MODE_TOGGLE_TARGET só cobre grafo/órbitas). */}
+          {mode !== 'gallery' && (
+            <button
+              type="button"
+              className="grafos-mode-toggle-btn"
+              aria-label={MODE_TOGGLE_TARGET[mode].label}
+              title={MODE_TOGGLE_TARGET[mode].label}
+              onClick={() => {
+                setGraphScopeFolder(null);
+                setMode(MODE_TOGGLE_TARGET[mode].key);
+              }}
+            >
+              {MODE_TOGGLE_TARGET[mode].icon}
+            </button>
+          )}
           <button
             type="button"
-            className="grafos-mode-toggle-btn"
-            aria-label={MODE_TOGGLE_TARGET[mode].label}
-            title={MODE_TOGGLE_TARGET[mode].label}
+            className={
+              mode === 'gallery' ? 'grafos-mode-toggle-btn grafos-mode-toggle-btn--active' : 'grafos-mode-toggle-btn'
+            }
+            aria-label={mode === 'gallery' ? 'Fechar galeria' : 'Ver galeria'}
+            title={mode === 'gallery' ? 'Fechar galeria' : 'Ver galeria'}
             onClick={() => {
               setGraphScopeFolder(null);
-              setMode(MODE_TOGGLE_TARGET[mode].key);
+              setMode(mode === 'gallery' ? lastGraphOrSolarModeRef.current : 'gallery');
             }}
           >
-            {MODE_TOGGLE_TARGET[mode].icon}
+            <GalleryIcon />
           </button>
           <SearchToggle active={false} onClick={() => setSearchExpanded(true)} />
         </>
@@ -313,7 +364,15 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
       {topbarSlot && createPortal(topbarControls, topbarSlot)}
       {searchStatus && <p className="muted grafos-status-line grafos-view-floating-status">{searchStatus}</p>}
 
-      {mode === 'graph' ? (
+      {mode === 'gallery' ? (
+        <div className="grafos-view-body">
+          <GrafosViewErrorBoundary fallbackTitle="A galeria encontrou um erro inesperado.">
+            <Suspense fallback={<p className="muted">Carregando galeria…</p>}>
+              <GrafosGalleryView vault={vault} />
+            </Suspense>
+          </GrafosViewErrorBoundary>
+        </div>
+      ) : mode === 'graph' ? (
         <div className="grafos-view-body">
           <GrafosViewErrorBoundary fallbackTitle="O grafo encontrou um erro inesperado.">
             <Suspense fallback={<p className="muted">Carregando grafo…</p>}>
