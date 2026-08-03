@@ -6581,6 +6581,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   overflow-x: auto;
   border: 1px solid var(--border);
   border-radius: 8px;
+  scrollbar-width: thin;
+  /* só pan horizontal (não bleed pra vertical) — ver docs/responsive.md §2.8 */
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 .gantt-chart {
   min-width: 900px;
