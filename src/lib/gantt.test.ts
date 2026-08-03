@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { buildGanttData, GANTT_NO_PROJECT_ID, ganttMonthTicks, ganttPositionPct } from './gantt';
+import {
+  buildGanttData,
+  computeGanttEdges,
+  GANTT_NO_PROJECT_ID,
+  ganttMonthTicks,
+  ganttPositionPct,
+} from './gantt';
+import type { GanttGroup } from './gantt';
 import type { Project, ScoreContext, Task } from '../types';
 
 function task(overrides: Partial<Task>): Task {
@@ -165,5 +172,64 @@ describe('ganttMonthTicks', () => {
   it('devolve lista vazia quando o range é inválido (fim <= início)', () => {
     const d = new Date('2026-01-01');
     expect(ganttMonthTicks(d, d)).toEqual([]);
+  });
+});
+
+function bar(overrides: Partial<import('./gantt').GanttBar>): import('./gantt').GanttBar {
+  return {
+    taskId: 'x',
+    displayTitle: 'X',
+    start: new Date('2026-01-01'),
+    end: new Date('2026-01-02'),
+    isMilestone: false,
+    openEnded: false,
+    checked: false,
+    moscow: 'should',
+    blocked: false,
+    ...overrides,
+  };
+}
+
+describe('computeGanttEdges', () => {
+  it('cria uma aresta quando bloqueadora e bloqueada estão visíveis', () => {
+    const groups: GanttGroup[] = [
+      { projectId: 'p', projectName: 'P', bars: [bar({ taskId: 'a' }), bar({ taskId: 'b' })] },
+    ];
+    const ctx = emptyCtx();
+    ctx.depMap = { b: { blockedByIds: ['a'], unlocksIds: [] } };
+    const edges = computeGanttEdges(groups, ctx);
+    expect(edges).toEqual([{ fromId: 'a', toId: 'b', resolved: false }]);
+  });
+
+  it('marca resolved=true quando a bloqueadora já está concluída', () => {
+    const groups: GanttGroup[] = [
+      {
+        projectId: 'p',
+        projectName: 'P',
+        bars: [bar({ taskId: 'a', checked: true }), bar({ taskId: 'b' })],
+      },
+    ];
+    const ctx = emptyCtx();
+    ctx.depMap = { b: { blockedByIds: ['a'], unlocksIds: [] } };
+    const edges = computeGanttEdges(groups, ctx);
+    expect(edges[0]!.resolved).toBe(true);
+  });
+
+  it('omite a aresta quando a bloqueadora não está visível no Gantt (sem data)', () => {
+    const groups: GanttGroup[] = [
+      { projectId: 'p', projectName: 'P', bars: [bar({ taskId: 'b' })] },
+    ];
+    const ctx = emptyCtx();
+    ctx.depMap = { b: { blockedByIds: ['a'], unlocksIds: [] } };
+    expect(computeGanttEdges(groups, ctx)).toEqual([]);
+  });
+
+  it('não duplica aresta se a mesma dependência aparecer mais de uma vez', () => {
+    const groups: GanttGroup[] = [
+      { projectId: 'p', projectName: 'P', bars: [bar({ taskId: 'a' }), bar({ taskId: 'b' })] },
+    ];
+    const ctx = emptyCtx();
+    ctx.depMap = { b: { blockedByIds: ['a', 'a'], unlocksIds: [] } };
+    expect(computeGanttEdges(groups, ctx)).toHaveLength(1);
   });
 });
