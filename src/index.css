@@ -6587,7 +6587,37 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   overscroll-behavior-x: contain;
 }
 .gantt-chart {
+  position: relative;
   min-width: 900px;
+}
+.gantt-edges {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+  /* fica por cima das barras (que são position: absolute dentro de cada
+     .gantt-track) pra não deixar seta escondida atrás de barra */
+  z-index: 1;
+}
+.gantt-edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1.5;
+  color: var(--muted);
+  opacity: 0.55;
+}
+.gantt-edge--resolved {
+  stroke-dasharray: 3 3;
+}
+.gantt-edge:not(.gantt-edge--resolved) {
+  stroke: var(--danger);
+  color: var(--danger);
+  opacity: 0.75;
+}
+.gantt-edges-note {
+  font-size: 0.8rem;
 }
 .gantt-axis,
 .gantt-row {

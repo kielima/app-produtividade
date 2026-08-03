@@ -192,3 +192,41 @@ export function ganttMonthTicks(rangeStart: Date, rangeEnd: Date): GanttTick[] {
   }
   return ticks;
 }
+
+export interface GanttEdge {
+  fromId: string;
+  toId: string;
+  // Bloqueadora já concluída: a dependência "aconteceu" mas não trava mais
+  // nada — desenhada de forma mais discreta que um bloqueio ainda ativo.
+  resolved: boolean;
+}
+
+/**
+ * Arestas bloqueadora → bloqueada entre as barras efetivamente desenhadas no
+ * Gantt (usa `ctx.depMap`, a mesma fonte da verdade do resto do app). Uma
+ * dependência só vira aresta se a tarefa bloqueadora também estiver visível
+ * no gráfico — se ela não tem data (não aparece no Gantt), não tem como
+ * desenhar a linha, e a dependência é simplesmente omitida.
+ */
+export function computeGanttEdges(groups: GanttGroup[], ctx: ScoreContext): GanttEdge[] {
+  const bars = new Map<string, GanttBar>();
+  for (const group of groups) {
+    for (const bar of group.bars) bars.set(bar.taskId, bar);
+  }
+
+  const edges: GanttEdge[] = [];
+  const seen = new Set<string>();
+  for (const bar of bars.values()) {
+    const dep = ctx.depMap[bar.taskId];
+    if (!dep) continue;
+    for (const blockerId of dep.blockedByIds) {
+      const blockerBar = bars.get(blockerId);
+      if (!blockerBar) continue;
+      const key = `${blockerId}→${bar.taskId}`;
+      if (seen.has(key)) continue;
+      seen.add(key);
+      edges.push({ fromId: blockerId, toId: bar.taskId, resolved: blockerBar.checked });
+    }
+  }
+  return edges;
+}
