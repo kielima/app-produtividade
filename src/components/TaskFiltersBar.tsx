@@ -45,11 +45,12 @@ const STATUS_LABEL: Record<StatusKey, string> = {
 
 export const STATUS_VALUES: StatusKey[] = ['todo', 'doing', 'done'];
 
-export type TaskViewMode = 'list' | 'matrix';
+export type TaskViewMode = 'list' | 'matrix' | 'gantt';
 
 export const TASK_VIEW_LABEL: Record<TaskViewMode, string> = {
   list: 'Lista',
   matrix: 'Matriz MoSCoW',
+  gantt: 'Gantt',
 };
 
 export interface TaskFiltersState {
@@ -137,7 +138,8 @@ export function deserializeFiltersState(raw: unknown): TaskFiltersState {
     moscowFilter: allowed(v.moscowFilter, MOSCOW_VALUES),
     esforcoFilter: allowed(v.esforcoFilter, ESFORCO_VALUES),
     statusFilter: allowed(v.statusFilter, STATUS_VALUES),
-    viewMode: v.viewMode === 'matrix' ? 'matrix' : base.viewMode,
+    viewMode:
+      v.viewMode === 'matrix' || v.viewMode === 'gantt' ? v.viewMode : base.viewMode,
   };
 }
 

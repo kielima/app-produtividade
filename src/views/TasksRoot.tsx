@@ -12,6 +12,7 @@ import { isSnoozed } from '../lib/snooze';
 import { buildChildStatsMap, isTopLevel } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
 import type { Task } from '../types';
+import { GanttView } from './GanttView';
 import { PrioridadeView } from './PrioridadeView';
 import { TaskMoscowMatrix } from './TaskMoscowMatrix';
 
@@ -116,6 +117,8 @@ export function TasksRoot({
           ctx={data.ctx}
           hideZero={filters.hideZero}
         />
+      ) : filters.viewMode === 'gantt' ? (
+        <GanttView tasks={filteredTasks} projectMap={data.projectMap} ctx={data.ctx} />
       ) : (
         <PrioridadeView
           uid={uid}

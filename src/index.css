@@ -6571,3 +6571,133 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   padding: 0.3rem 0.6rem;
 }
 
+/* ===== Gantt (aba Tasks → visualização "Gantt") ===== */
+.gantt-view {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.gantt-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  scrollbar-width: thin;
+  /* só pan horizontal (não bleed pra vertical) — ver docs/responsive.md §2.8 */
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
+}
+.gantt-chart {
+  min-width: 900px;
+}
+.gantt-axis,
+.gantt-row {
+  display: flex;
+  align-items: stretch;
+  border-bottom: 1px solid var(--border);
+}
+.gantt-group-title {
+  margin: 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  position: sticky;
+  left: 0;
+}
+.gantt-row-label,
+.gantt-axis-spacer {
+  flex: 0 0 220px;
+  width: 220px;
+  padding: 0.4rem 0.75rem;
+  text-align: left;
+  background: var(--surface);
+  border: none;
+  border-right: 1px solid var(--border);
+  color: var(--fg);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: sticky;
+  left: 0;
+}
+.gantt-row-label:hover {
+  background: var(--surface-2);
+}
+.gantt-track {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 2.2rem;
+}
+.gantt-axis-track {
+  min-height: 1.6rem;
+}
+.gantt-tick {
+  position: absolute;
+  top: 0;
+  transform: translateX(-1px);
+  font-size: 0.72rem;
+  color: var(--muted);
+  padding-left: 0.25rem;
+  border-left: 1px solid var(--border);
+  height: 100%;
+  white-space: nowrap;
+}
+.gantt-today-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--accent);
+  opacity: 0.6;
+  pointer-events: none;
+}
+.gantt-bar {
+  position: absolute;
+  top: 0.4rem;
+  bottom: 0.4rem;
+  min-width: 6px;
+  border-radius: 4px;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.gantt-bar--moscow-must { background: var(--moscow-must); }
+.gantt-bar--moscow-should { background: var(--moscow-should); }
+.gantt-bar--moscow-could { background: var(--moscow-could); }
+.gantt-bar--moscow-wont { background: var(--moscow-wont); }
+.gantt-bar--moscow-none { background: var(--muted); opacity: 0.7; }
+.gantt-bar--done {
+  opacity: 0.45;
+}
+.gantt-bar--open-ended {
+  background-image: repeating-linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.35) 0,
+    rgba(255, 255, 255, 0.35) 4px,
+    transparent 4px,
+    transparent 8px
+  );
+}
+.gantt-bar--blocked {
+  outline: 2px solid var(--danger);
+  outline-offset: 1px;
+}
+.gantt-milestone {
+  position: absolute;
+  top: 50%;
+  width: 0.9rem;
+  height: 0.9rem;
+  transform: translate(-50%, -50%) rotate(45deg);
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+.gantt-unscheduled-note {
+  font-size: 0.8rem;
+}
+
