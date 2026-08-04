@@ -22,8 +22,7 @@ export function MarkdownNote({
   useEffect(() => {
     if (editing && textareaRef.current) {
       const el = textareaRef.current;
-      el.focus();
-      el.setSelectionRange(el.value.length, el.value.length);
+      el.focus({ preventScroll: true });
       autoResize(el);
     }
   }, [editing]);
