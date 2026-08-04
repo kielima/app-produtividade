@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
+import { AiJudgeDuelError, judgeDuel } from '../lib/aiJudgeDuel';
 import {
   applySessionDuels,
   pickNextPair,
@@ -65,6 +66,15 @@ export function ProjectDuelView({
   const initialOrderRef = useRef<string[] | null>(null);
   /** Log da sessão; aplicado como um único rating period ao fechar. */
   const matchLogRef = useRef<LoggedDuel[]>([]);
+  const [aiJudging, setAiJudging] = useState(false);
+  const [aiError, setAiError] = useState<string | null>(null);
+  /** Justificativa do último duelo decidido pela IA — fica visível até a
+   * próxima ação (manual ou IA de novo), não é limpa quando o próximo par
+   * é sorteado. */
+  const [lastVerdict, setLastVerdict] = useState<{
+    winnerName: string;
+    reasoning: string;
+  } | null>(null);
 
   useEffect(() => {
     const unsub = subscribeToGlickoRatings(uid, setRatings);
@@ -139,6 +149,40 @@ export function ProjectDuelView({
     return { ...ratings, ...applySessionDuels(ratings, results) };
   }
 
+  async function handleAiJudge() {
+    if (!pair || closing || phase !== 'dueling' || aiJudging) return;
+    const a = projectById[pair[0]];
+    const b = projectById[pair[1]];
+    if (!a || !b) return;
+    setAiJudging(true);
+    setAiError(null);
+    try {
+      const verdict = await judgeDuel(a, b);
+      const winner = projectById[verdict.winnerId];
+      setLastVerdict({
+        winnerName: winner?.name ?? verdict.winnerId,
+        reasoning: verdict.reasoning,
+      });
+      handlePick(verdict.winnerId);
+    } catch (e) {
+      setAiError(
+        e instanceof AiJudgeDuelError || e instanceof Error
+          ? e.message
+          : 'Falha ao consultar a IA.',
+      );
+    } finally {
+      setAiJudging(false);
+    }
+  }
+
+  /** Escolha manual (clique num card) — diferente de `handlePick` puro
+   * porque também limpa o veredito/erro da IA de um duelo anterior. */
+  function pickManually(winnerId: string) {
+    setLastVerdict(null);
+    setAiError(null);
+    handlePick(winnerId);
+  }
+
   function handlePick(winnerId: string) {
     if (!pair || closing || phase !== 'dueling') return;
     const loserId = pair[0] === winnerId ? pair[1] : pair[0];
@@ -173,12 +217,16 @@ export function ProjectDuelView({
     setPair(last.pair);
     setSummary(null);
     setPhase('dueling');
+    setLastVerdict(null);
+    setAiError(null);
   }
 
   function handleSkip() {
     if (phase !== 'dueling') return;
     lastPairRef.current = pair;
     setPair(null);
+    setLastVerdict(null);
+    setAiError(null);
     generateNextPair();
   }
 
@@ -266,8 +314,8 @@ export function ProjectDuelView({
             project={a}
             rating={ratings[a.id]}
             bands={volatilityBands}
-            onPick={() => handlePick(a.id)}
-            disabled={closing}
+            onPick={() => pickManually(a.id)}
+            disabled={closing || aiJudging}
           />
           <div className="duel-vs" aria-hidden="true">
             vs
@@ -276,13 +324,21 @@ export function ProjectDuelView({
             project={b}
             rating={ratings[b.id]}
             bands={volatilityBands}
-            onPick={() => handlePick(b.id)}
-            disabled={closing}
+            onPick={() => pickManually(b.id)}
+            disabled={closing || aiJudging}
           />
         </div>
       ) : (
         <p className="muted duel-loading">Sorteando próximo duelo…</p>
       )}
+
+      {lastVerdict && (
+        <p className="duel-ai-verdict">
+          🤖 IA escolheu <strong>{lastVerdict.winnerName}</strong>
+          {lastVerdict.reasoning ? `: ${lastVerdict.reasoning}` : ''}
+        </p>
+      )}
+      {aiError && <p className="duel-ai-error">{aiError}</p>}
 
       <div className="duel-actions">
         {duelCount > 0 && (
@@ -290,7 +346,7 @@ export function ProjectDuelView({
             type="button"
             className="btn-secondary"
             onClick={handleUndo}
-            disabled={closing}
+            disabled={closing || aiJudging}
             aria-label="desfazer último duelo"
           >
             desfazer
@@ -300,9 +356,17 @@ export function ProjectDuelView({
           type="button"
           className="btn-secondary"
           onClick={handleSkip}
-          disabled={closing || !pair}
+          disabled={closing || aiJudging || !pair}
         >
           pular este par
+        </button>
+        <button
+          type="button"
+          className="btn-secondary duel-ai-btn"
+          onClick={handleAiJudge}
+          disabled={closing || aiJudging || !pair}
+        >
+          {aiJudging ? '🤖 avaliando…' : '🤖 IA decide'}
         </button>
       </div>
     </section>
