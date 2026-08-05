@@ -367,9 +367,13 @@ export function TaskDetailView({
         ? `Apagar "${display}"? As ${children.length} subtarefa(s) voltarão a ser tarefas normais.`
         : `Apagar "${display}"?`;
     if (!window.confirm(msg)) return;
-    if (children.length > 0) await orphanChildren(uid, task.id, allTasks);
-    await deleteTask(uid, task);
-    onClose();
+    try {
+      if (children.length > 0) await orphanChildren(uid, task.id, allTasks);
+      await deleteTask(uid, task);
+      onClose();
+    } catch (err) {
+      console.error('Falha ao apagar tarefa', err);
+    }
   }
 
   const status = taskStatus(task);
