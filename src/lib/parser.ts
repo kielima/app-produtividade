@@ -22,7 +22,7 @@ export function getDisplayTitle(title: string): string {
   return base
     .replace(/\s*\[#\d+\]/g, '')
     .replace(
-      /\s*\[(Must|Should|Could|Won't|Wont|Manual|Colaborar|Delegar|Automatizar|Rápido|Rapido|Médio|Medio|Longo)\]/gi,
+      /\s*\[(Must|Should|Could|Won't|Wont|Manual|Delegar|Cowork|Code|Chat|Colaborar|Automatizar|Rápido|Rapido|Médio|Medio|Longo)\]/gi,
       '',
     )
     .replace(/\s*\[undefined\]/gi, '')
@@ -40,8 +40,10 @@ const MOSCOW_TAG: Record<Exclude<MoSCoW, ''>, string> = {
 
 const MODO_TAG: Record<Modo, string> = {
   manual: 'Manual',
-  colaborar: 'Colaborar',
   delegar: 'Delegar',
+  cowork: 'Cowork',
+  code: 'Code',
+  chat: 'Chat',
 };
 
 const ESFORCO_TAG: Record<Exclude<Esforco, ''>, string> = {
@@ -98,7 +100,10 @@ function normalizeEsforco(raw: string): Esforco {
 
 function normalizeModo(raw: string): Modo {
   const v = raw.toLowerCase();
-  if (v === 'colaborar' || v === 'delegar') return v;
+  if (v === 'delegar' || v === 'cowork' || v === 'code' || v === 'chat') return v;
+  // "Colaborar" é o rótulo antigo (pré-migração), mantido só para tarefas
+  // legadas ainda com essa tag gravada no título.
+  if (v === 'colaborar') return 'chat';
   return 'manual';
 }
 
@@ -155,7 +160,7 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
       const moscowMatch = title.match(/\[(Must|Should|Could|Won'?t)\]/i);
       const moscow: MoSCoW = moscowMatch ? normalizeMoscow(moscowMatch[1]!) : '';
 
-      const modoMatch = title.match(/\[(Delegar|Colaborar|Automatizar|Manual)\]/i);
+      const modoMatch = title.match(/\[(Delegar|Cowork|Code|Chat|Colaborar|Automatizar|Manual)\]/i);
       const modo: Modo = modoMatch ? normalizeModo(modoMatch[1]!) : 'manual';
 
       const esforcoMatch = title.match(/\[(R[áa]pido|M[ée]dio|Longo)\]/i);
