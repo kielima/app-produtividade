@@ -4,11 +4,13 @@ import type { Esforco, Modo, MoSCoW, Project } from '../types';
 
 const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
-  colaborar: 'Colaborar',
   delegar: 'Delegar',
+  cowork: 'Cowork',
+  code: 'Code',
+  chat: 'Chat',
 };
 
-export const MODO_VALUES: Modo[] = ['manual', 'colaborar', 'delegar'];
+export const MODO_VALUES: Modo[] = ['manual', 'delegar', 'cowork', 'code', 'chat'];
 
 const MOSCOW_LABEL: Record<MoSCoW, string> = {
   must: 'Must',

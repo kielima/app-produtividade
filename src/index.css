@@ -1932,8 +1932,10 @@ a:focus-visible {
 .col-wont { background: rgba(136, 136, 136, 0.18); color: #555; }
 
 .col-modo-manual { background: rgba(108, 122, 137, 0.15); color: #4a5563; }
-.col-modo-colaborar { background: rgba(74, 144, 226, 0.18); color: #2a5a8a; }
 .col-modo-delegar { background: rgba(224, 123, 0, 0.18); color: #8a4500; }
+.col-modo-cowork { background: rgba(74, 144, 226, 0.18); color: #2a5a8a; }
+.col-modo-code { background: rgba(124, 58, 237, 0.18); color: #5b21b6; }
+.col-modo-chat { background: rgba(22, 163, 138, 0.18); color: #0f6857; }
 
 .col-esforco-rapido { background: rgba(46, 139, 87, 0.18); color: #1f6b3f; }
 .col-esforco-medio { background: rgba(224, 123, 0, 0.18); color: #8a4500; }
@@ -3344,8 +3346,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .stats-bar-seg--esforco-medio { background: #f1c40f; }
 .stats-bar-seg--esforco-longo { background: #9b59b6; }
 .stats-bar-seg--modo-manual { background: #95a5a6; }
-.stats-bar-seg--modo-colaborar { background: #16a085; }
 .stats-bar-seg--modo-delegar { background: #e67e22; }
+.stats-bar-seg--modo-cowork { background: #4a90e2; }
+.stats-bar-seg--modo-code { background: #7c3aed; }
+.stats-bar-seg--modo-chat { background: #16a085; }
 
 .stats-legend {
   list-style: none;
@@ -3378,8 +3382,10 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .stats-legend-swatch--esforco-medio { background: #f1c40f; }
 .stats-legend-swatch--esforco-longo { background: #9b59b6; }
 .stats-legend-swatch--modo-manual { background: #95a5a6; }
-.stats-legend-swatch--modo-colaborar { background: #16a085; }
 .stats-legend-swatch--modo-delegar { background: #e67e22; }
+.stats-legend-swatch--modo-cowork { background: #4a90e2; }
+.stats-legend-swatch--modo-code { background: #7c3aed; }
+.stats-legend-swatch--modo-chat { background: #16a085; }
 
 .stats-card-delta {
   display: inline-block;

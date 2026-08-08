@@ -25,7 +25,8 @@ export async function patchTask(
   const merged: Task = { ...task, ...patch };
   // Saneia `modo` — docs antigos podem vir com valor ausente/inválido e
   // sem isso `serializeTitle` produziria `[undefined]` no título.
-  if (merged.modo !== 'manual' && merged.modo !== 'colaborar' && merged.modo !== 'delegar') {
+  const validModos: Task['modo'][] = ['manual', 'delegar', 'cowork', 'code', 'chat'];
+  if (!validModos.includes(merged.modo)) {
     merged.modo = 'manual';
   }
   const display = displayOverride ?? getDisplayTitle(task.title);
