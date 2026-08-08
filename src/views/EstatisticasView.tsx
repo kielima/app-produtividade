@@ -36,12 +36,14 @@ const ESFORCO_LABELS: Record<EsforcoBucket, string> = {
   longo: 'Longo',
 };
 
-type ModoBucket = 'manual' | 'colaborar' | 'delegar';
-const MODO_ORDER: ModoBucket[] = ['manual', 'colaborar', 'delegar'];
+type ModoBucket = 'manual' | 'delegar' | 'cowork' | 'code' | 'chat';
+const MODO_ORDER: ModoBucket[] = ['manual', 'delegar', 'cowork', 'code', 'chat'];
 const MODO_LABELS: Record<ModoBucket, string> = {
   manual: 'Manual',
-  colaborar: 'Colaborar',
   delegar: 'Delegar',
+  cowork: 'Cowork',
+  code: 'Code',
+  chat: 'Chat',
 };
 
 function bucketMoscow(m: MoSCoW): MoSCoWBucket {
@@ -130,7 +132,13 @@ function emptyEsforcoSlots(): Record<EsforcoBucket, Slot> {
 }
 
 function emptyModoSlots(): Record<ModoBucket, Slot> {
-  return { manual: emptySlot(), colaborar: emptySlot(), delegar: emptySlot() };
+  return {
+    manual: emptySlot(),
+    delegar: emptySlot(),
+    cowork: emptySlot(),
+    code: emptySlot(),
+    chat: emptySlot(),
+  };
 }
 
 function buildDailyBuckets(

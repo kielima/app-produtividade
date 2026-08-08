@@ -4,8 +4,10 @@ import type { Modo, ScoreContext, Task } from '../types';
 
 const COLUMNS: ColumnSpec[] = [
   { key: 'manual', label: 'Manual', badgeClass: 'col-modo-manual' },
-  { key: 'colaborar', label: 'Colaborar', badgeClass: 'col-modo-colaborar' },
   { key: 'delegar', label: 'Delegar', badgeClass: 'col-modo-delegar' },
+  { key: 'cowork', label: 'Cowork', badgeClass: 'col-modo-cowork' },
+  { key: 'code', label: 'Code', badgeClass: 'col-modo-code' },
+  { key: 'chat', label: 'Chat', badgeClass: 'col-modo-chat' },
 ];
 
 function groupBy(task: Task): string {

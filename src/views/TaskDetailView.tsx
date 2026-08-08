@@ -71,8 +71,10 @@ const MOSCOW_LABEL: Record<MoSCoW, string> = {
 
 const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
-  colaborar: 'Colaborar',
   delegar: 'Delegar',
+  cowork: 'Cowork',
+  code: 'Code',
+  chat: 'Chat',
 };
 
 const ESFORCO_LABEL: Record<Esforco, string> = {
@@ -92,7 +94,7 @@ const STATUS_LABEL: Record<KanbanStatus, string> = {
 
 const STATUS_OPTS: KanbanStatus[] = ['todo', 'doing', 'done'];
 const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
-const MODO_OPTS: Modo[] = ['manual', 'colaborar', 'delegar'];
+const MODO_OPTS: Modo[] = ['manual', 'delegar', 'cowork', 'code', 'chat'];
 const ESFORCO_OPTS: Esforco[] = ['rapido', 'medio', 'longo', ''];
 
 function taskStatus(task: Task): KanbanStatus {

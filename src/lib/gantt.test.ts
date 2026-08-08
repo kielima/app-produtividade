@@ -18,7 +18,7 @@ function task(overrides: Partial<Task>): Task {
     checked: false,
     inProgress: false,
     moscow: 'should',
-    modo: 'colaborar',
+    modo: 'chat',
     esforco: 'medio',
     deadline: '',
     addedDate: '',
