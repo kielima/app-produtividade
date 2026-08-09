@@ -1,6 +1,12 @@
 import { useEffect, useState } from 'react';
 import { useRegisterSW } from 'virtual:pwa-register/react';
 import { Capacitor } from '@capacitor/core';
+import { instalarAtualizacao } from '../lib/atualizacao';
+import {
+  startAutoUpdateCheck,
+  useAutoUpdateInfo,
+  dismissAutoUpdateInfo,
+} from '../lib/autoUpdateCheck';
 
 // No APK (Capacitor) o app já roda local no WebView e NÃO deve ter service
 // worker: um SW ativo intercepta as requisições (inclusive as do Firestore) e
@@ -11,12 +17,14 @@ import { Capacitor } from '@capacitor/core';
 const isNative = Capacitor.isNativePlatform();
 
 export function UpdatePrompt() {
-  return isNative ? <NativeSwCleanup /> : <WebUpdatePrompt />;
+  return isNative ? <NativeUpdateCheck /> : <WebUpdatePrompt />;
 }
 
-// Nativo: desregistra qualquer service worker/caches deixados por builds antigos
-// e não renderiza nada.
-function NativeSwCleanup() {
+// Nativo: desregistra qualquer service worker/caches deixados por builds
+// antigos, dispara a checagem automática de atualização em segundo plano
+// (ver src/lib/autoUpdateCheck.ts) e mostra um toast quando ela encontra uma
+// build nova publicada.
+function NativeUpdateCheck() {
   useEffect(() => {
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
@@ -24,8 +32,73 @@ function NativeSwCleanup() {
         .then((regs) => regs.forEach((r) => r.unregister()))
         .catch(() => {});
     }
+    startAutoUpdateCheck();
   }, []);
-  return null;
+
+  const info = useAutoUpdateInfo();
+  const [instalando, setInstalando] = useState(false);
+  const [status, setStatus] = useState<string | null>(null);
+  const [erro, setErro] = useState<string | null>(null);
+
+  if (!info?.disponivel || !info.urlApk) return null;
+  const urlApk = info.urlApk;
+
+  async function instalar() {
+    setErro(null);
+    setInstalando(true);
+    try {
+      await instalarAtualizacao(urlApk);
+      setStatus('Baixando… acompanhe na barra de notificações.');
+    } catch (e) {
+      setErro(
+        e instanceof Error ? e.message : 'Falha ao baixar/instalar.',
+      );
+    } finally {
+      setInstalando(false);
+    }
+  }
+
+  function close() {
+    setStatus(null);
+    setErro(null);
+    dismissAutoUpdateInfo();
+  }
+
+  return (
+    <div className="pwa-toast" role="status" aria-live="polite">
+      <div className="pwa-toast-msg">
+        Nova versão disponível
+        {info.commitRemoto && ` · ${info.commitRemoto}`}.
+        {status && (
+          <>
+            <br />
+            {status}
+          </>
+        )}
+        {erro && (
+          <>
+            <br />
+            <span className="error">{erro}</span>
+          </>
+        )}
+      </div>
+      <div className="pwa-toast-actions">
+        {!status && (
+          <button
+            type="button"
+            className="btn-primary"
+            onClick={() => void instalar()}
+            disabled={instalando}
+          >
+            {instalando ? 'Baixando…' : 'Baixar e instalar'}
+          </button>
+        )}
+        <button type="button" className="btn-secondary" onClick={close}>
+          Fechar
+        </button>
+      </div>
+    </div>
+  );
 }
 
 /**
