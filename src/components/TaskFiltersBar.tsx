@@ -6,11 +6,12 @@ const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
   delegar: 'Delegar',
   cowork: 'Cowork',
+  design: 'Design',
   code: 'Code',
   chat: 'Chat',
 };
 
-export const MODO_VALUES: Modo[] = ['manual', 'delegar', 'cowork', 'code', 'chat'];
+export const MODO_VALUES: Modo[] = ['manual', 'delegar', 'cowork', 'design', 'code', 'chat'];
 
 const MOSCOW_LABEL: Record<MoSCoW, string> = {
   must: 'Must',

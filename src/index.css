@@ -1934,6 +1934,7 @@ a:focus-visible {
 .col-modo-manual { background: rgba(108, 122, 137, 0.15); color: #4a5563; }
 .col-modo-delegar { background: rgba(224, 123, 0, 0.18); color: #8a4500; }
 .col-modo-cowork { background: rgba(74, 144, 226, 0.18); color: #2a5a8a; }
+.col-modo-design { background: rgba(219, 39, 119, 0.18); color: #9d174d; }
 .col-modo-code { background: rgba(124, 58, 237, 0.18); color: #5b21b6; }
 .col-modo-chat { background: rgba(22, 163, 138, 0.18); color: #0f6857; }
 
@@ -3348,6 +3349,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .stats-bar-seg--modo-manual { background: #95a5a6; }
 .stats-bar-seg--modo-delegar { background: #e67e22; }
 .stats-bar-seg--modo-cowork { background: #4a90e2; }
+.stats-bar-seg--modo-design { background: #db2777; }
 .stats-bar-seg--modo-code { background: #7c3aed; }
 .stats-bar-seg--modo-chat { background: #16a085; }
 
@@ -3384,6 +3386,7 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
 .stats-legend-swatch--modo-manual { background: #95a5a6; }
 .stats-legend-swatch--modo-delegar { background: #e67e22; }
 .stats-legend-swatch--modo-cowork { background: #4a90e2; }
+.stats-legend-swatch--modo-design { background: #db2777; }
 .stats-legend-swatch--modo-code { background: #7c3aed; }
 .stats-legend-swatch--modo-chat { background: #16a085; }
 
