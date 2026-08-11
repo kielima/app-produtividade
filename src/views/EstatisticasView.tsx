@@ -36,12 +36,13 @@ const ESFORCO_LABELS: Record<EsforcoBucket, string> = {
   longo: 'Longo',
 };
 
-type ModoBucket = 'manual' | 'delegar' | 'cowork' | 'code' | 'chat';
-const MODO_ORDER: ModoBucket[] = ['manual', 'delegar', 'cowork', 'code', 'chat'];
+type ModoBucket = 'manual' | 'delegar' | 'cowork' | 'design' | 'code' | 'chat';
+const MODO_ORDER: ModoBucket[] = ['manual', 'delegar', 'cowork', 'design', 'code', 'chat'];
 const MODO_LABELS: Record<ModoBucket, string> = {
   manual: 'Manual',
   delegar: 'Delegar',
   cowork: 'Cowork',
+  design: 'Design',
   code: 'Code',
   chat: 'Chat',
 };
@@ -136,6 +137,7 @@ function emptyModoSlots(): Record<ModoBucket, Slot> {
     manual: emptySlot(),
     delegar: emptySlot(),
     cowork: emptySlot(),
+    design: emptySlot(),
     code: emptySlot(),
     chat: emptySlot(),
   };
