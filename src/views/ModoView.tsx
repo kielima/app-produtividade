@@ -6,6 +6,7 @@ const COLUMNS: ColumnSpec[] = [
   { key: 'manual', label: 'Manual', badgeClass: 'col-modo-manual' },
   { key: 'delegar', label: 'Delegar', badgeClass: 'col-modo-delegar' },
   { key: 'cowork', label: 'Cowork', badgeClass: 'col-modo-cowork' },
+  { key: 'design', label: 'Design', badgeClass: 'col-modo-design' },
   { key: 'code', label: 'Code', badgeClass: 'col-modo-code' },
   { key: 'chat', label: 'Chat', badgeClass: 'col-modo-chat' },
 ];

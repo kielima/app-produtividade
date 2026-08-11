@@ -1,5 +1,5 @@
 export type MoSCoW = 'must' | 'should' | 'could' | 'wont' | '';
-export type Modo = 'manual' | 'delegar' | 'cowork' | 'code' | 'chat';
+export type Modo = 'manual' | 'delegar' | 'cowork' | 'design' | 'code' | 'chat';
 export type Esforco = 'rapido' | 'medio' | 'longo' | '';
 
 export interface Subtask {
