@@ -28,8 +28,10 @@ export function MarkdownNote({
   }, [editing]);
 
   function autoResize(el: HTMLTextAreaElement) {
+    const scrollBefore = window.scrollY;
     el.style.height = 'auto';
     el.style.height = `${el.scrollHeight}px`;
+    if (window.scrollY !== scrollBefore) window.scrollTo(0, scrollBefore);
   }
 
   function commit() {
