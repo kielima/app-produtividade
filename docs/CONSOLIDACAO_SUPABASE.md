@@ -1,131 +1,97 @@
 # Consolidação dos projetos Supabase
 
-Runbook da fusão dos dois projetos Supabase (`app-produtividade` e `wishlist`)
-num só. Tarefa #0958.
+Registro da fusão dos dois projetos Supabase (`app-produtividade` e `wishlist`)
+num só. Tarefa #0958. **Concluída e validada.**
+
+## Estado final
+
+Projeto único: **`robwqxgllzxbxwnjkyic`** (`app-produtividade`), um schema por app.
+
+| | app-produtividade | wishlist |
+|---|---|---|
+| Schema | `produtividade` | `wishlist` |
+| Tabelas | `tasks` 565, `projects` 65, `notes` 86, `reading_items` 5.634, `annotations` 3, `project_ratings` 63, `memory_docs` 2, `connection_status` 2, `app_version` 1 | `items` 79, `item_ratings` 70, `app_version` 1 |
+| Edge Functions | `connect-*`, `get-*-access-token`, `disconnect-*`, `call-gemini` | `clip` |
+| Storage | — | bucket público `app-builds` |
+| Login | Google (OAuth no navegador, Sign-In nativo no APK) | idem |
+
+`private.oauth_tokens` continua fora do PostgREST de propósito: é lida por
+conexão direta ao Postgres, com nome qualificado, nas Edge Functions.
+
+Auth é compartilhado: **um login serve os dois apps** (`kly@sapo.pt` via
+Google). Isso também significa que provedores, templates de e-mail e Redirect
+URLs valem para os dois.
 
 ## Decisões
 
 | Decisão | Escolha | Por quê |
 |---|---|---|
-| Projeto destino | `app-produtividade` (`robwqxgllzxbxwnjkyic`) | Tem 6.421 linhas contra 149, 7 Edge Functions contra 2, o schema `private` e os secrets do Google OAuth já configurados. Migrar a wishlist para dentro dele move muito menos coisa que o inverso. A org está no plano free (limite de 2 projetos), então um terceiro projeto também não cabia. |
-| Colisão de `app_version` | Um schema por app: `produtividade.*` e `wishlist.*` | As duas tabelas não tinham o mesmo formato (`id` int4 vs int2, `atualizado_em` vs `updated_at`, nullability distinta) e cada app tem seu próprio APK e ciclo de release — precisam coexistir como duas linhas. Schema separado resolve sem prefixo de nome, e como o supabase-js aceita schema padrão no `createClient`, nenhum dos 62 call sites de `.from()` precisou mudar. |
-| Identidade de auth | Tudo reatribuído a `kly@sapo.pt` | Os projetos tinham usuários diferentes (`kly@sapo.pt` na produtividade, `ttiburcio@outlook.com` na wishlist) e `auth.users` não atravessa projetos. As linhas da wishlist passam a ter `user_id = 66acb2fb-1050-490d-85c1-702e2465399b`. |
+| Projeto destino | O do app-produtividade | 6.421 linhas contra 149, 7 Edge Functions contra 2, schema `private` e secrets do Google OAuth já configurados. A org está no plano free (limite de 2 projetos), então um terceiro não cabia. |
+| Colisão de `app_version` | Um schema por app | As duas tabelas tinham formatos diferentes (`id` int4 vs int2, `atualizado_em` vs `updated_at`) e ciclos de release independentes. Schema separado resolve sem prefixo; como o supabase-js aceita schema padrão no `createClient`, os 62 call sites de `.from()` ficaram intactos. |
+| Identidade | Tudo reatribuído a `kly@sapo.pt` | `auth.users` não atravessa projetos. As linhas da wishlist passaram de `e6f806ae…` (ttiburcio@outlook.com) para `66acb2fb…`. |
 
-## Estado (o que já está aplicado no destino)
+## Como os dados foram copiados
 
-- [x] Schema `wishlist` com `items`, `item_ratings`, `app_version` — tipos, defaults, constraints, índices e RLS espelhados da origem
-- [x] Grants explícitos (`anon`/`authenticated`/`service_role`) — schema novo não herda os defaults do `public`
-- [x] Bucket público `app-builds` + policy `app_builds_public_read`
-- [x] Schema `wishlist_staging` (transitório, recebe o COPY antes do remap)
-- [ ] Dados da wishlist copiados — **passo manual abaixo**
-- [ ] Cutover do app-produtividade para o schema `produtividade` — **só depois da wishlist validada**
+O caminho oficial (`Restore to a new project`) é exclusivo de plano pago, e o
+alternativo (`backup/restore via CLI`) exige terminal. Sem nenhum dos dois, a
+cópia foi feita **pela API REST, de dentro do próprio banco de destino**: a
+extensão `http` puxou as linhas da origem em páginas de 10, para uma área de
+staging sem RLS (necessária porque o `user_id` original ainda não existia no
+auth do destino), e de lá um `INSERT..SELECT` fez o remap e a carga definitiva.
 
-Os dois projetos originais seguem **intactos e ativos**. Nada foi dropado,
-apagado ou pausado.
+Validação: fingerprint `md5(string_agg(...))` por tabela, comparado entre
+origem e destino em todas as colunas exceto `user_id`. Bateu nas três tabelas,
+incluindo os 11 MB de fotos em base64.
 
-## 1. Backup (antes de qualquer coisa)
+Depois disso o staging e as extensões `http`/`dblink` foram removidos.
 
-O plano free não tem backup automático nem download pelo dashboard — tem que
-ser manual. Pegue as connection strings em **Dashboard → Connect** de cada
-projeto (a senha do banco não fica em lugar nenhum do repo).
+## Armadilhas encontradas — vale ler antes de mexer nisto
 
-```bash
-ORIGEM='postgresql://postgres.jwmuwogwutiiuvewhkku:SENHA@HOST:5432/postgres'
-DESTINO='postgresql://postgres.robwqxgllzxbxwnjkyic:SENHA@HOST:5432/postgres'
+**Exposed schemas não fica versionado.** É configuração de dashboard
+(*Project Settings → API*). Sem `produtividade` e `wishlist` na lista, o
+PostgREST recusa tudo com `PGRST106` e os dois apps caem juntos. É a única
+peça da consolidação que uma migration não reproduz.
 
-# Backup completo dos dois, incluindo auth.users — pg_dump, não `supabase db
-# dump` (o do CLI não traz os schemas gerenciados por padrão)
-pg_dump "$DESTINO" -Fc --schema=public --schema=private --schema=auth --schema=storage \
-  -f produtividade_$(date +%F).dump
-pg_dump "$ORIGEM"  -Fc --schema=public --schema=auth --schema=storage \
-  -f wishlist_$(date +%F).dump
+**Migration e deploy precisam sair juntos.** O `ALTER TABLE … SET SCHEMA` é
+instantâneo, mas o build publicado continua procurando as tabelas no `public`
+até o deploy sair. Os dois PRs foram mergeados antes de a migration ser
+aplicada e os apps ficaram fora do ar no intervalo. Aviso escrito no PR não
+segura merge — o certo seria o schema vir de variável com default `public`,
+tornando a ordem irrelevante.
 
-# Storage da wishlist (bucket público, dá para baixar direto)
-curl -L -o wishlist.apk \
-  "https://jwmuwogwutiiuvewhkku.supabase.co/storage/v1/object/public/app-builds/wishlist.apk"
+**`app_version` migrado fielmente causa downgrade em loop.** A linha da origem
+apontava para o build antigo. O APK novo lia essa linha, via um commit
+diferente do seu e "atualizava" para trás, reinstalando a versão velha e
+derrubando a sessão — repetidamente. Ao migrar, essa linha precisa apontar para
+o build atual, não ser copiada como está.
 
-ls -lh *.dump wishlist.apk   # confira que não estão vazios
-```
+**Storage recusa chaves `sb_secret_`.** O supabase-js manda a chave como
+`Authorization: Bearer`, e o Storage responde `Invalid Compact JWS`. Com o
+header `apikey` a mesma chave funciona, e o PostgREST aceita as duas formas.
+Para o CI publicar o APK, use a chave **legada** `service_role` (aba "Legacy"
+em API Keys).
 
-## 2. Copiar os dados da wishlist
+**Código OTP por e-mail exige SMTP próprio.** O código só é enviado se o
+template Magic Link incluir `{{ .Token }}`, e editar templates passou a exigir
+SMTP próprio ou plano Pro. O projeto antigo tinha a customização de quando
+ainda era livre; o consolidado nasceu depois da trava. Como o link sozinho não
+volta para dentro de WebView nem de PWA instalado, a wishlist passou a usar
+Google Sign-In nativo (ver `docs/PHASE2-SETUP.md` no repo dela).
 
-Precisa da senha do banco, então roda daqui (o Claude não tem essa credencial).
+**Cache do WebView sobrevive à desinstalação.** Com o backup automático do
+Google ligado, o Android restaura os dados do app ao reinstalar — inclusive o
+cache do service worker, que continua servindo o bundle antigo mesmo com o APK
+novo instalado. Sintoma: o APK muda de tamanho mas a tela não muda. Solução:
+*Configurações → Apps → [app] → Armazenamento → Limpar dados*.
 
-```bash
-# Dump só dos dados das 3 tabelas
-pg_dump "$ORIGEM" --data-only --no-owner --no-privileges \
-  -t public.items -t public.item_ratings -t public.app_version \
-  -f wishlist_data.sql
+## Pendências
 
-# Redireciona a carga para o staging. O `^COPY public.` casa só o cabeçalho da
-# instrução, nunca conteúdo dentro dos dados (as fotos em base64 e as URLs).
-sed -i 's/^COPY public\./COPY wishlist_staging./' wishlist_data.sql
-grep -c '^COPY wishlist_staging\.' wishlist_data.sql   # deve imprimir 3
-
-# Carrega no destino
-psql "$DESTINO" -v ON_ERROR_STOP=1 -f wishlist_data.sql
-```
-
-O staging existe porque as linhas vêm com o `user_id` original
-(`e6f806ae-…`), que não existe no `auth.users` do destino — a FK recusaria a
-carga direta. O remap para `kly@sapo.pt` acontece no `INSERT..SELECT` para as
-tabelas definitivas, que o Claude roda em seguida junto da validação.
-
-### APK no Storage
-
-```bash
-curl -X POST \
-  "https://robwqxgllzxbxwnjkyic.supabase.co/storage/v1/object/app-builds/wishlist.apk" \
-  -H "Authorization: Bearer $SERVICE_ROLE_KEY_DESTINO" \
-  -H "Content-Type: application/vnd.android.package-archive" \
-  --data-binary @wishlist.apk
-```
-
-O próximo build de CI regrava esse objeto e a linha `app_version` de qualquer
-forma; a cópia serve para o verificador de atualização não ficar apontando para
-o projeto antigo no intervalo.
-
-## 3. Configuração que só dá para fazer pelo dashboard
-
-**Project Settings → API → Exposed schemas** do projeto destino: adicione
-`wishlist` (e `produtividade`, quando fizer o cutover). Sem isso o PostgREST
-recusa todas as consultas dos apps. Essa é a única peça da consolidação que não
-fica versionada nas migrations — se for resetada, os dois apps param.
-
-**Authentication → URL Configuration:** acrescente as URLs da wishlist
-(`https://kielima.github.io/wishlist/` e `http://localhost:5173/`) às Redirect
-URLs do projeto destino.
-
-## 4. Variáveis de CI (nos dois repos)
-
-| Repo | Onde | O que muda |
-|---|---|---|
-| `wishlist` | Actions → Variables → `VITE_SUPABASE_URL` | `https://robwqxgllzxbxwnjkyic.supabase.co` |
-| `wishlist` | Actions → Variables → `VITE_SUPABASE_ANON_KEY` | anon key do projeto destino |
-| `wishlist` | Actions → Secrets → `SUPABASE_SERVICE_ROLE_KEY` | service_role key do destino |
-| `app-produtividade` | — | A URL não muda (é o mesmo projeto). Nada a fazer. |
-
-## 5. Cutover do app-produtividade
-
-**Só depois da wishlist validada e testada.** A migration
-`20260812120000_move_public_to_produtividade_schema.sql` move as 9 tabelas de
-`public` para `produtividade` com `ALTER TABLE ... SET SCHEMA`, que preserva
-dados, FKs, índices, RLS e a inscrição no realtime — nada é recriado.
-
-Migration e deploy precisam sair juntos: enquanto o build publicado apontar
-para `public`, ele não enxerga as tabelas. Aplique a migration e rode o deploy
-em seguida; uma aba já aberta precisa de reload.
-
-Se em algum momento a simetria não compensar o cutover, dá para parar aqui: a
-colisão de `app_version` já está resolvida pelo schema `wishlist`, e o
-app-produtividade pode continuar no `public` indefinidamente. Nesse caso reverta
-as mudanças de schema no código deste repo e descarte a migration.
-
-## 6. Desativar os projetos antigos
-
-**Não fazer até os dois apps estarem testados e confirmados contra o projeto
-consolidado.** Depois disso, e só com confirmação explícita:
-
-- `wishlist` (`jwmuwogwutiiuvewhkku`) — pausar primeiro, apagar só depois de um
-  período de segurança com os backups guardados
-- `wishlist_staging` no destino — dropar quando a validação estiver fechada
+- **Projeto antigo `jwmuwogwutiiuvewhkku`**: mantido no ar de propósito. Nada
+  depende dele em runtime, mas é a única cópia independente dos dados — o
+  backup via `pg_dump` nunca chegou a ser feito, porque exigiria terminal.
+  Antes de apagá-lo, vale garantir um backup por outro meio.
+- Sobraram lá o APK `wishlist-aa1e3d33.apk` (ponte usada para o app antigo se
+  atualizar) e um usuário `kly@sapo.pt` criado por engano numa tentativa de
+  login. Somem junto com o projeto.
+- A Edge Function `clip-debug` não foi portada: é variante de depuração e nem
+  está versionada no repo da wishlist.
