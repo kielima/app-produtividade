@@ -2,6 +2,35 @@ import { supabase } from '../lib/supabase';
 
 export type Unsubscribe = () => void;
 
+type LocalRowListener = (row: unknown) => void;
+
+// Assinaturas vivas indexadas por tabela+escopo, para que uma escrita local
+// possa aplicar a linha no cache da assinatura sem esperar o Realtime.
+const localListeners = new Map<string, Set<LocalRowListener>>();
+
+function scopeKey(table: string, scope: string): string {
+  return `${table}:${scope}`;
+}
+
+/**
+ * Ecoa uma linha recém-gravada nas assinaturas ativas da tabela, aplicando-a
+ * já no cache local. O evento do Realtime chega logo depois com a versão
+ * autoritativa e sobrescreve esta — o eco só cobre a janela (dezenas a
+ * centenas de ms, ou indefinida se o websocket estiver caído) entre o
+ * insert/update responder e o evento ser entregue.
+ *
+ * Sem isto, quem grava e navega para a linha em seguida (criar tarefa → abrir
+ * a tela da tarefa) aponta para um id que ainda não existe no estado local.
+ *
+ * `scope` é o mesmo usado na assinatura: `extraValue` quando a tabela é
+ * filtrada por outra coluna, senão o uid.
+ */
+export function publishLocalRow(table: string, scope: string, row: unknown): void {
+  const listeners = localListeners.get(scopeKey(table, scope));
+  if (!listeners) return;
+  for (const listener of [...listeners]) listener(row);
+}
+
 interface SubscribeTableOptions<TRow, T> {
   table: string;
   uid: string;
@@ -36,6 +65,27 @@ export function subscribeTable<TRow, T>(
     if (!cancelled) cb(Array.from(rows.values()));
   }
 
+  // Linhas ecoadas por escritas locais enquanto a busca inicial está em voo:
+  // podem não estar no resultado dela, então são reaplicadas por cima.
+  const echoedBeforeLoad = new Map<string, T>();
+  let initialLoaded = false;
+
+  function applyLocalRow(row: unknown) {
+    if (cancelled) return;
+    const item = mapRow(row as TRow);
+    rows.set(idOf(item), item);
+    if (!initialLoaded) echoedBeforeLoad.set(idOf(item), item);
+    emit();
+  }
+
+  const key = scopeKey(table, extraValue ?? uid);
+  let listeners = localListeners.get(key);
+  if (!listeners) {
+    listeners = new Set();
+    localListeners.set(key, listeners);
+  }
+  listeners.add(applyLocalRow);
+
   const initialQuery = supabase.from(table).select('*').eq('user_id', uid);
   const scopedQuery =
     extraColumn && extraValue !== undefined ? initialQuery.eq(extraColumn, extraValue) : initialQuery;
@@ -51,6 +101,9 @@ export function subscribeTable<TRow, T>(
       const item = mapRow(row);
       rows.set(idOf(item), item);
     }
+    for (const [id, item] of echoedBeforeLoad) rows.set(id, item);
+    echoedBeforeLoad.clear();
+    initialLoaded = true;
     emit();
   });
 
@@ -78,6 +131,8 @@ export function subscribeTable<TRow, T>(
 
   return () => {
     cancelled = true;
+    listeners.delete(applyLocalRow);
+    if (listeners.size === 0) localListeners.delete(key);
     void supabase.removeChannel(channel);
   };
 }
