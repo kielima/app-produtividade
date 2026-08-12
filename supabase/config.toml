@@ -3,7 +3,10 @@ project_id = "app-produtividade"
 [api]
 enabled = true
 port = 54321
-schemas = ["public", "graphql_public"]
+# `produtividade` e `wishlist`: um schema por app, desde a consolidação dos dois
+# projetos Supabase num só. `private` fica fora de propósito — é acessado só por
+# conexão direta ao Postgres nas Edge Functions (ver functions/_shared/google.ts).
+schemas = ["produtividade", "wishlist", "public", "graphql_public"]
 extra_search_path = ["public", "extensions"]
 max_rows = 1000
 
