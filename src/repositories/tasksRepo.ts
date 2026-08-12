@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { subscribeTable, type Unsubscribe } from './realtimeTable';
+import { publishLocalRow, subscribeTable, type Unsubscribe } from './realtimeTable';
 import type { Task } from '../types';
 
 interface TaskRow {
@@ -96,8 +96,14 @@ export function subscribeToTasks(
 }
 
 export async function upsertTask(uid: string, task: Task): Promise<void> {
-  const { error } = await supabase.from('tasks').upsert(taskToRow(uid, task));
+  const row = taskToRow(uid, task);
+  const { error } = await supabase.from('tasks').upsert(row);
   if (error) throw new Error(error.message);
+  // A tarefa passa a existir no estado local assim que a gravação confirma,
+  // sem esperar o INSERT/UPDATE do Realtime. É isto que permite criar uma
+  // tarefa e abrir a tela dela em seguida: quem navega logo após o await
+  // encontra a tarefa na lista (ver `publishLocalRow`).
+  publishLocalRow('tasks', uid, row);
 }
 
 export async function deleteTask(uid: string, task: Pick<Task, 'taskId' | 'id'>): Promise<void> {
