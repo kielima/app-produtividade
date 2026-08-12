@@ -29,7 +29,11 @@ if (!supabaseUrl || !serviceRoleKey) {
   process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, serviceRoleKey);
+// Schema `produtividade`: o projeto é compartilhado com a wishlist e as tabelas
+// deste app saíram do `public` — ver src/lib/supabase.ts.
+const supabase = createClient(supabaseUrl, serviceRoleKey, {
+  db: { schema: 'produtividade' },
+});
 
 const { error } = await supabase
   .from('app_version')

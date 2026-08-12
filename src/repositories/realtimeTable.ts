@@ -114,7 +114,11 @@ export function subscribeTable<TRow, T>(
     .channel(`rt:${table}:${extraValue ?? uid}:${Math.random().toString(36).slice(2)}`)
     .on(
       'postgres_changes',
-      { event: '*', schema: 'public', table, filter },
+      // Schema `produtividade`: o projeto é compartilhado com a wishlist e as
+      // tabelas deste app saíram do `public` — ver src/lib/supabase.ts. O
+      // canal de realtime não herda o schema do createClient, por isso é
+      // explícito aqui.
+      { event: '*', schema: 'produtividade', table, filter },
       (payload) => {
         if (payload.eventType === 'DELETE') {
           const old = payload.old as Record<string, unknown>;

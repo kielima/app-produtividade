@@ -23,7 +23,18 @@ if (Capacitor.isNativePlatform() && typeof navigator !== 'undefined') {
 const url = import.meta.env.VITE_SUPABASE_URL as string;
 const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
-export const supabase: SupabaseClient = createClient(url, anonKey, {
+// O projeto Supabase é compartilhado com o app wishlist (consolidação dos dois
+// projetos num só), então as tabelas deste app vivem no schema `produtividade`
+// em vez do `public` — ver supabase/migrations/20260812120000. Definir o schema
+// aqui faz todo `.from()` dos repositórios resolver para `produtividade.*` sem
+// mudar nenhum call site. Storage e Auth não são afetados: usam endpoints
+// próprios, fora do PostgREST.
+// O schema entra nos parâmetros de tipo: `SupabaseClient` sem argumentos fixa
+// "public" na assinatura e deixa de bater com o cliente criado abaixo.
+export const supabase: SupabaseClient<any, 'produtividade', 'produtividade'> = createClient(url, anonKey, {
+  db: {
+    schema: 'produtividade',
+  },
   auth: {
     persistSession: true,
     autoRefreshToken: true,
