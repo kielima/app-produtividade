@@ -4,7 +4,7 @@ import { ExportToDriveButton } from '../components/ExportToDriveButton';
 import { InlineEdit } from '../components/InlineEdit';
 import LinkIcon from '../components/LinkIcon';
 import { MarkdownNote } from '../components/MarkdownNote';
-import { SubtaskList } from '../components/SubtaskList';
+import { ChecklistList } from '../components/ChecklistList';
 import { TagsEditor } from '../components/TagsEditor';
 import TrashIcon from '../components/TrashIcon';
 import { serializeTitle } from '../lib/parser';
@@ -13,7 +13,7 @@ import { useReadingNavigation } from '../lib/readingNavigation';
 import { deleteNote, patchNote } from '../repositories/notesRepo';
 import { nextTaskId, upsertTask } from '../repositories/tasksRepo';
 import { patchAnnotation } from '../repositories/annotationsRepo';
-import type { Note, Project, Subtask, Task } from '../types';
+import type { ChecklistItem, Note, Project, Task } from '../types';
 
 function isHiddenProject(p: Project): boolean {
   return p.status === 'Concluído' || p.status === 'Cancelado';
@@ -99,7 +99,7 @@ export function NoteDetailView({
     await patchNote(uid, note.id, { note: value });
   }
 
-  async function setItems(items: Subtask[]) {
+  async function setItems(items: ChecklistItem[]) {
     await patchNote(uid, note.id, { items });
   }
 
@@ -129,9 +129,8 @@ export function NoteDetailView({
     setConverting(true);
     try {
       // Reserva ids sequenciais: o pai e uma tarefa-filha por item da lista.
-      // Os itens viram subtarefas reais (tarefas-filhas com `parentId`), que
-      // é o que a tela da tarefa exibe — guardá-los no campo `subtasks`
-      // (inline) faria com que sumissem, pois esse campo não é renderizado.
+      // Os itens da lista de verificação viram subtarefas reais (tarefas-filhas
+      // com `parentId`), que é o que a tela da tarefa exibe.
       const baseId = await nextTaskId(uid);
       const today = new Date().toISOString().slice(0, 10);
       const addedDate = note.addedDate || today;
@@ -157,7 +156,6 @@ export function NoteDetailView({
         deadline: '',
         addedDate,
         dependsOn: [],
-        subtasks: [],
         section: sectionId,
         completedAt: null,
         ...(note.sourceItemId && note.sourceAnnotationId
@@ -167,7 +165,7 @@ export function NoteDetailView({
 
       const children: Task[] = note.items.map((item, i) => {
         const childId = baseId + 1 + i;
-        // Preserva o vínculo "bloqueada pela anterior" como dependência da
+        // Preserva o vínculo "bloqueado pelo anterior" como dependência da
         // subtarefa anterior (#taskId), igual ao botão de ligar subtarefas.
         const dependsOn =
           item.blockedByPrev && i > 0 ? [`#${baseId + i}`] : [];
@@ -192,7 +190,6 @@ export function NoteDetailView({
           deadline: '',
           addedDate,
           dependsOn,
-          subtasks: [],
           parentId: String(baseId),
           order: i,
           section: sectionId,
@@ -369,7 +366,7 @@ export function NoteDetailView({
               </span>
             )}
           </h3>
-          <SubtaskList subtasks={note.items} onChange={setItems} />
+          <ChecklistList items={note.items} onChange={setItems} />
         </section>
 
         <section className="task-detail-section">

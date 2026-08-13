@@ -108,7 +108,6 @@ async function createDerivedTask(
     deadline: source.deadline,
     addedDate: today,
     dependsOn: [],
-    subtasks: [],
     parentId: asChild ? source.id : null,
     section: source.section,
     completedAt: null,

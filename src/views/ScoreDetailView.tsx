@@ -145,10 +145,10 @@ export function ScoreDetailView({
                 Bônus subtarefas
                 <span className="muted score-formula">
                   {' '}
-                  ({b.subtaskBonus} por-fazer de {b.subtaskTotal})
+                  ({b.childBonus} por-fazer de {b.childTotal})
                 </span>
               </dt>
-              <dd>{fmt(b.subtaskBonus)}</dd>
+              <dd>{fmt(b.childBonus)}</dd>
             </div>
             <div className="score-row-sum">
               <dt>

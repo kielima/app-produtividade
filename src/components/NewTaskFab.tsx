@@ -54,7 +54,6 @@ export function NewTaskFab({
         deadline: '',
         addedDate: today,
         dependsOn: [],
-        subtasks: [],
         section: sectionId,
         completedAt: null,
       };

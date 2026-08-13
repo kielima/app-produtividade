@@ -9,7 +9,8 @@ Dados disponíveis em cada tarefa arquivada (`users/{uid}/completedTasks/`):
 - `moscow` (`must` / `should` / `could` / `wont` / `''`)
 - `esforco` (`rapido` / `medio` / `longo` / `''`)
 - `modo` (`manual` / `colaborar` / `delegar`)
-- `deadline`, `addedDate`, `subtasks`, `dependsOn`, `inProgress`
+- `deadline`, `addedDate`, `dependsOn`, `inProgress`, `parentId` (subtarefas
+  são tarefas-filhas — a lista embutida `subtasks` não existe mais)
 
 E indiretamente: o `projectScoreMap` (de `buildProjectScoreMap`) para
 ponderar tarefas pelo valor do projeto.

@@ -25,7 +25,6 @@ function makeTask(overrides: Partial<Task> = {}): Task {
     deadline: '',
     addedDate: '',
     dependsOn: [],
-    subtasks: [],
     section: 's',
     completedAt: null,
     ...overrides,
@@ -215,44 +214,42 @@ describe('calcScore', () => {
     expect(calcScore(t, sec, ctx, TODAY)).toBe(6);
   });
 
-  it('soma 1 ponto por subtarefa não-concluída no base', () => {
-    const t = makeTask({
-      moscow: 'should',
-      subtasks: [
-        { text: 'a', checked: false },
-        { text: 'b', checked: false },
-        { text: 'c', checked: true },
-      ],
-    });
-    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
-    // projectScore=3 * 2 = 6; subtaskBonus = 2 (só não-concluídas) → base = 8
+  // Monta pai + filhas (subtarefas) no mesmo projeto e devolve o contexto.
+  function ctxWithChildren(parent: Task, childrenChecked: boolean[]) {
+    const children = childrenChecked.map((checked, i) =>
+      makeTask({
+        id: `c${i}`,
+        taskId: 100 + i,
+        parentId: parent.id,
+        checked,
+        moscow: 'wont', // score próprio 0: isola o efeito no pai
+      }),
+    );
+    return buildDependencyMap(
+      [parent, ...children].map((task) => ({ task, section: SECTION })),
+      PSM_SINGLE,
+      TODAY,
+    );
+  }
+
+  it('soma 1 ponto por subtarefa (filha) não-concluída no base', () => {
+    const t = makeTask({ moscow: 'should' });
+    const ctx = ctxWithChildren(t, [false, false, true]);
+    // projectScore=3 * 2 = 6; childBonus = 2 (só não-concluídas) → base = 8
     expect(calcScore(t, SECTION, ctx, TODAY)).toBe(8);
   });
 
-  it('subtaskBonus é dividido pelo esforço', () => {
-    const t = makeTask({
-      moscow: 'should',
-      esforco: 'medio',
-      subtasks: [
-        { text: 'a', checked: false },
-        { text: 'b', checked: false },
-      ],
-    });
-    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
+  it('childBonus é dividido pelo esforço', () => {
+    const t = makeTask({ moscow: 'should', esforco: 'medio' });
+    const ctx = ctxWithChildren(t, [false, false]);
     // base = 6 + 2 = 8; effort=2 → 4
     expect(calcScore(t, SECTION, ctx, TODAY)).toBe(4);
   });
 
   it('subtarefas concluídas não contam', () => {
-    const t = makeTask({
-      moscow: 'should',
-      subtasks: [
-        { text: 'a', checked: true },
-        { text: 'b', checked: true },
-      ],
-    });
-    const ctx = buildDependencyMap([{ task: t, section: SECTION }], PSM_SINGLE, TODAY);
-    // subtaskBonus = 0 → base = 6
+    const t = makeTask({ moscow: 'should' });
+    const ctx = ctxWithChildren(t, [true, true]);
+    // childBonus = 0 → base = 6
     expect(calcScore(t, SECTION, ctx, TODAY)).toBe(6);
   });
 

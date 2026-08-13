@@ -90,7 +90,6 @@ export function TodayFab({
         deadline: '',
         addedDate: today,
         dependsOn: [],
-        subtasks: [],
         section: sectionId,
         completedAt: null,
       };

@@ -2,11 +2,14 @@ export type MoSCoW = 'must' | 'should' | 'could' | 'wont' | '';
 export type Modo = 'manual' | 'delegar' | 'cowork' | 'design' | 'code' | 'chat';
 export type Esforco = 'rapido' | 'medio' | 'longo' | '';
 
-export interface Subtask {
+// Item da lista de verificação de uma anotação (`Note.items`). Tarefas não
+// têm mais listas embutidas: o que antes era uma "subtarefa" inline de uma
+// tarefa hoje é uma tarefa-filha própria (ver `Task.parentId`).
+export interface ChecklistItem {
   text: string;
   checked: boolean;
-  // Quando true, esta subtarefa depende da subtarefa imediatamente anterior:
-  // fica bloqueada (não pode ser concluída) até a anterior estar concluída.
+  // Quando true, este item depende do item imediatamente anterior: fica
+  // bloqueado (não pode ser concluído) até o anterior estar concluído.
   blockedByPrev?: boolean;
 }
 
@@ -23,7 +26,6 @@ export interface Task {
   deadline: string;
   addedDate: string;
   dependsOn: string[];
-  subtasks: Subtask[];
   // Id (doc id) da tarefa pai. Quando preenchido, esta tarefa é uma
   // subtarefa (filha): fica oculta das listas principais e aparece apenas
   // dentro da página do pai. null/ausente = tarefa de topo.
@@ -105,7 +107,7 @@ export interface Note {
   id: string;
   title: string;
   note: string;
-  items: Subtask[];
+  items: ChecklistItem[];
   addedDate: string;
   tags: string[];
   pinned: boolean;
@@ -243,6 +245,10 @@ export interface ScoreContext {
   potentialScoreMap: Record<string, number>;
   taskFlatMap: Record<string, Task>;
   projectScoreMap: Record<string, number>;
+  // parentId → { total, done } das filhas diretas. O número de filhas ainda
+  // abertas entra no `base` do score (o antigo "bônus de subtarefas", que
+  // lia a lista embutida `Task.subtasks`).
+  childStatsMap: Record<string, { total: number; done: number }>;
   // Fecho transitivo de `unlocksIds`: para cada tarefa, todos os ids que estão
   // travados (direta ou indiretamente) por ela. Não inclui a própria tarefa.
   transitiveUnlocksMap: Record<string, string[]>;

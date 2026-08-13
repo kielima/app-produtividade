@@ -17,36 +17,41 @@ import {
   verticalListSortingStrategy,
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import type { Subtask } from '../types';
+import type { ChecklistItem } from '../types';
 import LinkIcon from './LinkIcon';
 import TrashIcon from './TrashIcon';
 import { InlineEdit } from './InlineEdit';
 
-let __subtaskUid = 0;
-function nextSubtaskKey() {
-  __subtaskUid += 1;
-  return `sk-${__subtaskUid}`;
+let __itemUid = 0;
+function nextItemKey() {
+  __itemUid += 1;
+  return `ck-${__itemUid}`;
 }
 
-export function SubtaskList({
-  subtasks,
+/**
+ * Lista de verificação de uma anotação: itens com checkbox, reordenáveis e
+ * opcionalmente encadeados (um item fica bloqueado até o anterior ser
+ * concluído). Usada só pelas anotações — tarefas usam tarefas-filhas.
+ */
+export function ChecklistList({
+  items,
   onChange,
 }: {
-  subtasks: Subtask[];
-  onChange: (next: Subtask[]) => void;
+  items: ChecklistItem[];
+  onChange: (next: ChecklistItem[]) => void;
 }) {
   const [adding, setAdding] = useState(false);
   const [draft, setDraft] = useState('');
 
-  // Mantém uma chave estável por subtarefa para o @dnd-kit, sem depender do
+  // Mantém uma chave estável por item para o @dnd-kit, sem depender do
   // índice (que muda ao reordenar). Quando o tamanho da lista vinda do pai
   // muda, sincronizamos preservando as chaves existentes na ordem atual.
   const keysRef = useRef<string[]>([]);
-  if (keysRef.current.length !== subtasks.length) {
+  if (keysRef.current.length !== items.length) {
     const old = keysRef.current;
     const next: string[] = [];
-    for (let i = 0; i < subtasks.length; i++) {
-      next.push(old[i] ?? nextSubtaskKey());
+    for (let i = 0; i < items.length; i++) {
+      next.push(old[i] ?? nextItemKey());
     }
     keysRef.current = next;
   }
@@ -58,33 +63,33 @@ export function SubtaskList({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  // Uma subtarefa está bloqueada quando depende da anterior (blockedByPrev) e
-  // essa anterior ainda não foi concluída.
+  // Um item está bloqueado quando depende do anterior (blockedByPrev) e
+  // esse anterior ainda não foi concluído.
   function isBlocked(idx: number) {
-    return idx > 0 && !!subtasks[idx].blockedByPrev && !subtasks[idx - 1].checked;
+    return idx > 0 && !!items[idx].blockedByPrev && !items[idx - 1].checked;
   }
 
   function toggle(idx: number) {
     if (isBlocked(idx)) return;
-    onChange(subtasks.map((s, i) => (i === idx ? { ...s, checked: !s.checked } : s)));
+    onChange(items.map((s, i) => (i === idx ? { ...s, checked: !s.checked } : s)));
   }
 
   function remove(idx: number) {
     keysRef.current = keysRef.current.filter((_, i) => i !== idx);
-    // Ao remover, a subtarefa seguinte deixa de poder depender da anterior por
+    // Ao remover, o item seguinte deixa de poder depender do anterior por
     // posição; limpamos esse vínculo para não criar dependência inesperada.
     onChange(
-      subtasks
+      items
         .filter((_, i) => i !== idx)
         .map((s, i) => (i === idx ? { ...s, blockedByPrev: false } : s)),
     );
   }
 
-  // Alterna a dependência da subtarefa em `idx` face à subtarefa anterior.
+  // Alterna a dependência do item em `idx` face ao item anterior.
   function toggleLink(idx: number) {
     if (idx <= 0) return;
     onChange(
-      subtasks.map((s, i) =>
+      items.map((s, i) =>
         i === idx ? { ...s, blockedByPrev: !s.blockedByPrev } : s,
       ),
     );
@@ -95,7 +100,7 @@ export function SubtaskList({
       remove(idx);
       return;
     }
-    onChange(subtasks.map((s, i) => (i === idx ? { ...s, text } : s)));
+    onChange(items.map((s, i) => (i === idx ? { ...s, text } : s)));
   }
 
   function add() {
@@ -105,8 +110,8 @@ export function SubtaskList({
       setDraft('');
       return;
     }
-    keysRef.current = [...keysRef.current, nextSubtaskKey()];
-    onChange([...subtasks, { text: t, checked: false }]);
+    keysRef.current = [...keysRef.current, nextItemKey()];
+    onChange([...items, { text: t, checked: false }]);
     setDraft('');
     setAdding(false);
   }
@@ -118,7 +123,7 @@ export function SubtaskList({
     const newIndex = keys.indexOf(String(over.id));
     if (oldIndex < 0 || newIndex < 0) return;
     keysRef.current = arrayMove(keys, oldIndex, newIndex);
-    onChange(arrayMove(subtasks, oldIndex, newIndex));
+    onChange(arrayMove(items, oldIndex, newIndex));
   }
 
   return (
@@ -129,7 +134,7 @@ export function SubtaskList({
         onDragEnd={handleDragEnd}
       >
         <SortableContext items={keys} strategy={verticalListSortingStrategy}>
-          {subtasks.map((s, i) => (
+          {items.map((s, i) => (
             <Fragment key={keys[i]}>
               {i > 0 && (
                 <li className="subtask-link-row">
@@ -142,22 +147,22 @@ export function SubtaskList({
                     aria-pressed={!!s.blockedByPrev}
                     title={
                       s.blockedByPrev
-                        ? 'Remover dependência: esta subtarefa deixa de ficar bloqueada pela anterior'
-                        : 'Criar dependência: esta subtarefa fica bloqueada até a anterior ser concluída'
+                        ? 'Remover dependência: este item deixa de ficar bloqueado pelo anterior'
+                        : 'Criar dependência: este item fica bloqueado até o anterior ser concluído'
                     }
                     aria-label={
                       s.blockedByPrev
-                        ? 'remover dependência entre subtarefas'
-                        : 'criar dependência entre subtarefas'
+                        ? 'remover dependência entre itens'
+                        : 'criar dependência entre itens'
                     }
                   >
                     <LinkIcon size={16} />
                   </button>
                 </li>
               )}
-              <SortableSubtaskRow
+              <SortableChecklistRow
                 id={keys[i]}
-                subtask={s}
+                item={s}
                 blocked={isBlocked(i)}
                 onToggle={() => toggle(i)}
                 onRename={(v) => rename(i, v)}
@@ -182,14 +187,14 @@ export function SubtaskList({
                 setAdding(false);
               }
             }}
-            placeholder="Nova subtarefa…"
+            placeholder="Novo item…"
             autoFocus
           />
         </li>
       ) : (
         <li>
           <button type="button" className="link-btn" onClick={() => setAdding(true)}>
-            + adicionar subtarefa
+            + adicionar item
           </button>
         </li>
       )}
@@ -197,16 +202,16 @@ export function SubtaskList({
   );
 }
 
-function SortableSubtaskRow({
+function SortableChecklistRow({
   id,
-  subtask,
+  item,
   blocked,
   onToggle,
   onRename,
   onRemove,
 }: {
   id: string;
-  subtask: Subtask;
+  item: ChecklistItem;
   blocked: boolean;
   onToggle: () => void;
   onRename: (v: string) => void;
@@ -233,7 +238,7 @@ function SortableSubtaskRow({
       ref={setNodeRef}
       style={style}
       className={
-        (subtask.checked ? 'done' : '') + (blocked ? ' subtask-blocked' : '')
+        (item.checked ? 'done' : '') + (blocked ? ' subtask-blocked' : '')
       }
     >
       <button
@@ -260,18 +265,18 @@ function SortableSubtaskRow({
       </button>
       <input
         type="checkbox"
-        checked={subtask.checked}
+        checked={item.checked}
         onChange={onToggle}
         disabled={blocked}
-        aria-label="alternar subtarefa"
-        title={blocked ? 'Bloqueada: conclua a subtarefa anterior primeiro' : undefined}
+        aria-label="alternar item"
+        title={blocked ? 'Bloqueado: conclua o item anterior primeiro' : undefined}
       />
-      <InlineEdit value={subtask.text} onSave={onRename} className="subtask-text" />
+      <InlineEdit value={item.text} onSave={onRename} className="subtask-text" />
       <button
         type="button"
         className="icon-btn"
         onClick={onRemove}
-        aria-label="remover subtarefa"
+        aria-label="remover item"
       >
         <TrashIcon size={18} />
       </button>

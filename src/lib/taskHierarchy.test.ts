@@ -29,7 +29,6 @@ function mk(
     deadline: '',
     addedDate: '',
     dependsOn: [],
-    subtasks: [],
     parentId,
     section,
     completedAt: null,

@@ -273,7 +273,6 @@ async function main() {
       deadline: data.deadline ?? '',
       added_date: data.addedDate ?? '',
       depends_on: Array.isArray(data.dependsOn) ? data.dependsOn : [],
-      subtasks: Array.isArray(data.subtasks) ? data.subtasks : [],
       order: data.order ?? null,
       project_id: data.section || null,
       completed_at: toIso(data.completedAt),
