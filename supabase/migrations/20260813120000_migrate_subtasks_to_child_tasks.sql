@@ -7,9 +7,15 @@
 --   2. `tasks.parent_id` — tarefas-filhas de verdade, com id, score, prazo,
 --      dependências e página própria.
 --
--- Esta migration converte cada item da lista embutida numa tarefa-filha e
--- remove a coluna legada. O front correspondente deixa de ler/escrever
--- `subtasks`, então aplique a migration junto com o deploy.
+-- Esta migration converte cada item da lista embutida numa tarefa-filha.
+-- É a etapa 1 de 2: a remoção da coluna legada vive em
+-- `20260813130000_drop_tasks_subtasks_column.sql`, aplicada só depois que o
+-- app instalado no celular for atualizado — um APK antigo ainda envia
+-- `subtasks` no upsert e passaria a falhar sem a coluna.
+--
+-- APLICADA em 2026-08-13 no projeto robwqxgllzxbxwnjkyic (produtividade),
+-- como `migrate_subtasks_to_child_tasks`: 229 itens de 39 tarefas viraram
+-- filhas (65 já concluídos), com correspondência 1-a-1 verificada.
 --
 -- Regras da conversão:
 --   * `text`          → título (serializado com as tags do app: [#NNNN],
@@ -140,5 +146,3 @@ select
   g.project_id,
   null
 from tagged g;
-
-alter table produtividade.tasks drop column subtasks;
