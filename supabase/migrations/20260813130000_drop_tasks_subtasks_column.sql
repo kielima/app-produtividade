@@ -1,0 +1,21 @@
+-- Remove a coluna legada `tasks.subtasks`.
+--
+-- Etapa 2 de 2 da migração de subtarefas embutidas para tarefas-filhas — a
+-- etapa 1 (`20260813120000_migrate_subtasks_to_child_tasks.sql`) já converteu
+-- os itens, então nada de dado vive mais aqui: o app não lê nem grava esta
+-- coluna desde o deploy dessa mudança.
+--
+-- QUANDO APLICAR. Só depois que todos os clientes estiverem atualizados. O
+-- navegador se resolve sozinho num reload, mas o APK Android instalado é o
+-- ponto de atenção: um build anterior continua enviando `subtasks` no upsert
+-- de tarefa e, sem a coluna, o PostgREST rejeita a escrita inteira — salvar
+-- tarefa pelo celular passaria a dar erro até o app ser atualizado.
+--
+-- Conferência antes de aplicar (deve devolver 0 fora as tarefas que o cliente
+-- antigo tenha reescrito; itens novos aqui significam que ainda há um cliente
+-- desatualizado gravando na coluna):
+--
+--   select count(*) from produtividade.tasks
+--   where jsonb_typeof(subtasks) = 'array' and jsonb_array_length(subtasks) > 0;
+
+alter table produtividade.tasks drop column subtasks;
