@@ -8,6 +8,7 @@ import type {
   Section,
   Task,
 } from '../types';
+import { normalizeEsforco, normalizeModo, normalizeMoscow } from './taskFields';
 
 export function taskSectionId(name: string): string {
   return name
@@ -80,32 +81,6 @@ export function serializeTitle(
     for (const dep of task.dependsOn) parts.push(`🔗 ${dep}`);
   }
   return parts.join(' ');
-}
-
-function normalizeMoscow(raw: string): MoSCoW {
-  const v = raw.toLowerCase().replace("'", '');
-  if (v === 'must' || v === 'should' || v === 'could' || v === 'wont') return v;
-  return '';
-}
-
-function normalizeEsforco(raw: string): Esforco {
-  const v = raw
-    .toLowerCase()
-    .replace('á', 'a')
-    .replace('â', 'a')
-    .replace('é', 'e')
-    .replace('ê', 'e');
-  if (v === 'rapido' || v === 'medio' || v === 'longo') return v;
-  return '';
-}
-
-function normalizeModo(raw: string): Modo {
-  const v = raw.toLowerCase();
-  if (v === 'delegar' || v === 'cowork' || v === 'design' || v === 'code' || v === 'chat') return v;
-  // "Colaborar" é o rótulo antigo (pré-migração), mantido só para tarefas
-  // legadas ainda com essa tag gravada no título.
-  if (v === 'colaborar') return 'chat';
-  return 'manual';
 }
 
 export interface ParseTasksResult {
