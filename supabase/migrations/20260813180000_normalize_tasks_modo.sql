@@ -26,6 +26,15 @@
 -- `moscow` e `esforco` foram conferidos na mesma data e já continham apenas
 -- valores válidos (mais `''`/null, que o app lê como "sem classificação"),
 -- por isso ficam de fora.
+--
+-- APLICADA em 2026-08-13 no projeto robwqxgllzxbxwnjkyic (produtividade),
+-- como `normalize_tasks_modo`. Distribuição depois, nas mesmas 767 tarefas:
+--
+--   manual 528 · chat 123 · delegar 104 · cowork 10 · code 2
+--
+-- Bate com o esperado: os 122 `colaborar` foram para `chat` (1 + 122 = 123)
+-- e os 12 restantes — 4 `Manual`, 7 `''`, 1 null — para `manual`
+-- (516 + 12 = 528). Nenhum valor fora da união sobrou.
 
 update produtividade.tasks
 set modo = 'chat'
