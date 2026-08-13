@@ -5,17 +5,18 @@
 -- os itens, então nada de dado vive mais aqui: o app não lê nem grava esta
 -- coluna desde o deploy dessa mudança.
 --
--- QUANDO APLICAR. Só depois que todos os clientes estiverem atualizados. O
--- navegador se resolve sozinho num reload, mas o APK Android instalado é o
--- ponto de atenção: um build anterior continua enviando `subtasks` no upsert
--- de tarefa e, sem a coluna, o PostgREST rejeita a escrita inteira — salvar
--- tarefa pelo celular passaria a dar erro até o app ser atualizado.
+-- APLICADA em 2026-08-13 no projeto robwqxgllzxbxwnjkyic (produtividade),
+-- como `drop_tasks_subtasks_column`. A condição para aplicar era não haver
+-- mais cliente desatualizado gravando na coluna — um APK Android anterior ao
+-- deploy continuaria enviando `subtasks` no upsert e, sem a coluna, o
+-- PostgREST rejeitaria a escrita inteira. Conferido na hora: a escrita mais
+-- recente numa tarefa com lista legada era de 2026-07-30, bem antes do
+-- deploy, e as tarefas salvas no mesmo dia não trouxeram lista junto.
 --
--- Conferência antes de aplicar (deve devolver 0 fora as tarefas que o cliente
--- antigo tenha reescrito; itens novos aqui significam que ainda há um cliente
--- desatualizado gravando na coluna):
+-- A consulta usada na conferência, para referência futura:
 --
---   select count(*) from produtividade.tasks
+--   select max(updated_at)
+--   from produtividade.tasks
 --   where jsonb_typeof(subtasks) = 'array' and jsonb_array_length(subtasks) > 0;
 
 alter table produtividade.tasks drop column subtasks;
