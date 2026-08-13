@@ -44,7 +44,7 @@ vi.mock('../lib/supabase', () => {
   };
 });
 
-const { subscribeToTasks, upsertTask } = await import('./tasksRepo');
+const { rowToTask, subscribeToTasks, upsertTask } = await import('./tasksRepo');
 
 function makeTask(id: string): Task {
   return {
@@ -69,6 +69,57 @@ function makeTask(id: string): Task {
 function flush(): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
+
+describe('rowToTask — categorias fora da união', () => {
+  // As colunas são `text` livre e o banco ainda guarda rótulos de versões
+  // anteriores do app. Antes, o cast deixava o valor cru passar e a tela de
+  // Estatísticas o usava como chave de um `Record` de contadores — o slot não
+  // existia, a exceção subia no meio da renderização e derrubava a árvore
+  // React inteira (app em branco).
+  function row(fields: Record<string, unknown>): Record<string, unknown> {
+    return {
+      id: '7',
+      user_id: 'u1',
+      task_id: 7,
+      title: '[#7] tarefa',
+      note: null,
+      checked: false,
+      in_progress: false,
+      moscow: null,
+      modo: null,
+      esforco: null,
+      deadline: null,
+      added_date: null,
+      depends_on: null,
+      parent_id: null,
+      order: null,
+      project_id: null,
+      completed_at: null,
+      completed_from_section_name: null,
+      snoozed_until: null,
+      source_item_id: null,
+      source_annotation_id: null,
+      ...fields,
+    };
+  }
+
+  it('converte o modo legado "colaborar" em "chat"', () => {
+    expect(rowToTask(row({ modo: 'colaborar' }) as never).modo).toBe('chat');
+  });
+
+  it('normaliza a caixa gravada por versões antigas', () => {
+    expect(rowToTask(row({ modo: 'Manual' }) as never).modo).toBe('manual');
+  });
+
+  it('cai nos valores padrão para categoria desconhecida', () => {
+    const task = rowToTask(
+      row({ modo: 'automatico', moscow: 'talvez', esforco: 'gigante' }) as never,
+    );
+    expect(task.modo).toBe('manual');
+    expect(task.moscow).toBe('');
+    expect(task.esforco).toBe('');
+  });
+});
 
 describe('upsertTask — eco local', () => {
   beforeEach(() => {

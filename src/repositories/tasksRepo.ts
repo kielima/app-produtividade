@@ -1,4 +1,5 @@
 import { supabase } from '../lib/supabase';
+import { normalizeEsforco, normalizeModo, normalizeMoscow } from '../lib/taskFields';
 import { publishLocalRow, subscribeTable, type Unsubscribe } from './realtimeTable';
 import type { Task } from '../types';
 
@@ -26,6 +27,12 @@ interface TaskRow {
   source_annotation_id: string | null;
 }
 
+// As colunas `moscow`/`modo`/`esforco` são `text` livre e guardam também
+// rótulos de versões anteriores do app (ex.: `modo = 'colaborar'`, de antes
+// da troca das tags de Modo). Sem normalizar aqui, um valor fora da união
+// entraria no estado do app com o cast do TypeScript por cima e derrubaria
+// quem o usa como chave de `Record` — era o que apagava a tela inteira ao
+// abrir Estatísticas. Ver src/lib/taskFields.ts.
 export function rowToTask(row: TaskRow): Task {
   return {
     id: row.id,
@@ -34,9 +41,9 @@ export function rowToTask(row: TaskRow): Task {
     note: row.note ?? '',
     checked: row.checked,
     inProgress: row.in_progress,
-    moscow: (row.moscow as Task['moscow']) ?? '',
-    modo: (row.modo as Task['modo']) ?? 'manual',
-    esforco: (row.esforco as Task['esforco']) ?? '',
+    moscow: normalizeMoscow(row.moscow),
+    modo: normalizeModo(row.modo),
+    esforco: normalizeEsforco(row.esforco),
     deadline: row.deadline ?? '',
     addedDate: row.added_date ?? '',
     dependsOn: row.depends_on ?? [],
