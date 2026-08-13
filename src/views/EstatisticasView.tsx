@@ -197,12 +197,37 @@ function buildDailyBuckets(
   return buckets;
 }
 
-type Granularity = 'day' | 'week';
+type Granularity = 'day' | 'week' | 'month';
+
+const GRANULARITY_WORD: Record<Granularity, string> = {
+  day: 'dia',
+  week: 'semana',
+  month: 'mês',
+};
+
+const MONTH_SHORT = [
+  'jan',
+  'fev',
+  'mar',
+  'abr',
+  'mai',
+  'jun',
+  'jul',
+  'ago',
+  'set',
+  'out',
+  'nov',
+  'dez',
+];
 
 function startOfWeek(d: Date): Date {
   const c = startOfDay(d);
   c.setDate(c.getDate() - c.getDay());
   return c;
+}
+
+function startOfMonth(d: Date): Date {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
 // ISO 8601: semanas começam na segunda; semana 1 contém a primeira quinta-feira
@@ -216,16 +241,21 @@ function isoWeekNumber(d: Date): number {
   return Math.ceil(((t.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
 }
 
-function aggregateBucketsToWeeks(daily: DayBucket[]): DayBucket[] {
-  const weeks: DayBucket[] = [];
+// Agrupa os buckets diários pelo início do período (semana ou mês), somando
+// contagem, score e cada slot das três dimensões.
+function aggregateBuckets(
+  daily: DayBucket[],
+  startOfPeriod: (d: Date) => Date,
+): DayBucket[] {
+  const out: DayBucket[] = [];
   const byKey = new Map<string, DayBucket>();
   for (const day of daily) {
-    const wStart = startOfWeek(day.date);
-    const k = dayKey(wStart);
-    let w = byKey.get(k);
-    if (!w) {
-      w = {
-        date: wStart,
+    const pStart = startOfPeriod(day.date);
+    const k = dayKey(pStart);
+    let p = byKey.get(k);
+    if (!p) {
+      p = {
+        date: pStart,
         key: k,
         count: 0,
         score: 0,
@@ -233,25 +263,25 @@ function aggregateBucketsToWeeks(daily: DayBucket[]): DayBucket[] {
         byEsforco: emptyEsforcoSlots(),
         byModo: emptyModoSlots(),
       };
-      byKey.set(k, w);
-      weeks.push(w);
+      byKey.set(k, p);
+      out.push(p);
     }
-    w.count += day.count;
-    w.score += day.score;
+    p.count += day.count;
+    p.score += day.score;
     for (const c of MOSCOW_ORDER) {
-      w.byMoscow[c].count += day.byMoscow[c].count;
-      w.byMoscow[c].score += day.byMoscow[c].score;
+      p.byMoscow[c].count += day.byMoscow[c].count;
+      p.byMoscow[c].score += day.byMoscow[c].score;
     }
     for (const c of ESFORCO_ORDER) {
-      w.byEsforco[c].count += day.byEsforco[c].count;
-      w.byEsforco[c].score += day.byEsforco[c].score;
+      p.byEsforco[c].count += day.byEsforco[c].count;
+      p.byEsforco[c].score += day.byEsforco[c].score;
     }
     for (const c of MODO_ORDER) {
-      w.byModo[c].count += day.byModo[c].count;
-      w.byModo[c].score += day.byModo[c].score;
+      p.byModo[c].count += day.byModo[c].count;
+      p.byModo[c].score += day.byModo[c].score;
     }
   }
-  return weeks;
+  return out;
 }
 
 function dimensionSlots(b: DayBucket, dim: Dimension): Record<string, Slot> {
@@ -382,6 +412,26 @@ interface BarsProps {
   granularity: Granularity;
 }
 
+// No mensal o ano só aparece na primeira barra e em cada janeiro — o suficiente
+// pra situar o eixo sem repetir "/25" em toda coluna.
+function bucketLabel(
+  date: Date,
+  granularity: Granularity,
+  isFirst: boolean,
+): string {
+  if (granularity === 'month') {
+    const m = MONTH_SHORT[date.getMonth()];
+    return date.getMonth() === 0 || isFirst
+      ? `${m}/${String(date.getFullYear()).slice(-2)}`
+      : m;
+  }
+  if (granularity === 'week') return `S${isoWeekNumber(date)}`;
+  return date.toLocaleDateString('pt-BR', {
+    day: '2-digit',
+    month: '2-digit',
+  });
+}
+
 function slotValue(slot: Slot | undefined, metric: Metric): number {
   if (!slot) return 0;
   return metric === 'count' ? slot.count : slot.score;
@@ -393,18 +443,21 @@ function DailyBars({ buckets, metric, dimension, granularity }: BarsProps) {
     ...buckets.map((b) => (metric === 'count' ? b.count : b.score)),
   );
   // Labels horizontais ocupam mais espaço que rotacionados — mais espaçamento.
+  // No mensal são ~13 colunas com rótulo curto ("ago"), então cabe um por barra.
   const labelEvery =
-    buckets.length > 60
-      ? 30
-      : buckets.length > 30
-        ? 10
-        : buckets.length > 14
-          ? 5
-          : 1;
+    granularity === 'month'
+      ? 1
+      : buckets.length > 60
+        ? 30
+        : buckets.length > 30
+          ? 10
+          : buckets.length > 14
+            ? 5
+            : 1;
   const unit = metric === 'count' ? 'tarefas' : 'pts';
   const digits = metric === 'score' ? 1 : 0;
   const order = dimensionOrder(dimension);
-  const periodWord = granularity === 'week' ? 'semana' : 'dia';
+  const periodWord = GRANULARITY_WORD[granularity];
 
   return (
     <div
@@ -432,9 +485,14 @@ function DailyBars({ buckets, metric, dimension, granularity }: BarsProps) {
           })
           .join('');
         const dateLabel =
-          granularity === 'week'
-            ? `Semana ${isoWeekNumber(b.date)} (a partir de ${formatBR(b.date)})`
-            : formatBR(b.date);
+          granularity === 'month'
+            ? b.date.toLocaleDateString('pt-BR', {
+                month: 'long',
+                year: 'numeric',
+              })
+            : granularity === 'week'
+              ? `Semana ${isoWeekNumber(b.date)} (a partir de ${formatBR(b.date)})`
+              : formatBR(b.date);
         const title =
           `${dateLabel} — ${total.toFixed(digits)} ${unit}` + breakdown;
         return (
@@ -458,14 +516,7 @@ function DailyBars({ buckets, metric, dimension, granularity }: BarsProps) {
               </div>
             </div>
             <div className="stats-bar-label">
-              {showLabel
-                ? granularity === 'week'
-                  ? `S${isoWeekNumber(b.date)}`
-                  : b.date.toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: '2-digit',
-                    })
-                : ''}
+              {showLabel ? bucketLabel(b.date, granularity, i === 0) : ''}
             </div>
           </div>
         );
@@ -667,11 +718,13 @@ export function EstatisticasView({
     () => buildDailyBuckets(filteredTasks, projectScoreMap, rangeDays),
     [filteredTasks, projectScoreMap, rangeDays],
   );
-  const granularity: Granularity = rangeDays >= 90 ? 'week' : 'day';
-  const barBuckets = useMemo(
-    () => (granularity === 'week' ? aggregateBucketsToWeeks(buckets) : buckets),
-    [buckets, granularity],
-  );
+  const granularity: Granularity =
+    rangeDays >= 365 ? 'month' : rangeDays >= 90 ? 'week' : 'day';
+  const barBuckets = useMemo(() => {
+    if (granularity === 'month') return aggregateBuckets(buckets, startOfMonth);
+    if (granularity === 'week') return aggregateBuckets(buckets, startOfWeek);
+    return buckets;
+  }, [buckets, granularity]);
 
   const projectNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -908,7 +961,7 @@ export function EstatisticasView({
           <div className="stats-section">
             <h3 className="stats-section-title">
               {metric === 'count' ? 'Tarefas' : 'Score'} por{' '}
-              {granularity === 'week' ? 'semana' : 'dia'}
+              {GRANULARITY_WORD[granularity]}
               <small className="stats-section-sub">
                 {' '}
                 · empilhado por {DIMENSION_LABELS[dimension]}
