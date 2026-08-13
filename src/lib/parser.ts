@@ -118,16 +118,24 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
   const resultTasks: Record<string, Task[]> = {};
   let currentSectionId: string | null = null;
   let currentTask: Task | null = null;
+  // Linhas de checkbox indentadas viram tarefas-filhas da tarefa corrente;
+  // ficam em espera aqui para serem gravadas logo depois do pai.
+  let currentChildren: Task[] = [];
 
   const lines = content.replace(/\r\n/g, '\n').replace(/\r/g, '\n').split('\n');
+
+  // Fecha a tarefa corrente (e suas filhas) na seção corrente.
+  function flushTask() {
+    if (!currentTask || !currentSectionId) return;
+    resultTasks[currentSectionId]!.push(currentTask, ...currentChildren);
+    currentTask = null;
+    currentChildren = [];
+  }
 
   for (const line of lines) {
     const headerMatch = line.match(/^## \*{0,2}(.+?)\*{0,2}$/);
     if (headerMatch) {
-      if (currentTask && currentSectionId) {
-        resultTasks[currentSectionId]!.push(currentTask);
-        currentTask = null;
-      }
+      flushTask();
 
       const sectionName = headerMatch[1]!.trim();
       currentSectionId = taskSectionId(sectionName);
@@ -143,9 +151,7 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
 
     const taskLineMatch = currentSectionId && line.match(/^- \[[ xX/\-]\]/);
     if (taskLineMatch) {
-      if (currentTask) {
-        resultTasks[currentSectionId!]!.push(currentTask);
-      }
+      flushTask();
       const checked = /\[[xX]\]/.test(line);
       const inProgress = /\[[\-/]\]/.test(line);
       const text = line.replace(/^- \[[ xX/\-]\]\s*/, '');
@@ -203,23 +209,40 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
         deadline,
         addedDate,
         dependsOn,
-        subtasks: [],
         section: currentSectionId!,
         completedAt: null,
       };
       continue;
     }
 
+    // Checkbox indentado = tarefa-filha da tarefa corrente. O `parentId`
+    // aponta para o id provisório do pai; `assignTaskIds` o reescreve quando
+    // o pai ganha um `[#NNNN]` definitivo.
     if (currentTask && /^\s+- \[[ xX]\]/.test(line)) {
-      const subChecked = /\[[xX]\]/.test(line);
+      const childChecked = /\[[xX]\]/.test(line);
       const text = line.replace(/^\s+- \[[ xX]\]\s*/, '');
-      currentTask.subtasks.push({ text, checked: subChecked });
+      currentChildren.push({
+        id: `tmp-${Math.random().toString(36).slice(2)}`,
+        taskId: null,
+        title: text,
+        note: '',
+        checked: childChecked,
+        inProgress: false,
+        moscow: '',
+        modo: 'manual',
+        esforco: '',
+        deadline: '',
+        addedDate: '',
+        dependsOn: [],
+        parentId: currentTask.id,
+        order: currentChildren.length,
+        section: currentSectionId!,
+        completedAt: null,
+      });
     }
   }
 
-  if (currentTask && currentSectionId) {
-    resultTasks[currentSectionId]!.push(currentTask);
-  }
+  flushTask();
 
   return { sections: resultSections, tasks: resultTasks };
 }
@@ -242,9 +265,13 @@ export function assignTaskIds(
   }
 
   let nextId = maxId + 1;
+  // id provisório → id definitivo, para reapontar o `parentId` das filhas
+  // (linhas de checkbox indentadas) depois que o pai ganha o seu `[#NNNN]`.
+  const idRemap: Record<string, string> = {};
   for (const sec of result.sections) {
     for (const t of result.tasks[sec.id] ?? []) {
       if (t.taskId == null) {
+        const oldId = t.id;
         t.taskId = nextId++;
         const idTag = `[#${String(t.taskId).padStart(4, '0')}]`;
         const dIdx = t.title.indexOf('🔗');
@@ -253,6 +280,7 @@ export function assignTaskIds(
             ? t.title.slice(0, dIdx).trimEnd() + ' ' + idTag + ' ' + t.title.slice(dIdx)
             : t.title.trimEnd() + ' ' + idTag;
         t.id = String(t.taskId);
+        idRemap[oldId] = t.id;
       }
 
       if (!/\(adicionado:\s*\d{4}-\d{2}-\d{2}\)/i.test(t.title)) {
@@ -265,6 +293,12 @@ export function assignTaskIds(
             : t.title.trimEnd() + ` (adicionado: ${today})`;
         t.addedDate = today;
       }
+    }
+  }
+
+  for (const sec of result.sections) {
+    for (const t of result.tasks[sec.id] ?? []) {
+      if (t.parentId && idRemap[t.parentId]) t.parentId = idRemap[t.parentId];
     }
   }
 

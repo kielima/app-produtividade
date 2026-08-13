@@ -23,7 +23,6 @@ function task(overrides: Partial<Task>): Task {
     deadline: '',
     addedDate: '',
     dependsOn: [],
-    subtasks: [],
     section: '',
     completedAt: null,
     ...overrides,
@@ -36,6 +35,7 @@ function emptyCtx(): ScoreContext {
     potentialScoreMap: {},
     taskFlatMap: {},
     projectScoreMap: {},
+    childStatsMap: {},
     transitiveUnlocksMap: {},
     maxOverdueScore: 0,
   };

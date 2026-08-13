@@ -16,7 +16,6 @@ interface TaskRow {
   deadline: string | null;
   added_date: string | null;
   depends_on: string[] | null;
-  subtasks: unknown;
   parent_id: string | null;
   order: number | null;
   project_id: string | null;
@@ -41,7 +40,6 @@ export function rowToTask(row: TaskRow): Task {
     deadline: row.deadline ?? '',
     addedDate: row.added_date ?? '',
     dependsOn: row.depends_on ?? [],
-    subtasks: (row.subtasks as Task['subtasks']) ?? [],
     parentId: row.parent_id ?? null,
     order: row.order ?? null,
     section: row.project_id ?? '',
@@ -72,7 +70,6 @@ export function taskToRow(uid: string, task: Task): Omit<TaskRow, 'user_id'> & {
     deadline: task.deadline,
     added_date: task.addedDate,
     depends_on: task.dependsOn,
-    subtasks: task.subtasks,
     parent_id: task.parentId ?? null,
     order: task.order ?? null,
     project_id: task.section || null,
