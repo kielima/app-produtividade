@@ -1,4 +1,5 @@
 import { getDisplayTitle } from './parser';
+import { buildChildStatsMap } from './taskHierarchy';
 import type { DependencyEntry, ScoreContext, Task } from '../types';
 
 // Aceita tanto Project quanto a Section legada — id é obrigatório, deadline
@@ -69,11 +70,15 @@ export function calcProjectDeadlinePoints(
   return Math.max(0, 10 - d);
 }
 
-function countOpenSubtasks(task: Task): number {
-  if (!task.subtasks || task.subtasks.length === 0) return 0;
-  let n = 0;
-  for (const s of task.subtasks) if (!s.checked) n++;
-  return n;
+/**
+ * Número de tarefas-filhas (subtarefas) ainda não-concluídas. Lê o
+ * `childStatsMap` do contexto — construído uma vez por `buildDependencyMap`
+ * a partir dos `parentId`, em vez de varrer todas as tarefas a cada score.
+ */
+function countOpenChildren(taskId: string, ctx: ScoreContext): number {
+  const stats = ctx.childStatsMap[taskId];
+  if (!stats) return 0;
+  return stats.total - stats.done;
 }
 
 function depTitleTokens(title: string): string[] {
@@ -107,6 +112,7 @@ export function buildDependencyMap(
   const depMap: Record<string, DependencyEntry> = {};
   const taskFlatMap: Record<string, Task> = {};
   const taskIdMap: Record<number, Task> = {};
+  const childStatsMap = buildChildStatsMap(allTasks.map((x) => x.task));
 
   for (const { task: t } of allTasks) {
     depMap[t.id] = { blockedByIds: [], unlocksIds: [] };
@@ -167,8 +173,9 @@ export function buildDependencyMap(
       }
       const rankScore = s ? projectScoreMap[s.id] ?? 0 : 0;
       const projectScore = rankScore + calcProjectDeadlinePoints(s?.deadline, today);
-      const subtaskBonus = countOpenSubtasks(t);
-      const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1) + subtaskBonus;
+      const stats = childStatsMap[t.id];
+      const childBonus = stats ? stats.total - stats.done : 0;
+      const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1) + childBonus;
       const effort = EFFORT_DIV[t.esforco || ''] ?? 1;
       const inProgressBonus = t.inProgress ? 1 : 0;
       const deadlineBonus = calcDeadlinePoints(t.deadline, today, maxOverdueScore);
@@ -194,6 +201,7 @@ export function buildDependencyMap(
     potentialScoreMap,
     taskFlatMap,
     projectScoreMap,
+    childStatsMap,
     transitiveUnlocksMap,
     maxOverdueScore: 0,
   };
@@ -221,6 +229,7 @@ export function buildDependencyMap(
     potentialScoreMap,
     taskFlatMap,
     projectScoreMap,
+    childStatsMap,
     transitiveUnlocksMap,
     maxOverdueScore,
   };
@@ -231,13 +240,14 @@ export function buildDependencyMap(
  *
  * Fórmula:
  *   projectScore = projectRankScore + projectDeadlineBonus
- *   base         = projectScore × pontos_moscow + subtaskBonus
+ *   base         = projectScore × pontos_moscow + childBonus
  *   score        = (base / effort) + depBonus + inProgressBonus
  *                + deadlineBonus + ageBonus
  *
- * O `subtaskBonus` é o número de subtarefas ainda não-concluídas. O
- * `projectDeadlineBonus` é absorvido no `projectScore` e portanto também
- * passa pelo multiplicador do MoSCoW e pelo divisor de esforço.
+ * O `childBonus` é o número de tarefas-filhas (subtarefas) ainda
+ * não-concluídas. O `projectDeadlineBonus` é absorvido no `projectScore` e
+ * portanto também passa pelo multiplicador do MoSCoW e pelo divisor de
+ * esforço.
  */
 export function calcScore(
   task: Task,
@@ -256,8 +266,8 @@ export function calcScore(
 
   const rankScore = section ? ctx.projectScoreMap[section.id] ?? 0 : 0;
   const projectScore = rankScore + calcProjectDeadlinePoints(section?.deadline, today);
-  const subtaskBonus = countOpenSubtasks(task);
-  const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1) + subtaskBonus;
+  const childBonus = countOpenChildren(task.id, ctx);
+  const base = projectScore * (TASK_MOSCOW_PTS[taskM] ?? 1) + childBonus;
   const unlockedChain = ctx.transitiveUnlocksMap[task.id] ?? dep.unlocksIds;
   const depBonus = unlockedChain.reduce((sum, id) => sum + (ctx.potentialScoreMap[id] ?? 0), 0);
   const deadlineBonus = calcDeadlinePoints(task.deadline, today, ctx.maxOverdueScore);
@@ -294,9 +304,9 @@ export interface ScoreBreakdown {
   // MoSCoW
   moscowKey: string;
   moscowPts: number;
-  // Subtarefas
-  subtaskBonus: number;
-  subtaskTotal: number;
+  // Subtarefas (tarefas-filhas)
+  childBonus: number;
+  childTotal: number;
   // Base
   base: number;
   // Esforço
@@ -345,9 +355,9 @@ export function calcScoreBreakdown(
   const projectScore = rankScore + projectDeadlineBonus;
 
   const moscowPts = TASK_MOSCOW_PTS[moscowKey] ?? 1;
-  const subtaskBonus = countOpenSubtasks(task);
-  const subtaskTotal = task.subtasks?.length ?? 0;
-  const base = projectScore * moscowPts + subtaskBonus;
+  const childBonus = countOpenChildren(task.id, ctx);
+  const childTotal = ctx.childStatsMap[task.id]?.total ?? 0;
+  const base = projectScore * moscowPts + childBonus;
 
   const effortKey = task.esforco || '';
   const effort = EFFORT_DIV[effortKey] ?? 1;
@@ -393,8 +403,8 @@ export function calcScoreBreakdown(
     projectScore,
     moscowKey,
     moscowPts,
-    subtaskBonus,
-    subtaskTotal,
+    childBonus,
+    childTotal,
     base,
     effortKey,
     effort,

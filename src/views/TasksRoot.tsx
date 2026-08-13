@@ -69,9 +69,7 @@ function applyFilters(
       if (!filters.statusFilter.has(status)) return false;
     }
     if (applySearch) {
-      const haystack = normalizeForSearch(
-        [t.title, t.note, ...t.subtasks.map((s) => s.text)].join('\n'),
-      );
+      const haystack = normalizeForSearch([t.title, t.note].join('\n'));
       if (!haystack.includes(q)) return false;
     }
     return true;

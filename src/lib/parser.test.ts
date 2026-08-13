@@ -49,7 +49,8 @@ describe('parseTaskMarkdown', () => {
 
     const section = sections[0]!;
     const list = tasks[section.id]!;
-    expect(list).toHaveLength(2);
+    // 2 tarefas de topo + as 2 filhas (checkboxes indentados) da primeira.
+    expect(list).toHaveLength(4);
 
     const t0 = list[0]!;
     expect(t0.taskId).toBe(42);
@@ -63,15 +64,38 @@ describe('parseTaskMarkdown', () => {
     expect(t0.addedDate).toBe('2026-04-01');
     expect(t0.dependsOn).toEqual(['#0017']);
     expect(t0.note).toBe('revisar inglês');
-    expect(t0.subtasks).toEqual([
-      { text: 'sub A', checked: false },
-      { text: 'sub B', checked: true },
-    ]);
 
-    const t1 = list[1]!;
+    // Checkboxes indentados viram tarefas-filhas, logo depois do pai.
+    expect(list[1]).toMatchObject({
+      title: 'sub A',
+      checked: false,
+      parentId: '42',
+      order: 0,
+    });
+    expect(list[2]).toMatchObject({
+      title: 'sub B',
+      checked: true,
+      parentId: '42',
+      order: 1,
+    });
+
+    const t1 = list[3]!;
     expect(t1.checked).toBe(true);
     expect(t1.modo).toBe('delegar');
     expect(t1.moscow).toBe('could');
+    expect(t1.parentId).toBeUndefined();
+  });
+
+  it('reaponta o parentId das filhas quando o pai ganha um id novo', () => {
+    const md = `## Sec
+- [ ] **Pai sem ID**
+  - [ ] filha
+`;
+    const parsed = assignTaskIds(parseTaskMarkdown(md), '2026-05-15');
+    const [pai, filha] = parsed.tasks['sec']!;
+    expect(pai!.taskId).toBe(1);
+    expect(filha!.parentId).toBe(pai!.id);
+    expect(filha!.taskId).toBe(2);
   });
 
   it('parses in-progress status [/] and [-]', () => {

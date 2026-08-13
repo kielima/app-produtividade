@@ -35,7 +35,6 @@ function makeTask(section: string, checked: boolean, id = `${section}-${Math.ran
     deadline: '',
     addedDate: '',
     dependsOn: [],
-    subtasks: [],
     section,
     completedAt: null,
   };

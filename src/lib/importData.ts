@@ -4,6 +4,7 @@ import {
   type GlickoEntry,
   type MemoryDoc,
 } from './exportData';
+import { serializeTitle } from './parser';
 import type { Note, Project, Section, Task } from '../types';
 
 export class ImportParseError extends Error {
@@ -70,6 +71,76 @@ function parseGlickoEntries(v: unknown, label: string): GlickoEntry[] {
       sigma: assertNumber(item.sigma, `${label}[${i}].sigma`),
     };
   });
+}
+
+/**
+ * Backward-compat: até a v3 cada tarefa carregava uma lista embutida
+ * `subtasks` ([{ text, checked, blockedByPrev }]). Hoje subtarefa é uma
+ * tarefa-filha de verdade (`parentId`), então converte-se cada item numa
+ * tarefa nova — ids sequenciais a partir do maior `taskId` do payload,
+ * `order` preservando a ordem da lista e `blockedByPrev` virando dependência
+ * `#<taskId>` da irmã anterior (itens sem texto são descartados, então a
+ * "anterior" é sempre uma irmã que existe de fato). Sem isso, importar um
+ * backup antigo perderia silenciosamente os itens, já que o campo legado não
+ * é mais gravado.
+ *
+ * `completedAt` fica null nas filhas já concluídas: o formato antigo não
+ * guardava a data de conclusão do item, e inventar "agora" criaria um pico
+ * falso nas estatísticas.
+ */
+export function migrateLegacySubtasks(tasks: Task[]): Task[] {
+  let nextTaskId = tasks.reduce((max, t) => Math.max(max, t.taskId ?? 0), 0);
+  const out: Task[] = [];
+
+  for (const task of tasks) {
+    const legacy = (task as Task & { subtasks?: unknown }).subtasks;
+    const cleaned = { ...task };
+    delete (cleaned as Task & { subtasks?: unknown }).subtasks;
+    out.push(cleaned);
+    if (!Array.isArray(legacy) || legacy.length === 0) continue;
+
+    let prevTaskId: number | null = null;
+    let order = 0;
+    for (const raw of legacy) {
+      if (!isObject(raw)) continue;
+      const text = typeof raw.text === 'string' ? raw.text : '';
+      if (!text.trim()) continue;
+      const checked = raw.checked === true;
+      const dependsOn =
+        raw.blockedByPrev === true && prevTaskId != null ? [`#${prevTaskId}`] : [];
+      const taskId = ++nextTaskId;
+      const addedDate = cleaned.addedDate ?? '';
+      out.push({
+        id: String(taskId),
+        taskId,
+        title: serializeTitle(text, {
+          taskId,
+          modo: 'manual',
+          moscow: '',
+          esforco: '',
+          deadline: '',
+          addedDate,
+          dependsOn,
+        }),
+        note: '',
+        checked,
+        inProgress: false,
+        moscow: '',
+        modo: 'manual',
+        esforco: '',
+        deadline: '',
+        addedDate,
+        dependsOn,
+        parentId: cleaned.id,
+        order: order++,
+        section: cleaned.section ?? '',
+        completedAt: null,
+      });
+      prevTaskId = taskId;
+    }
+  }
+
+  return out;
 }
 
 /**
@@ -143,7 +214,7 @@ export function parseImportPayload(text: string): ExportPayload {
     uid: assertString(raw.uid, 'uid'),
     version,
     sections: assertArray(raw.sections, 'sections') as Section[],
-    tasks,
+    tasks: migrateLegacySubtasks(tasks),
     projects: assertArray(raw.projects, 'projects') as Project[],
     notes,
     glicko,

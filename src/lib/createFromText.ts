@@ -71,7 +71,6 @@ export async function createTaskFromText(
     deadline: '',
     addedDate: today,
     dependsOn: [],
-    subtasks: [],
     section: sectionId,
     completedAt: null,
     ...(source ? { sourceItemId: source.itemId, sourceAnnotationId: source.annotationId } : {}),

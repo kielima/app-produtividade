@@ -23,7 +23,6 @@ const SAMPLE: ExportPayload = {
       deadline: '',
       addedDate: '',
       dependsOn: [],
-      subtasks: [],
       section: 's1',
       completedAt: null,
     },

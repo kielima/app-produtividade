@@ -19,7 +19,6 @@ function at(d: Date): Task {
     deadline: '',
     addedDate: '',
     dependsOn: [],
-    subtasks: [],
     section: '',
     completedAt: d,
   };

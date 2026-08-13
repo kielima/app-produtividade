@@ -60,7 +60,6 @@ function makeTask(id: string): Task {
     deadline: '',
     addedDate: '2026-01-01',
     dependsOn: [],
-    subtasks: [],
     section: 'proj-1',
     completedAt: null,
   };
@@ -109,7 +108,6 @@ describe('upsertTask — eco local', () => {
         deadline: null,
         added_date: '2026-01-01',
         depends_on: null,
-        subtasks: [],
         parent_id: null,
         order: null,
         project_id: 'proj-1',

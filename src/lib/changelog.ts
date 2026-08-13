@@ -20,6 +20,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-08-13T12:00:00-03:00',
+    title: 'Um só tipo de subtarefa',
+    items: [
+      'O app tinha dois sistemas de subtarefa: a lista simples de riscar (antiga, que já não aparecia em lugar nenhum) e as tarefas-filhas, com página, prazo, score e dependências próprios.',
+      'Tudo o que estava na lista antiga virou tarefa-filha de verdade, mantendo o texto, o "concluído", a ordem e o encadeamento entre uma subtarefa e a anterior.',
+      'Nas anotações, a lista de riscar continua igual — só passou a se chamar "itens", para não confundir com as subtarefas das tarefas.',
+    ],
+  },
+  {
     date: '2026-07-05T02:00:00-03:00',
     title: 'Atualização do app pelas Configurações',
     items: [
