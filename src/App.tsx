@@ -39,6 +39,7 @@ import {
   type ShareTargetDialogState,
 } from './components/ShareTargetDialog';
 import { UpdatePrompt } from './components/UpdatePrompt';
+import { ViewErrorBoundary } from './components/ViewErrorBoundary';
 import { signOutCurrent } from './lib/auth';
 import { exportProjectsToPdf } from './lib/exportProjectsPdf';
 import { computeProgressByProject, filterAndSortProjects } from './lib/projectFilterSort';
@@ -1154,6 +1155,14 @@ function AppShell({
       />
 
       <main role="main">
+        {/* `key={tab}` remonta o boundary a cada troca de aba: sem isso, o
+            estado de erro ficaria preso e a aba seguinte nasceria mostrando a
+            falha da anterior. */}
+        <ViewErrorBoundary
+          key={tab}
+          label={tab}
+          fallbackTitle="Esta tela encontrou um erro inesperado."
+        >
         {tab === 'today' && (
           <TodayView
             uid={uid}
@@ -1216,6 +1225,7 @@ function AppShell({
           />
         )}
         {tab === 'settings' && <SettingsView uid={uid} />}
+        </ViewErrorBoundary>
       </main>
 
       <UpdatePrompt />

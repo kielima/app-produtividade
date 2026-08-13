@@ -445,7 +445,7 @@ export function GrafosSolarSystemView({
   const [actionStatus, setActionStatus] = useState<string | null>(null);
   // Erro capturado FORA do ciclo de render do React (loop de animação via
   // requestAnimationFrame, ResizeObserver, promises não tratadas) — o
-  // GrafosViewErrorBoundary que envolve este componente só pega exceções
+  // ViewErrorBoundary que envolve este componente só pega exceções
   // lançadas DURANTE a renderização; nada disso passa por lá. Sem isso,
   // relatos de "o app fecha" eram indistinguíveis de um crash de verdade,
   // mesmo sendo (possivelmente) só uma exceção JS silenciosa em algum canto
@@ -514,7 +514,7 @@ export function GrafosSolarSystemView({
     };
   }, []);
 
-  // Rede de segurança pra exceções que o GrafosViewErrorBoundary (que
+  // Rede de segurança pra exceções que o ViewErrorBoundary (que
   // envolve este componente) NÃO pega — ele só cobre erros lançados durante
   // a renderização; nada em `requestAnimationFrame`, `ResizeObserver` ou
   // promises fica coberto. Escuta em `window` (não dá pra escopar só a este
@@ -681,7 +681,7 @@ export function GrafosSolarSystemView({
   tickRef.current = (now: number) => {
     // Uma exceção aqui dentro (canvas/API não suportada nesse WebView,
     // dado inesperado no meio da animação, etc.) NÃO é pega pelo
-    // GrafosViewErrorBoundary (rAF roda fora do ciclo de render do React)
+    // ViewErrorBoundary (rAF roda fora do ciclo de render do React)
     // — sem o try/catch, ela vira um crash silencioso: o loop simplesmente
     // para de se reagendar e a tela congela sem nenhuma mensagem. Com o
     // catch, mostra o erro (`fatalError`, ver JSX) e para de tentar de

@@ -1,6 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { CompletedTasksList } from '../components/CompletedTasksList';
 import type { StatsFiltersState } from '../components/StatsFiltersBar';
+import {
+  normalizeEsforco,
+  normalizeModo,
+  normalizeMoscow,
+} from '../lib/taskFields';
 import { subscribeToTasks } from '../repositories/tasksRepo';
 import type {
   Esforco,
@@ -47,14 +52,19 @@ const MODO_LABELS: Record<ModoBucket, string> = {
   chat: 'Chat',
 };
 
+// Os buckets são as chaves dos `Record` de slots (`byMoscow`/`byEsforco`/
+// `byModo`), então precisam ser sempre um dos valores conhecidos — daí a
+// normalização, e não um cast: tarefa gravada por uma versão anterior do app
+// pode trazer categoria fora da união (ver src/lib/taskFields.ts) e indexar
+// um slot inexistente estourava a contagem inteira.
 function bucketMoscow(m: MoSCoW): MoSCoWBucket {
-  return !m ? 'could' : m;
+  return normalizeMoscow(m) || 'could';
 }
 function bucketEsforco(e: Esforco): EsforcoBucket {
-  return !e ? 'rapido' : e;
+  return normalizeEsforco(e) || 'rapido';
 }
 function bucketModo(m: Modo): ModoBucket {
-  return m || 'manual';
+  return normalizeModo(m);
 }
 
 const MOSCOW_PTS: Record<MoSCoW, number> = {

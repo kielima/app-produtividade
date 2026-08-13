@@ -22,7 +22,7 @@ import { GrafosConflictDialog } from '../components/GrafosConflictDialog';
 import { GrafosSearchBox } from '../components/GrafosSearchBox';
 import { SearchToggle } from '../components/SearchBar';
 import { InlineEdit } from '../components/InlineEdit';
-import { GrafosViewErrorBoundary } from '../components/GrafosViewErrorBoundary';
+import { ViewErrorBoundary } from '../components/ViewErrorBoundary';
 
 // Ícones do botão de alternância grafo/órbitas — mostram o modo pra ONDE o
 // toque leva (não o atual), igual a um botão "ver como X".
@@ -366,15 +366,15 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
 
       {mode === 'gallery' ? (
         <div className="grafos-view-body">
-          <GrafosViewErrorBoundary fallbackTitle="A galeria encontrou um erro inesperado.">
+          <ViewErrorBoundary label="Grafos · galeria" fallbackTitle="A galeria encontrou um erro inesperado.">
             <Suspense fallback={<p className="muted">Carregando galeria…</p>}>
               <GrafosGalleryView vault={vault} />
             </Suspense>
-          </GrafosViewErrorBoundary>
+          </ViewErrorBoundary>
         </div>
       ) : mode === 'graph' ? (
         <div className="grafos-view-body">
-          <GrafosViewErrorBoundary fallbackTitle="O grafo encontrou um erro inesperado.">
+          <ViewErrorBoundary label="Grafos · grafo" fallbackTitle="O grafo encontrou um erro inesperado.">
             <Suspense fallback={<p className="muted">Carregando grafo…</p>}>
               <GrafosGraphView
                 vault={vault}
@@ -389,11 +389,11 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
                 }}
               />
             </Suspense>
-          </GrafosViewErrorBoundary>
+          </ViewErrorBoundary>
         </div>
       ) : (
         <div className="grafos-view-body">
-          <GrafosViewErrorBoundary fallbackTitle="O sistema solar encontrou um erro inesperado.">
+          <ViewErrorBoundary label="Grafos · sistema solar" fallbackTitle="O sistema solar encontrou um erro inesperado.">
             <Suspense fallback={<p className="muted">Carregando sistema solar…</p>}>
               <GrafosSolarSystemView
                 vault={vault}
@@ -410,7 +410,7 @@ function GrafosVaultBrowser({ uid }: { uid: string }) {
                 }}
               />
             </Suspense>
-          </GrafosViewErrorBoundary>
+          </ViewErrorBoundary>
         </div>
       )}
 
