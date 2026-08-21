@@ -7,11 +7,20 @@ import type { Project, Task } from '../types';
 // Extraídos do fluxo "imagem → nota/tarefa" do App para serem compartilhados
 // com a conversão de anotações da aba Leitura (marca-texto/comentário/tinta).
 
+// Nome do projeto onde as tarefas criadas sem escolha explícita devem
+// aterrissar (ex.: tarefa criada a partir da transcrição do Gemini ao
+// compartilhar uma imagem). Mantido em sincronia com
+// DEFAULT_CONVERT_PROJECT_NAME em NoteDetailView.tsx.
+const DEFAULT_PROJECT_NAME = 'Tarefas sem projeto';
+
 export function pickDefaultProjectId(projects: Project[]): string | null {
   const available = projects.filter(
     (p) => p.status !== 'Concluído' && p.status !== 'Cancelado',
   );
-  return available[0]?.id ?? null;
+  const preferred = available.find(
+    (p) => p.name.trim().toLowerCase() === DEFAULT_PROJECT_NAME.toLowerCase(),
+  );
+  return preferred?.id ?? available[0]?.id ?? null;
 }
 
 // Origem opcional de uma anotação da aba Leitura: guardada na nota/tarefa
