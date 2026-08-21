@@ -36,10 +36,19 @@ export function TaskCard({
 
   async function toggleChecked() {
     if (!task.checked && hasOpenChildren) {
-      window.alert('Conclua todas as subtarefas antes de concluir esta tarefa.');
+      const pending = childStats!.total - childStats!.done;
+      window.alert(
+        `Conclua ${pending === 1 ? 'a subtarefa pendente' : `as ${pending} subtarefas pendentes`} antes de concluir esta tarefa.`,
+      );
       return;
     }
-    await patchTask(uid, task, { checked: !task.checked });
+    try {
+      await patchTask(uid, task, { checked: !task.checked });
+    } catch (e) {
+      // Sem isto, uma falha na gravação (rede, permissão) deixa o clique sem
+      // nenhum retorno visível: a caixa não marca e o usuário não sabe por quê.
+      window.alert(e instanceof Error ? e.message : 'Não foi possível salvar a tarefa.');
+    }
   }
 
   return (
