@@ -1,6 +1,22 @@
-import { describe, expect, it } from 'vitest';
-import { pickDefaultProjectId } from './createFromText';
+import { describe, expect, it, vi } from 'vitest';
 import type { Project } from '../types';
+
+// createFromText.ts importa os repositórios, que por sua vez importam o
+// cliente Supabase real (instanciado no carregamento do módulo a partir de
+// variáveis de ambiente). Mocka-lo evita depender dessas variáveis só para
+// testar pickDefaultProjectId, que é uma função pura.
+vi.mock('../lib/supabase', () => ({
+  supabase: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({ order: () => Promise.resolve({ data: [], error: null }) }),
+      }),
+      upsert: () => Promise.resolve({ error: null }),
+    }),
+  },
+}));
+
+const { pickDefaultProjectId } = await import('./createFromText');
 
 function makeProject(overrides: Partial<Project>): Project {
   return {
