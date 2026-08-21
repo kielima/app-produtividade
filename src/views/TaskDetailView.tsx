@@ -190,10 +190,19 @@ export function TaskDetailView({
 
   async function setStatus(next: KanbanStatus) {
     if (next === 'done' && hasIncompleteChildren(task.id, allTasks)) {
-      window.alert('Conclua todas as subtarefas antes de concluir esta tarefa.');
+      const pending = children.length - doneChildren;
+      window.alert(
+        `Conclua ${pending === 1 ? 'a subtarefa pendente' : `as ${pending} subtarefas pendentes`} antes de concluir esta tarefa.`,
+      );
       return;
     }
-    await patchTask(uid, task, statusPatch(next));
+    try {
+      await patchTask(uid, task, statusPatch(next));
+    } catch (e) {
+      // Sem isto, uma falha na gravação (rede, permissão) deixa o clique sem
+      // nenhum retorno visível: o status não muda e o usuário não sabe por quê.
+      window.alert(e instanceof Error ? e.message : 'Não foi possível salvar a tarefa.');
+    }
   }
 
   async function handleAddChild() {
@@ -257,7 +266,11 @@ export function TaskDetailView({
       window.alert('Esta subtarefa está bloqueada: conclua a subtarefa anterior primeiro.');
       return;
     }
-    await patchTask(uid, child, { checked: !child.checked });
+    try {
+      await patchTask(uid, child, { checked: !child.checked });
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Não foi possível salvar a subtarefa.');
+    }
   }
 
   // Referência usada em dependsOn para apontar para `task` (#id quando existe).
