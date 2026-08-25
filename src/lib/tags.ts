@@ -30,6 +30,12 @@ export function parseTagsInput(input: string): string[] {
   return normalizeTags(input.split(/[,;]/));
 }
 
+/**
+ * Sentinela usado nos filtros por tag (notas e tarefas) para representar
+ * "sem tag nenhuma" — não é uma tag real, nunca aparece em `tags` de um item.
+ */
+export const NO_TAG_FILTER = '__sem_tag__';
+
 /** Tag aplicada automaticamente a notas que contêm pelo menos um link. */
 export const LINK_TAG = 'link';
 

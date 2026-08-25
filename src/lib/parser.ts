@@ -186,6 +186,7 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
         dependsOn,
         section: currentSectionId!,
         completedAt: null,
+        tags: [],
       };
       continue;
     }
@@ -213,6 +214,7 @@ export function parseTaskMarkdown(content: string): ParseTasksResult {
         order: currentChildren.length,
         section: currentSectionId!,
         completedAt: null,
+        tags: [],
       });
     }
   }

@@ -82,6 +82,7 @@ export async function createTaskFromText(
     dependsOn: [],
     section: sectionId,
     completedAt: null,
+    tags: [],
     ...(source ? { sourceItemId: source.itemId, sourceAnnotationId: source.annotationId } : {}),
   };
   await upsertTask(uid, newTask);

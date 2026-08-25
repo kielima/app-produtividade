@@ -8,6 +8,7 @@ import {
   STATUS_VALUES,
 } from '../components/TaskFiltersBar';
 import { normalizeForSearch } from '../lib/searchNormalize';
+import { NO_TAG_FILTER } from '../lib/tags';
 import { isSnoozed } from '../lib/snooze';
 import { buildChildStatsMap, isTopLevel } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
@@ -35,6 +36,9 @@ function applyFilters(
   const applyEsforco = filters.esforcoFilter.size !== ESFORCO_VALUES.length;
   const applyStatus = filters.statusFilter.size !== STATUS_VALUES.length;
   const applyProject = !!filters.projectFilter;
+  const applyTags = filters.tagFilter.length > 0;
+  const wantNoTag = filters.tagFilter.includes(NO_TAG_FILTER);
+  const requiredTags = filters.tagFilter.filter((t) => t !== NO_TAG_FILTER);
   const q = normalizeForSearch(searchQuery.trim());
   const applySearch = q.length > 0;
   if (
@@ -46,6 +50,7 @@ function applyFilters(
     !applyEsforco &&
     !applyStatus &&
     !applyProject &&
+    !applyTags &&
     !applySearch
   )
     return tasks;
@@ -68,8 +73,15 @@ function applyFilters(
           : 'todo';
       if (!filters.statusFilter.has(status)) return false;
     }
+    if (applyTags) {
+      if (wantNoTag && t.tags.length > 0) return false;
+      if (requiredTags.length > 0) {
+        const taskTags = new Set(t.tags);
+        for (const tag of requiredTags) if (!taskTags.has(tag)) return false;
+      }
+    }
     if (applySearch) {
-      const haystack = normalizeForSearch([t.title, t.note].join('\n'));
+      const haystack = normalizeForSearch([t.title, t.note, ...t.tags].join('\n'));
       if (!haystack.includes(q)) return false;
     }
     return true;

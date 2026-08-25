@@ -158,6 +158,7 @@ export function NoteDetailView({
         dependsOn: [],
         section: sectionId,
         completedAt: null,
+        tags: note.tags,
         ...(note.sourceItemId && note.sourceAnnotationId
           ? { sourceItemId: note.sourceItemId, sourceAnnotationId: note.sourceAnnotationId }
           : {}),
@@ -194,6 +195,7 @@ export function NoteDetailView({
           order: i,
           section: sectionId,
           completedAt: item.checked ? new Date() : null,
+          tags: [],
         };
       });
 

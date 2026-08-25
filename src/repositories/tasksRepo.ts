@@ -25,6 +25,7 @@ interface TaskRow {
   snoozed_until: string | null;
   source_item_id: string | null;
   source_annotation_id: string | null;
+  tags: string[] | null;
 }
 
 // As colunas `moscow`/`modo`/`esforco` são `text` livre e guardam também
@@ -55,6 +56,7 @@ export function rowToTask(row: TaskRow): Task {
     snoozedUntil: row.snoozed_until ?? null,
     ...(row.source_item_id != null ? { sourceItemId: row.source_item_id } : {}),
     ...(row.source_annotation_id != null ? { sourceAnnotationId: row.source_annotation_id } : {}),
+    tags: Array.isArray(row.tags) ? row.tags : [],
   };
 }
 
@@ -85,6 +87,7 @@ export function taskToRow(uid: string, task: Task): Omit<TaskRow, 'user_id'> & {
     snoozed_until: task.snoozedUntil ?? null,
     source_item_id: task.sourceItemId ?? null,
     source_annotation_id: task.sourceAnnotationId ?? null,
+    tags: task.tags,
   };
 }
 

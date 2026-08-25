@@ -135,6 +135,7 @@ export function migrateLegacySubtasks(tasks: Task[]): Task[] {
         order: order++,
         section: cleaned.section ?? '',
         completedAt: null,
+        tags: [],
       });
       prevTaskId = taskId;
     }

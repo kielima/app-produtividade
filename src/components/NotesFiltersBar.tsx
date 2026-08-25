@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
+import { NO_TAG_FILTER } from '../lib/tags';
 import type { Project } from '../types';
 import { ProjectCombobox } from './TaskFiltersBar';
 
-export const NO_TAG_FILTER = '__sem_tag__';
+export { NO_TAG_FILTER };
 
 export function NotesFiltersBar({
   allTags,
