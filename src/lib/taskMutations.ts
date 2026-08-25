@@ -111,6 +111,7 @@ async function createDerivedTask(
     parentId: asChild ? source.id : null,
     section: source.section,
     completedAt: null,
+    tags: [],
   };
   await upsertTask(uid, created);
   return String(taskId);

@@ -26,10 +26,12 @@ import { MarkdownNote } from '../components/MarkdownNote';
 import { ParentPicker } from '../components/ParentPicker';
 import { Popover } from '../components/Popover';
 import { ProjectPicker } from '../components/ProjectPicker';
+import { TagsEditor } from '../components/TagsEditor';
 import TrashIcon from '../components/TrashIcon';
 import { AiSubtasksError, generateSubtasks } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
+import { normalizeTags } from '../lib/tags';
 import {
   formatSnoozeUntil,
   isSnoozed,
@@ -117,6 +119,7 @@ export function TaskDetailView({
   projects,
   projectMap,
   ctx,
+  allTags = [],
   onClose,
 }: {
   uid: string;
@@ -125,6 +128,7 @@ export function TaskDetailView({
   projects: Project[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
+  allTags?: string[];
   onClose: () => void;
 }) {
   const display = getDisplayTitle(task.title);
@@ -186,6 +190,10 @@ export function TaskDetailView({
 
   async function setField<K extends keyof Task>(field: K, value: Task[K]) {
     await patchTask(uid, task, { [field]: value } as Partial<Task>);
+  }
+
+  async function setTags(tags: string[]) {
+    await patchTask(uid, task, { tags: normalizeTags(tags) });
   }
 
   async function setStatus(next: KanbanStatus) {
@@ -797,6 +805,11 @@ export function TaskDetailView({
             )}
           </Popover>
         </div>
+
+        <section className="task-detail-section">
+          <h3>Tags</h3>
+          <TagsEditor tags={task.tags} onChange={setTags} suggestions={allTags} />
+        </section>
 
         {task.dependsOn.length > 0 && (
           <dl className="task-detail-fields">

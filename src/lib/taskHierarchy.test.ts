@@ -32,6 +32,7 @@ function mk(
     parentId,
     section,
     completedAt: null,
+    tags: [],
   };
 }
 

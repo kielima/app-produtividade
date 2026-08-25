@@ -674,6 +674,18 @@ function AppShell({
       .map(([tag]) => tag);
   }, [notes]);
 
+  const allTaskTags = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const t of data.tasks) {
+      for (const tag of t.tags) {
+        counts.set(tag, (counts.get(tag) ?? 0) + 1);
+      }
+    }
+    return [...counts.entries()]
+      .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+      .map(([tag]) => tag);
+  }, [data.tasks]);
+
   const selectedTask = selectedTaskId
     ? data.tasks.find((t) => t.id === selectedTaskId) ?? null
     : null;
@@ -846,6 +858,7 @@ function AppShell({
                   projects={data.projects}
                   projectMap={data.projectMap}
                   ctx={data.ctx}
+                  allTags={allTaskTags}
                   onClose={goBack}
                 />
               </main>
@@ -1032,6 +1045,7 @@ function AppShell({
               classifyCount={classifyCount}
               searchQuery={taskSearchQuery}
               onClearSearch={() => setTaskSearchQuery('')}
+              allTags={allTaskTags}
             />
           </>
         )}

@@ -62,6 +62,7 @@ function makeTask(id: string): Task {
     dependsOn: [],
     section: 'proj-1',
     completedAt: null,
+    tags: [],
   };
 }
 
