@@ -55,6 +55,7 @@ export interface Task {
   // outra forma.
   sourceItemId?: string;
   sourceAnnotationId?: string;
+  tags: string[];
 }
 
 export interface Section {

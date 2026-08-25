@@ -95,6 +95,15 @@ export function TaskCard({
         {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}
       </div>
       {projectName && <span className="task-project">{projectName}</span>}
+      {task.tags.length > 0 && (
+        <div className="task-tags">
+          {task.tags.map((tag) => (
+            <span key={tag} className="tag-chip tag-chip-static tag-chip-xs">
+              {tag}
+            </span>
+          ))}
+        </div>
+      )}
     </article>
   );
 }

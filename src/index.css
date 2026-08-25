@@ -1194,6 +1194,15 @@ a:focus-visible {
   white-space: nowrap;
 }
 
+.task-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+  margin-left: 1.6rem;
+  pointer-events: none;
+}
+
 .subtasks { list-style: none; padding-left: 0; margin: 0.5rem 0 0; }
 .subtasks li {
   display: flex;

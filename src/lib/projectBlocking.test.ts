@@ -37,6 +37,7 @@ function makeTask(section: string, checked: boolean, id = `${section}-${Math.ran
     dependsOn: [],
     section,
     completedAt: null,
+    tags: [],
   };
 }
 

@@ -25,6 +25,7 @@ const SAMPLE: ExportPayload = {
       dependsOn: [],
       section: 's1',
       completedAt: null,
+      tags: [],
     },
   ],
   projects: [],

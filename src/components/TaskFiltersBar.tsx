@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeForSearch } from '../lib/searchNormalize';
+import { NO_TAG_FILTER } from '../lib/tags';
 import type { Esforco, Modo, MoSCoW, Project } from '../types';
+
+export { NO_TAG_FILTER };
 
 const MODO_LABEL: Record<Modo, string> = {
   manual: 'Manual',
@@ -67,6 +70,7 @@ export interface TaskFiltersState {
   esforcoFilter: Set<Esforco>;
   statusFilter: Set<StatusKey>;
   viewMode: TaskViewMode;
+  tagFilter: string[];
 }
 
 export function defaultFiltersState(): TaskFiltersState {
@@ -81,6 +85,7 @@ export function defaultFiltersState(): TaskFiltersState {
     esforcoFilter: new Set<Esforco>(ESFORCO_VALUES),
     statusFilter: new Set<StatusKey>(STATUS_VALUES),
     viewMode: 'list',
+    tagFilter: [],
   };
 }
 
@@ -95,6 +100,7 @@ interface SerializedTaskFilters {
   esforcoFilter: Esforco[];
   statusFilter: StatusKey[];
   viewMode: TaskViewMode;
+  tagFilter: string[];
 }
 
 export function serializeFiltersState(
@@ -111,6 +117,7 @@ export function serializeFiltersState(
     esforcoFilter: [...state.esforcoFilter],
     statusFilter: [...state.statusFilter],
     viewMode: state.viewMode,
+    tagFilter: [...state.tagFilter],
   };
 }
 
@@ -143,6 +150,9 @@ export function deserializeFiltersState(raw: unknown): TaskFiltersState {
     statusFilter: allowed(v.statusFilter, STATUS_VALUES),
     viewMode:
       v.viewMode === 'matrix' || v.viewMode === 'gantt' ? v.viewMode : base.viewMode,
+    tagFilter: Array.isArray(v.tagFilter)
+      ? v.tagFilter.filter((t): t is string => typeof t === 'string')
+      : base.tagFilter,
   };
 }
 
@@ -159,7 +169,8 @@ export function activeFilterCount(
     (state.modoFilter.size === MODO_VALUES.length ? 0 : 1) +
     (state.moscowFilter.size === MOSCOW_VALUES.length ? 0 : 1) +
     (state.esforcoFilter.size === ESFORCO_VALUES.length ? 0 : 1) +
-    (state.statusFilter.size === STATUS_VALUES.length ? 0 : 1)
+    (state.statusFilter.size === STATUS_VALUES.length ? 0 : 1) +
+    state.tagFilter.length
   );
 }
 
@@ -171,6 +182,7 @@ export function TaskFiltersBar({
   classifyCount,
   searchQuery,
   onClearSearch,
+  allTags = [],
 }: {
   state: TaskFiltersState;
   setState: (next: TaskFiltersState) => void;
@@ -179,6 +191,7 @@ export function TaskFiltersBar({
   classifyCount?: number;
   searchQuery?: string;
   onClearSearch?: () => void;
+  allTags?: string[];
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -227,6 +240,15 @@ export function TaskFiltersBar({
     if (next.has(s)) next.delete(s);
     else next.add(s);
     setState({ ...state, statusFilter: next });
+  }
+
+  function toggleTag(tag: string) {
+    setState({
+      ...state,
+      tagFilter: state.tagFilter.includes(tag)
+        ? state.tagFilter.filter((t) => t !== tag)
+        : [...state.tagFilter, tag],
+    });
   }
 
   function clearFilters() {
@@ -449,6 +471,43 @@ export function TaskFiltersBar({
                 </button>
               ))}
             </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Tags</legend>
+            {allTags.length === 0 ? (
+              <p className="muted">Nenhuma tag ainda.</p>
+            ) : (
+              <div className="chip-group">
+                {(() => {
+                  const noTagActive = state.tagFilter.includes(NO_TAG_FILTER);
+                  return (
+                    <button
+                      type="button"
+                      className={`tag-chip tag-chip-toggle${noTagActive ? ' active' : ''}`}
+                      onClick={() => toggleTag(NO_TAG_FILTER)}
+                      aria-pressed={noTagActive}
+                    >
+                      sem tag
+                    </button>
+                  );
+                })()}
+                {allTags.map((tag) => {
+                  const active = state.tagFilter.includes(tag);
+                  return (
+                    <button
+                      key={tag}
+                      type="button"
+                      className={`tag-chip tag-chip-toggle${active ? ' active' : ''}`}
+                      onClick={() => toggleTag(tag)}
+                      aria-pressed={active}
+                    >
+                      {tag}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </fieldset>
 
           <button

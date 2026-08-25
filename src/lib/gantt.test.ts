@@ -25,6 +25,7 @@ function task(overrides: Partial<Task>): Task {
     dependsOn: [],
     section: '',
     completedAt: null,
+    tags: [],
     ...overrides,
   };
 }

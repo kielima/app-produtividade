@@ -21,6 +21,7 @@ function at(d: Date): Task {
     dependsOn: [],
     section: '',
     completedAt: d,
+    tags: [],
   };
 }
 
