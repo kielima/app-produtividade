@@ -1,9 +1,10 @@
 import { useEffect, useMemo, useState } from 'react';
 import { patchProject, subscribeToProjects } from '../repositories/projectsRepo';
-import { subscribeToTasks } from '../repositories/tasksRepo';
+import { subscribeToTasks, updateTaskScore } from '../repositories/tasksRepo';
 import { computeBlockTransitions } from './projectBlocking';
 import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
+import { computeScoreUpdates } from './scoreSync';
 import type { Project, ScoreContext, Task } from '../types';
 
 export interface UserData {
@@ -54,6 +55,15 @@ export function useUserData(uid: string): UserData {
       patchProject(uid, id, patch);
     }
   }, [uid, tasks, projects]);
+
+  // Mantém a coluna `score` do Supabase espelhando o score calculado aqui,
+  // pra ferramentas fora do app (ex.: a skill de bom dia) poderem consultar
+  // e explicar o score sem rodar a fórmula. Ver src/lib/scoreSync.ts.
+  useEffect(() => {
+    for (const { docId, score, breakdown } of computeScoreUpdates(tasks, projectMap, ctx)) {
+      updateTaskScore(uid, docId, score, breakdown as unknown as Record<string, unknown>);
+    }
+  }, [uid, tasks, projectMap, ctx]);
 
   return { tasks, projects, projectMap, ctx, error };
 }

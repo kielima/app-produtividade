@@ -56,6 +56,15 @@ export interface Task {
   sourceItemId?: string;
   sourceAnnotationId?: string;
   tags: string[];
+  // Espelho, gravado no Supabase, do último score calculado por
+  // `calcScore`/`calcScoreBreakdown` (ver src/lib/score.ts). Só lido daqui
+  // pra saber se o valor já gravado bate com o recém-calculado (evita
+  // reescrever a cada render); quem decide o valor é sempre o cálculo em
+  // memória, nunca esta cópia. Consumido fora do app pela skill de bom dia,
+  // que lê direto do Supabase sem rodar a fórmula.
+  score?: number | null;
+  scoreBreakdown?: Record<string, unknown> | null;
+  scoreUpdatedAt?: string | null;
 }
 
 export interface Section {
