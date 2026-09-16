@@ -26,6 +26,9 @@ interface TaskRow {
   source_item_id: string | null;
   source_annotation_id: string | null;
   tags: string[] | null;
+  score: number | null;
+  score_breakdown: Record<string, unknown> | null;
+  score_updated_at: string | null;
 }
 
 // As colunas `moscow`/`modo`/`esforco` são `text` livre e guardam também
@@ -57,6 +60,9 @@ export function rowToTask(row: TaskRow): Task {
     ...(row.source_item_id != null ? { sourceItemId: row.source_item_id } : {}),
     ...(row.source_annotation_id != null ? { sourceAnnotationId: row.source_annotation_id } : {}),
     tags: Array.isArray(row.tags) ? row.tags : [],
+    score: row.score,
+    scoreBreakdown: row.score_breakdown,
+    scoreUpdatedAt: row.score_updated_at,
   };
 }
 
@@ -88,6 +94,9 @@ export function taskToRow(uid: string, task: Task): Omit<TaskRow, 'user_id'> & {
     source_item_id: task.sourceItemId ?? null,
     source_annotation_id: task.sourceAnnotationId ?? null,
     tags: task.tags,
+    score: task.score ?? null,
+    score_breakdown: task.scoreBreakdown ?? null,
+    score_updated_at: task.scoreUpdatedAt ?? null,
   };
 }
 
@@ -164,6 +173,32 @@ export async function setTaskCompleted(
       .eq('id', id);
     if (error) throw new Error(error.message);
   }
+}
+
+/**
+ * Grava o score recém-calculado (e seu detalhamento) numa tarefa, sem tocar
+ * nas demais colunas. Chamada por `useUserData` sempre que `calcScore`
+ * produz um valor diferente do que já está salvo — ver `computeScoreUpdates`
+ * em `src/lib/scoreSync.ts`. É um `update` parcial (não `upsert`) de
+ * propósito: o resto da linha continua sendo escrito só pelo fluxo normal
+ * de edição (`patchTask`/`upsertTask`).
+ */
+export async function updateTaskScore(
+  uid: string,
+  docId: string,
+  score: number,
+  breakdown: Record<string, unknown>,
+): Promise<void> {
+  const { error } = await supabase
+    .from('tasks')
+    .update({
+      score,
+      score_breakdown: breakdown,
+      score_updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', uid)
+    .eq('id', docId);
+  if (error) throw new Error(error.message);
 }
 
 /**
