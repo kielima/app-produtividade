@@ -1,5 +1,5 @@
 import { supabase } from '../lib/supabase';
-import { subscribeTable, type Unsubscribe } from './realtimeTable';
+import { publishLocalRow, subscribeTable, type Unsubscribe } from './realtimeTable';
 import type { Note } from '../types';
 
 interface NoteRow {
@@ -68,8 +68,13 @@ export function subscribeToNotes(
 }
 
 export async function upsertNote(uid: string, note: Note): Promise<void> {
-  const { error } = await supabase.from('notes').upsert(noteToRow(uid, note));
+  const row = noteToRow(uid, note);
+  const { error } = await supabase.from('notes').upsert(row);
   if (error) throw new Error(error.message);
+  // A anotação passa a existir no estado local assim que a gravação confirma,
+  // sem esperar o INSERT do Realtime — é isto que permite criar uma anotação
+  // e abrir a tela dela em seguida (ver `publishLocalRow`).
+  publishLocalRow('notes', uid, row);
 }
 
 export async function patchNote(uid: string, noteId: string, patch: Partial<Note>): Promise<void> {
