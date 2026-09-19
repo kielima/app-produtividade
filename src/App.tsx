@@ -498,7 +498,7 @@ function AppShell({
       if (hasLink(n.note) && !n.tags.includes(LINK_TAG)) additions.push(LINK_TAG);
       if (hasList(n.items, n.note) && !n.tags.includes(LIST_TAG)) additions.push(LIST_TAG);
       if (additions.length === 0) continue;
-      patchNote(uid, n.id, { tags: normalizeTags([...n.tags, ...additions]) });
+      patchNote(uid, n, { tags: normalizeTags([...n.tags, ...additions]) });
     }
   }, [notes, uid]);
 
@@ -600,7 +600,7 @@ function AppShell({
       if (cancelled) return;
 
       const note = await createNote(uid);
-      await patchNote(uid, note.id, {
+      await patchNote(uid, note, {
         title: title || sharedUrl,
         note: sharedUrl,
       });

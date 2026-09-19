@@ -38,7 +38,7 @@ export async function createNoteFromText(
   source?: TextSource,
 ): Promise<string> {
   const note = await createNote(uid);
-  await patchNote(uid, note.id, {
+  await patchNote(uid, note, {
     title,
     note: text,
     ...(source ? { sourceItemId: source.itemId, sourceAnnotationId: source.annotationId } : {}),
