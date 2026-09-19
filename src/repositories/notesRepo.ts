@@ -77,21 +77,15 @@ export async function upsertNote(uid: string, note: Note): Promise<void> {
   publishLocalRow('notes', uid, row);
 }
 
-export async function patchNote(uid: string, noteId: string, patch: Partial<Note>): Promise<void> {
-  const row: Record<string, unknown> = {};
-  if (patch.title !== undefined) row.title = patch.title;
-  if (patch.note !== undefined) row.note = patch.note;
-  if (patch.items !== undefined) row.items = patch.items;
-  if (patch.addedDate !== undefined) row.added_date = patch.addedDate;
-  if (patch.tags !== undefined) row.tags = patch.tags;
-  if (patch.pinned !== undefined) row.pinned = patch.pinned;
-  if (patch.projectId !== undefined) row.project_id = patch.projectId ?? null;
-  if (patch.color !== undefined) row.color = patch.color ?? null;
-  if (patch.sourceItemId !== undefined) row.source_item_id = patch.sourceItemId ?? null;
-  if (patch.sourceAnnotationId !== undefined) row.source_annotation_id = patch.sourceAnnotationId ?? null;
-  if (Object.keys(row).length === 0) return;
-  const { error } = await supabase.from('notes').update(row).eq('user_id', uid).eq('id', noteId);
-  if (error) throw new Error(error.message);
+// Mescla `patch` na anotação atual e grava a linha inteira via `upsertNote`
+// (em vez de um `.update()` parcial), pelo mesmo motivo de `patchTask` em
+// `taskMutations.ts`: só `upsertNote` ecoa a linha no estado local
+// (`publishLocalRow`). Um `.update()` parcial deixava quem editava título/nota
+// e saía da tela dependendo só do Realtime pra ver a mudança refletida —
+// lento ou, se o evento se perdesse, nunca.
+export async function patchNote(uid: string, note: Note, patch: Partial<Note>): Promise<void> {
+  if (Object.keys(patch).length === 0) return;
+  await upsertNote(uid, { ...note, ...patch });
 }
 
 export async function deleteNote(uid: string, noteId: string): Promise<void> {

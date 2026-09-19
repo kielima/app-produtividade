@@ -78,7 +78,7 @@ export function NoteDetailView({
   }, [showColorPicker]);
 
   async function setColor(color: string) {
-    await patchNote(uid, note.id, { color: color || undefined });
+    await patchNote(uid, note, { color: color || undefined });
     setShowColorPicker(false);
   }
   const targetProject = pickConvertTargetProject(projects);
@@ -92,23 +92,23 @@ export function NoteDetailView({
   }, [onClose]);
 
   async function setTitle(value: string) {
-    await patchNote(uid, note.id, { title: value });
+    await patchNote(uid, note, { title: value });
   }
 
   async function setNoteText(value: string) {
-    await patchNote(uid, note.id, { note: value });
+    await patchNote(uid, note, { note: value });
   }
 
   async function setItems(items: ChecklistItem[]) {
-    await patchNote(uid, note.id, { items });
+    await patchNote(uid, note, { items });
   }
 
   async function setTags(tags: string[]) {
-    await patchNote(uid, note.id, { tags: normalizeTags(tags) });
+    await patchNote(uid, note, { tags: normalizeTags(tags) });
   }
 
   async function togglePinned() {
-    await patchNote(uid, note.id, { pinned: !note.pinned });
+    await patchNote(uid, note, { pinned: !note.pinned });
   }
 
   async function handleDelete() {
@@ -387,7 +387,7 @@ export function NoteDetailView({
               className="note-detail-project-select"
               value={note.projectId ?? ''}
               onChange={(e) =>
-                patchNote(uid, note.id, { projectId: e.target.value || undefined })
+                patchNote(uid, note, { projectId: e.target.value || undefined })
               }
               aria-label="projeto associado"
             >
