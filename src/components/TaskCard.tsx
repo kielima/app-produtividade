@@ -1,4 +1,5 @@
 import type { CSSProperties } from 'react';
+import { MyDayButton } from './MyDayButton';
 import { getDisplayTitle } from '../lib/parser';
 import { formatSnoozeUntil, isSnoozed } from '../lib/snooze';
 import { patchTask } from '../lib/taskMutations';
@@ -92,6 +93,7 @@ export function TaskCard({
             💤 {formatSnoozeUntil(task.snoozedUntil!)}
           </span>
         )}
+        <MyDayButton uid={uid} task={task} />
         {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}
       </div>
       {projectName && <span className="task-project">{projectName}</span>}

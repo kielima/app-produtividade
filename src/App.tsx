@@ -91,6 +91,7 @@ import { TasksRoot } from './views/TasksRoot';
 import { ClassifyView } from './views/ClassifyView';
 import { CountdownView } from './views/CountdownView';
 import { EstatisticasView } from './views/EstatisticasView';
+import { MyDayView } from './views/MyDayView';
 import { TodayView } from './views/TodayView';
 import type { Note } from './types';
 
@@ -140,6 +141,7 @@ interface SharePayload {
 
 type Tab =
   | 'today'
+  | 'myday'
   | 'notes'
   | 'leitura'
   | 'grafos'
@@ -151,6 +153,7 @@ type Tab =
 
 const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'today', label: 'Hoje' },
+  { key: 'myday', label: 'Meu dia' },
   { key: 'notes', label: 'Keep' },
   { key: 'leitura', label: 'Leitura' },
   { key: 'grafos', label: 'Files' },
@@ -1185,6 +1188,14 @@ function AppShell({
             projectMap={data.projectMap}
             ctx={data.ctx}
             onCreateEventNeedsAuth={() => setTab('countdown')}
+          />
+        )}
+        {tab === 'myday' && (
+          <MyDayView
+            uid={uid}
+            tasks={data.tasks}
+            projectMap={data.projectMap}
+            ctx={data.ctx}
           />
         )}
         {tab === 'notes' && (

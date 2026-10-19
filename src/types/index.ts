@@ -56,6 +56,10 @@ export interface Task {
   sourceItemId?: string;
   sourceAnnotationId?: string;
   tags: string[];
+  // Posição da tarefa na lista "Meu dia". null/ausente = fora da lista; um
+  // número = dentro dela, e a ordem crescente desses números é a ordem em que
+  // aparece (ver src/lib/myDay.ts).
+  myDayOrder?: number | null;
   // Espelho, gravado no Supabase, do último score calculado por
   // `calcScore`/`calcScoreBreakdown` (ver src/lib/score.ts). Só lido daqui
   // pra saber se o valor já gravado bate com o recém-calculado (evita

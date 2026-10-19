@@ -1292,6 +1292,8 @@ a:focus-visible {
 /* ===== Adiar / silenciar temporário ===== */
 .badge.snooze { text-transform: none; letter-spacing: 0; gap: 0.25rem; }
 .badge.snooze.active { background: rgba(99, 102, 241, 0.14); color: var(--accent); }
+.badge.my-day { text-transform: none; letter-spacing: 0; gap: 0.25rem; }
+.badge.my-day.active { background: rgba(245, 158, 11, 0.18); color: #b45309; }
 .badge.snoozed-banner {
   background: rgba(99, 102, 241, 0.12);
   color: var(--accent);
@@ -6769,3 +6771,56 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   font-size: 0.8rem;
 }
 
+
+/* ===== Meu dia ===== */
+.my-day-btn {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.9rem;
+  height: 1.9rem;
+  margin: -0.3rem 0;
+  padding: 0;
+  background: transparent;
+  border: none;
+  border-radius: 4px;
+  color: var(--muted);
+  cursor: pointer;
+}
+.my-day-btn:hover { background: var(--surface-2); color: var(--fg); }
+.my-day-btn.active { color: #d97706; }
+
+.my-day-header {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.75rem;
+  margin-bottom: 0.4rem;
+}
+.my-day-title { margin: 0; font-size: 1.25rem; }
+.my-day-count { font-size: 0.85rem; }
+.my-day-clear {
+  margin-left: auto;
+  background: none;
+  border: none;
+  padding: 0.2rem 0.4rem;
+  font: inherit;
+  font-size: 0.85rem;
+  color: var(--accent);
+  cursor: pointer;
+  border-radius: 3px;
+}
+.my-day-clear:hover { background: var(--surface-2); }
+.my-day-hint { margin: 0 0 0.6rem; font-size: 0.8rem; }
+.my-day-empty { margin-top: 1rem; }
+/* Item arrastável por inteiro: sem isto o navegador interpreta o gesto de
+   segurar como seleção de texto / menu de contexto. */
+.my-day-item {
+  cursor: grab;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
+}
+.my-day-item:active { cursor: grabbing; }

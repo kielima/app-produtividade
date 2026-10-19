@@ -26,6 +26,7 @@ interface TaskRow {
   source_item_id: string | null;
   source_annotation_id: string | null;
   tags: string[] | null;
+  my_day_order: number | null;
   score: number | null;
   score_breakdown: Record<string, unknown> | null;
   score_updated_at: string | null;
@@ -60,6 +61,7 @@ export function rowToTask(row: TaskRow): Task {
     ...(row.source_item_id != null ? { sourceItemId: row.source_item_id } : {}),
     ...(row.source_annotation_id != null ? { sourceAnnotationId: row.source_annotation_id } : {}),
     tags: Array.isArray(row.tags) ? row.tags : [],
+    myDayOrder: row.my_day_order ?? null,
     score: row.score,
     scoreBreakdown: row.score_breakdown,
     scoreUpdatedAt: row.score_updated_at,
@@ -94,6 +96,7 @@ export function taskToRow(uid: string, task: Task): Omit<TaskRow, 'user_id'> & {
     source_item_id: task.sourceItemId ?? null,
     source_annotation_id: task.sourceAnnotationId ?? null,
     tags: task.tags,
+    my_day_order: task.myDayOrder ?? null,
     score: task.score ?? null,
     score_breakdown: task.scoreBreakdown ?? null,
     score_updated_at: task.scoreUpdatedAt ?? null,

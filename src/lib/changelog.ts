@@ -20,6 +20,16 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-10-19T12:00:00-03:00',
+    title: 'Meu dia',
+    items: [
+      'Nova aba "Meu dia": a lista das tarefas que você escolheu fazer, num só lugar.',
+      'Em qualquer tela que mostra uma tarefa (cards e página da tarefa) há agora um botão ☀️ para adicioná-la ao Meu dia — e o mesmo botão a remove.',
+      'Na aba Meu dia, segure uma tarefa e arraste para cima ou para baixo para escolher a ordem. A ordem fica salva e acompanha você entre dispositivos.',
+      'Tarefas concluídas continuam na lista até você tocar em "Limpar concluídas".',
+    ],
+  },
+  {
     date: '2026-08-13T12:00:00-03:00',
     title: 'Um só tipo de subtarefa',
     items: [
