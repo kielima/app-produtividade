@@ -28,6 +28,7 @@ import { Popover } from '../components/Popover';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { TagsEditor } from '../components/TagsEditor';
 import TrashIcon from '../components/TrashIcon';
+import { MyDayButton } from '../components/MyDayButton';
 import { AiSubtasksError, generateSubtasks } from '../lib/aiSubtasks';
 import { getDisplayTitle } from '../lib/parser';
 import { calcScore, isTaskBlocked } from '../lib/score';
@@ -686,6 +687,8 @@ export function TaskDetailView({
               aria-hidden="true"
             />
           </span>
+
+          <MyDayButton uid={uid} task={task} variant="badge" />
 
           <button
             type="button"
