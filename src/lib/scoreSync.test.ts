@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
-import { computeScoreUpdates } from './scoreSync';
+import { computeScoreUpdates, stableStringify } from './scoreSync';
 import type { Project, Task } from '../types';
 
 const TODAY = new Date('2026-05-15T12:00:00');
@@ -122,5 +122,25 @@ describe('computeScoreUpdates', () => {
 
     const [update] = computeScoreUpdates([task], projectMap, ctx, TODAY);
     expect(update!.docId).toBe('42');
+  });
+
+  it('ignora tarefas concluídas', () => {
+    const project = makeProject({ id: 's' });
+    const task = makeTask({ checked: true });
+    const { ctx, projectMap } = ctxFor([task], [project]);
+
+    expect(computeScoreUpdates([task], projectMap, ctx, TODAY)).toHaveLength(0);
+  });
+});
+
+describe('stableStringify', () => {
+  it('independe da ordem das chaves, inclusive em objetos aninhados', () => {
+    expect(stableStringify({ b: 1, a: { d: [{ y: 1, x: 2 }], c: null } })).toBe(
+      stableStringify({ a: { c: null, d: [{ x: 2, y: 1 }] }, b: 1 }),
+    );
+  });
+
+  it('trata undefined como null', () => {
+    expect(stableStringify(undefined)).toBe('null');
   });
 });

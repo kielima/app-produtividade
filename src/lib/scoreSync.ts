@@ -18,7 +18,7 @@ function round(n: number): number {
 // alfabeticamente); comparar `JSON.stringify` direto nunca batia, e cada
 // tarefa era regravada a cada recomputo — o que disparava o Realtime, que
 // disparava o recomputo, num laço sem fim.
-function stableStringify(value: unknown): string {
+export function stableStringify(value: unknown): string {
   if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
   if (value !== null && typeof value === 'object') {
     const entries = Object.entries(value as Record<string, unknown>)
@@ -37,8 +37,9 @@ function docIdOf(task: Task): string {
  * Compara o score já salvo em cada tarefa (`task.score`/`task.scoreBreakdown`,
  * espelho do Supabase) com o que `calcScoreBreakdown` produz agora, e devolve
  * só as tarefas cujo valor mudou. Usada por `useUserData` para manter a
- * coluna `score` do Supabase atualizada — ver `updateTaskScore` em
- * `src/repositories/tasksRepo.ts`.
+ * coluna `score` do Supabase atualizada — ver `updateTaskScores` em
+ * `src/repositories/tasksRepo.ts`. Tarefas concluídas ficam de fora: o score
+ * só interessa para o que ainda está por fazer.
  */
 export function computeScoreUpdates(
   tasks: ReadonlyArray<Task>,
@@ -48,6 +49,7 @@ export function computeScoreUpdates(
 ): ScoreUpdate[] {
   const out: ScoreUpdate[] = [];
   for (const task of tasks) {
+    if (task.checked) continue;
     const section = projectMap[task.section] ?? null;
     const breakdown = calcScoreBreakdown(task, section, ctx, today);
     const score = round(breakdown.total);

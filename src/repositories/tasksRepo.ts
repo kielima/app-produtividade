@@ -179,28 +179,20 @@ export async function setTaskCompleted(
 }
 
 /**
- * Grava o score recém-calculado (e seu detalhamento) numa tarefa, sem tocar
- * nas demais colunas. Chamada por `useUserData` sempre que `calcScore`
- * produz um valor diferente do que já está salvo — ver `computeScoreUpdates`
- * em `src/lib/scoreSync.ts`. É um `update` parcial (não `upsert`) de
- * propósito: o resto da linha continua sendo escrito só pelo fluxo normal
- * de edição (`patchTask`/`upsertTask`).
+ * Grava, numa única chamada, o score recém-calculado (e seu detalhamento) de
+ * várias tarefas, sem tocar nas demais colunas — RPC `update_task_scores`,
+ * ver supabase/migrations/20261021120000. Chamada por `useUserData` com o que
+ * `computeScoreUpdates` (src/lib/scoreSync.ts) apontou como mudado. Substitui
+ * o PATCH por tarefa: como o score depende da data, todas as tarefas abertas
+ * mudam uma vez por dia, e isso virava centenas de requisições de uma vez.
  */
-export async function updateTaskScore(
-  uid: string,
-  docId: string,
-  score: number,
-  breakdown: Record<string, unknown>,
+export async function updateTaskScores(
+  updates: ReadonlyArray<{ docId: string; score: number; breakdown: unknown }>,
 ): Promise<void> {
-  const { error } = await supabase
-    .from('tasks')
-    .update({
-      score,
-      score_breakdown: breakdown,
-      score_updated_at: new Date().toISOString(),
-    })
-    .eq('user_id', uid)
-    .eq('id', docId);
+  if (updates.length === 0) return;
+  const { error } = await supabase.rpc('update_task_scores', {
+    updates: updates.map((u) => ({ id: u.docId, score: u.score, breakdown: u.breakdown })),
+  });
   if (error) throw new Error(error.message);
 }
 

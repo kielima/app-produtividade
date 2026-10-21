@@ -1236,6 +1236,7 @@ function AppShell({
         {tab === 'projects' && (
           <ProjectsView
             uid={uid}
+            data={data}
             filters={projectFilters}
             searchQuery={projectSearchQuery}
           />
@@ -1244,6 +1245,9 @@ function AppShell({
         {tab === 'stats' && (
           <EstatisticasView
             uid={uid}
+            tasks={data.tasks}
+            tasksLoading={data.loading}
+            tasksError={data.error}
             projects={data.projects}
             projectScoreMap={data.ctx.projectScoreMap}
             filters={statsFilters}
