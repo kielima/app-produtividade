@@ -179,17 +179,11 @@ export async function setTaskCompleted(
 }
 
 /**
- * Grava o score recém-calculado (e seu detalhamento) numa tarefa, sem tocar
- * nas demais colunas. Chamada por `useUserData` sempre que `calcScore`
- * produz um valor diferente do que já está salvo — ver `computeScoreUpdates`
- * em `src/lib/scoreSync.ts`. É um `update` parcial (não `upsert`) de
- * propósito: o resto da linha continua sendo escrito só pelo fluxo normal
- * de edição (`patchTask`/`upsertTask`).
- */
-/**
- * Grava, numa única chamada, o espelho de score de várias tarefas (RPC
- * `update_task_scores`, ver supabase/migrations/20261021120000). Substitui o
- * PATCH por tarefa: como o score depende da data, todas as tarefas abertas
+ * Grava, numa única chamada, o score recém-calculado (e seu detalhamento) de
+ * várias tarefas, sem tocar nas demais colunas — RPC `update_task_scores`,
+ * ver supabase/migrations/20261021120000. Chamada por `useUserData` com o que
+ * `computeScoreUpdates` (src/lib/scoreSync.ts) apontou como mudado. Substitui
+ * o PATCH por tarefa: como o score depende da data, todas as tarefas abertas
  * mudam uma vez por dia, e isso virava centenas de requisições de uma vez.
  */
 export async function updateTaskScores(

@@ -689,7 +689,6 @@ export function EstatisticasView({
   const { range, metric, dimension, projectFilter } = filters;
   const [viewMode, setViewMode] = useState<'charts' | 'list'>('charts');
 
-
   // Estatísticas operam só sobre tarefas concluídas (`checked=true` com
   // `completedAt`). Ativas ficam de fora.
   const tasks = useMemo(
