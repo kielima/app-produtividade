@@ -84,7 +84,12 @@ export function ProjectDetailView({
     if (!window.confirm(`Apagar o projeto "${project.name}" e todas as tarefas dentro dele?`)) {
       return;
     }
-    await deleteProjectWithTasks(uid, project.id);
+    try {
+      await deleteProjectWithTasks(uid, project.id);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Não foi possível apagar o projeto.');
+      return;
+    }
     onClose();
   }
 

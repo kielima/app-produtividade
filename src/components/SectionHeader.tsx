@@ -23,7 +23,11 @@ export function SectionHeader({
         ? `Apagar o projeto "${project.name}" e ${taskCount} tarefa(s) dentro dele?`
         : `Apagar o projeto "${project.name}"?`;
     if (!window.confirm(msg)) return;
-    await deleteProjectWithTasks(uid, project.id);
+    try {
+      await deleteProjectWithTasks(uid, project.id);
+    } catch (e) {
+      window.alert(e instanceof Error ? e.message : 'Não foi possível apagar o projeto.');
+    }
   }
 
   return (

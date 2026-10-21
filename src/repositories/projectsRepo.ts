@@ -131,32 +131,26 @@ export async function reorderProjects(uid: string, orderedIds: string[]): Promis
 
 /**
  * Apaga o projeto e todas as tarefas pertencentes a ele
- * (task.section === projectId).
+ * (task.section === projectId). As tarefas e o rating do Duelo saem por
+ * ON DELETE CASCADE, e notas/leituras vinculadas ficam sem projeto — tudo
+ * num único DELETE atômico (ver supabase/migrations/20261021190000).
  */
 export async function deleteProjectWithTasks(uid: string, projectId: string): Promise<number> {
-  const { data, error: countErr } = await supabase
+  const { count, error: countErr } = await supabase
     .from('tasks')
-    .select('id')
+    .select('id', { count: 'exact', head: true })
     .eq('user_id', uid)
     .eq('project_id', projectId);
   if (countErr) throw new Error(countErr.message);
-  const deletedTasks = data?.length ?? 0;
 
-  const { error: delTasksErr } = await supabase
-    .from('tasks')
-    .delete()
-    .eq('user_id', uid)
-    .eq('project_id', projectId);
-  if (delTasksErr) throw new Error(delTasksErr.message);
-
-  const { error: delProjectErr } = await supabase
+  const { error } = await supabase
     .from('projects')
     .delete()
     .eq('user_id', uid)
     .eq('id', projectId);
-  if (delProjectErr) throw new Error(delProjectErr.message);
+  if (error) throw new Error(error.message);
 
-  return deletedTasks;
+  return count ?? 0;
 }
 
 export async function createProject(uid: string, name: string, order = 0): Promise<Project> {
