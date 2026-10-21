@@ -1,10 +1,10 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { patchProject, subscribeToProjects } from '../repositories/projectsRepo';
-import { subscribeToTasks, updateTaskScore } from '../repositories/tasksRepo';
+import { subscribeToTasks, updateTaskScores } from '../repositories/tasksRepo';
 import { computeBlockTransitions } from './projectBlocking';
 import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
-import { computeScoreUpdates } from './scoreSync';
+import { computeScoreUpdates, stableStringify } from './scoreSync';
 import type { Project, ScoreContext, Task } from '../types';
 
 export interface UserData {
@@ -12,22 +12,44 @@ export interface UserData {
   projects: Project[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
+  // true até a primeira carga de tarefas e projetos chegar — evita que as
+  // views mostrem "nenhum item" enquanto a busca inicial está em voo.
+  loading: boolean;
   error: Error | null;
 }
 
 /**
  * Assina tasks + projects em real-time e computa o contexto de score
- * (depMap + potentialScoreMap). Compartilhado por todas as views do grupo
- * Tarefas — evita re-subscribe ao trocar de view.
+ * (depMap + potentialScoreMap). Compartilhado pelas views do grupo Tarefas,
+ * por Projetos e por Estatísticas — evita re-subscribe (e baixar de novo a
+ * tabela inteira de tarefas) ao trocar de view.
  */
 export function useUserData(uid: string): UserData {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [projects, setProjects] = useState<Project[]>([]);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
+  const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
-    const unsubTasks = subscribeToTasks(uid, setTasks, setError);
-    const unsubProjects = subscribeToProjects(uid, setProjects, setError);
+    setTasksLoaded(false);
+    setProjectsLoaded(false);
+    const unsubTasks = subscribeToTasks(
+      uid,
+      (next) => {
+        setTasks(next);
+        setTasksLoaded(true);
+      },
+      setError,
+    );
+    const unsubProjects = subscribeToProjects(
+      uid,
+      (next) => {
+        setProjects(next);
+        setProjectsLoaded(true);
+      },
+      setError,
+    );
     return () => {
       unsubTasks();
       unsubProjects();
@@ -50,20 +72,36 @@ export function useUserData(uid: string): UserData {
 
   // Auto-pausa projetos bloqueados por dependência não concluída e reverte
   // para o status anterior quando o bloqueio é levantado (dependência 100%).
+  // Só depois da carga inicial: com os projetos já carregados e as tarefas
+  // ainda não, todo projeto bloqueado pareceria desbloqueado.
   useEffect(() => {
+    if (!tasksLoaded || !projectsLoaded) return;
     for (const { id, patch } of computeBlockTransitions(projects, tasks)) {
       patchProject(uid, id, patch);
     }
-  }, [uid, tasks, projects]);
+  }, [uid, tasks, projects, tasksLoaded, projectsLoaded]);
 
   // Mantém a coluna `score` do Supabase espelhando o score calculado aqui,
   // pra ferramentas fora do app (ex.: a skill de bom dia) poderem consultar
   // e explicar o score sem rodar a fórmula. Ver src/lib/scoreSync.ts.
+  //
+  // `sentRef` guarda o último valor enviado por tarefa: entre a gravação e o
+  // eco do Realtime, cada evento de outra tarefa reemite a lista e recomputa
+  // tudo — sem isto, as tarefas ainda não ecoadas seriam reenviadas.
+  const sentRef = useRef(new Map<string, string>());
   useEffect(() => {
-    for (const { docId, score, breakdown } of computeScoreUpdates(tasks, projectMap, ctx)) {
-      updateTaskScore(uid, docId, score, breakdown as unknown as Record<string, unknown>);
-    }
-  }, [uid, tasks, projectMap, ctx]);
+    if (!tasksLoaded || !projectsLoaded) return;
+    const sent = sentRef.current;
+    const pending = computeScoreUpdates(tasks, projectMap, ctx).filter(
+      (u) => sent.get(u.docId) !== stableStringify(u),
+    );
+    if (pending.length === 0) return;
+    for (const u of pending) sent.set(u.docId, stableStringify(u));
+    updateTaskScores(pending).catch((err: unknown) => {
+      for (const u of pending) sent.delete(u.docId);
+      console.error('Falha ao gravar scores das tarefas', err);
+    });
+  }, [tasks, projectMap, ctx, tasksLoaded, projectsLoaded]);
 
-  return { tasks, projects, projectMap, ctx, error };
+  return { tasks, projects, projectMap, ctx, loading: !tasksLoaded || !projectsLoaded, error };
 }

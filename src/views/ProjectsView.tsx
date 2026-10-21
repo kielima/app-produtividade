@@ -5,9 +5,9 @@ import { computeVolatilityBands } from '../lib/glicko2';
 import { computeProgressByProject, filterAndSortProjects } from '../lib/projectFilterSort';
 import { buildTaskCountByProject } from '../lib/taskHierarchy';
 import { subscribeToGlickoRatings, type GlickoMap } from '../repositories/glickoRepo';
-import { createProject, subscribeToProjects } from '../repositories/projectsRepo';
-import { subscribeToTasks } from '../repositories/tasksRepo';
-import type { Project, Task } from '../types';
+import type { UserData } from '../lib/useUserData';
+import { createProject } from '../repositories/projectsRepo';
+import type { Project } from '../types';
 import { ProjectMoscowMatrix } from './ProjectMoscowMatrix';
 
 const COLLAPSED_CATEGORIES_KEY = 'projectsCollapsedCategories';
@@ -26,15 +26,18 @@ function loadCollapsedCategories(): Set<string> {
 
 export function ProjectsView({
   uid,
+  data,
   filters,
   searchQuery = '',
 }: {
   uid: string;
+  // Tarefas e projetos vêm do `useUserData` do App, já em memória — antes
+  // esta view assinava as duas tabelas de novo e baixava tudo a cada abertura.
+  data: UserData;
   filters: ProjectFiltersState;
   searchQuery?: string;
 }) {
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
+  const { projects, tasks, loading } = data;
   const [glickoMap, setGlickoMap] = useState<GlickoMap>({});
   const [error, setError] = useState<string | null>(null);
   const [newName, setNewName] = useState('');
@@ -63,15 +66,7 @@ export function ProjectsView({
   }
 
   useEffect(() => {
-    const onErr = (e: Error) => setError(e.message);
-    const unsubProjects = subscribeToProjects(uid, setProjects, onErr);
-    const unsubTasks = subscribeToTasks(uid, setTasks, onErr);
-    const unsubGlicko = subscribeToGlickoRatings(uid, setGlickoMap, onErr);
-    return () => {
-      unsubProjects();
-      unsubTasks();
-      unsubGlicko();
-    };
+    return subscribeToGlickoRatings(uid, setGlickoMap, (e) => setError(e.message));
   }, [uid]);
 
   const taskCountByProject = useMemo(() => buildTaskCountByProject(tasks), [tasks]);
@@ -127,10 +122,12 @@ export function ProjectsView({
   }
 
   if (error) return <p className="error">Erro: {error}</p>;
+  if (data.error) return <p className="error">Erro: {data.error.message}</p>;
 
   return (
     <section className="projects-view">
-      {filtered.length === 0 && (
+      {loading && <p className="muted">Carregando…</p>}
+      {!loading && filtered.length === 0 && (
         <p className="muted">
           {projects.length === 0
             ? 'Nenhum projeto. Crie o primeiro abaixo.'

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo, useState } from 'react';
 import { CompletedTasksList } from '../components/CompletedTasksList';
 import type { StatsFiltersState } from '../components/StatsFiltersBar';
 import {
@@ -6,7 +6,6 @@ import {
   normalizeModo,
   normalizeMoscow,
 } from '../lib/taskFields';
-import { subscribeToTasks } from '../repositories/tasksRepo';
 import type {
   Esforco,
   Modo,
@@ -668,6 +667,11 @@ function median(values: number[]): number | null {
 
 interface EstatisticasViewProps {
   uid: string;
+  // Vêm do `useUserData` do App (já em memória), em vez de uma assinatura
+  // própria que baixava a tabela inteira de tarefas a cada abertura.
+  tasks: Task[];
+  tasksLoading: boolean;
+  tasksError: Error | null;
   projects: Project[];
   projectScoreMap: Record<string, number>;
   filters: StatsFiltersState;
@@ -675,31 +679,16 @@ interface EstatisticasViewProps {
 
 export function EstatisticasView({
   uid,
+  tasks: allTasks,
+  tasksLoading: loading,
+  tasksError: error,
   projects,
   projectScoreMap,
   filters,
 }: EstatisticasViewProps) {
   const { range, metric, dimension, projectFilter } = filters;
-  const [allTasks, setAllTasks] = useState<Task[]>([]);
-  const [error, setError] = useState<Error | null>(null);
-  const [loading, setLoading] = useState(true);
   const [viewMode, setViewMode] = useState<'charts' | 'list'>('charts');
 
-  useEffect(() => {
-    setLoading(true);
-    const unsub = subscribeToTasks(
-      uid,
-      (next) => {
-        setAllTasks(next);
-        setLoading(false);
-      },
-      (err) => {
-        setError(err);
-        setLoading(false);
-      },
-    );
-    return unsub;
-  }, [uid]);
 
   // Estatísticas operam só sobre tarefas concluídas (`checked=true` com
   // `completedAt`). Ativas ficam de fora.
