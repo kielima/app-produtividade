@@ -88,6 +88,23 @@ describe('computeScoreUpdates', () => {
     expect(updates).toHaveLength(0);
   });
 
+  it('não repete quando o breakdown volta do banco com as chaves em outra ordem', () => {
+    // O Postgres (jsonb) devolve as chaves reordenadas; sem comparar de forma
+    // independente da ordem, toda tarefa era regravada em laço infinito.
+    const project = makeProject({ id: 's' });
+    const task = makeTask();
+    const { ctx, projectMap } = ctxFor([task], [project]);
+
+    const [first] = computeScoreUpdates([task], projectMap, ctx, TODAY);
+    const reordered = Object.fromEntries(
+      Object.entries(first!.breakdown).sort(([a], [b]) => a.length - b.length || (a < b ? -1 : 1)),
+    );
+    expect(JSON.stringify(reordered)).not.toBe(JSON.stringify(first!.breakdown));
+
+    const stored: Task = { ...task, score: first!.score, scoreBreakdown: reordered };
+    expect(computeScoreUpdates([stored], projectMap, ctx, TODAY)).toHaveLength(0);
+  });
+
   it('reporta de novo quando o score salvo diverge do recém-calculado', () => {
     const project = makeProject({ id: 's' });
     const task = makeTask({ score: 999, scoreBreakdown: {} });
@@ -105,21 +122,6 @@ describe('computeScoreUpdates', () => {
 
     const [update] = computeScoreUpdates([task], projectMap, ctx, TODAY);
     expect(update!.docId).toBe('42');
-  });
-
-  it('não regrava quando o breakdown salvo só difere na ordem das chaves (jsonb)', () => {
-    const project = makeProject({ id: 's' });
-    const task = makeTask();
-    const { ctx, projectMap } = ctxFor([task], [project]);
-
-    const [first] = computeScoreUpdates([task], projectMap, ctx, TODAY);
-    // O Postgres devolve jsonb com as chaves reordenadas.
-    const reordered = Object.fromEntries(
-      Object.entries(first!.breakdown as unknown as Record<string, unknown>).reverse(),
-    );
-    const taskWithScore: Task = { ...task, score: first!.score, scoreBreakdown: reordered };
-
-    expect(computeScoreUpdates([taskWithScore], projectMap, ctx, TODAY)).toHaveLength(0);
   });
 
   it('ignora tarefas concluídas', () => {

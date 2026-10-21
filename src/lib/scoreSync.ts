@@ -13,18 +13,20 @@ function round(n: number): number {
   return Math.round(n * 1e6) / 1e6;
 }
 
-// Serializa com as chaves ordenadas. O Postgres devolve `jsonb` com as chaves
-// reordenadas (por tamanho e depois alfabeticamente), então comparar
-// `JSON.stringify` cru do salvo com o recém-calculado dava sempre diferente —
-// toda tarefa era regravada a cada recomputo, cada gravação voltava pelo
-// Realtime e disparava outro recomputo, num ciclo sem fim.
+// JSON com chaves ordenadas. O `score_breakdown` volta do Postgres como jsonb,
+// que não preserva a ordem das chaves (reordena por tamanho e depois
+// alfabeticamente); comparar `JSON.stringify` direto nunca batia, e cada
+// tarefa era regravada a cada recomputo — o que disparava o Realtime, que
+// disparava o recomputo, num laço sem fim.
 export function stableStringify(value: unknown): string {
-  return JSON.stringify(value ?? null, (_key, v: unknown) => {
-    if (v === null || typeof v !== 'object' || Array.isArray(v)) return v;
-    const sorted: Record<string, unknown> = {};
-    for (const k of Object.keys(v).sort()) sorted[k] = (v as Record<string, unknown>)[k];
-    return sorted;
-  });
+  if (Array.isArray(value)) return `[${value.map(stableStringify).join(',')}]`;
+  if (value !== null && typeof value === 'object') {
+    const entries = Object.entries(value as Record<string, unknown>)
+      .filter(([, v]) => v !== undefined)
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0));
+    return `{${entries.map(([k, v]) => `${JSON.stringify(k)}:${stableStringify(v)}`).join(',')}}`;
+  }
+  return JSON.stringify(value) ?? 'null';
 }
 
 function docIdOf(task: Task): string {
@@ -52,7 +54,7 @@ export function computeScoreUpdates(
     const breakdown = calcScoreBreakdown(task, section, ctx, today);
     const score = round(breakdown.total);
     const prevScore = task.score != null ? round(task.score) : null;
-    if (prevScore === score && stableStringify(task.scoreBreakdown) === stableStringify(breakdown)) {
+    if (prevScore === score && stableStringify(task.scoreBreakdown ?? null) === stableStringify(breakdown)) {
       continue;
     }
     out.push({ docId: docIdOf(task), score, breakdown });
