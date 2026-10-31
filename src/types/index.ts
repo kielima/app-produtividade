@@ -71,6 +71,31 @@ export interface Task {
   scoreUpdatedAt?: string | null;
 }
 
+// Anexo (foto ou arquivo) de um comentário de tarefa. O `path` é o caminho
+// dentro do bucket privado `task-comment-anexos` — nunca uma URL pública;
+// quem exibe pede uma signed URL (ver taskCommentsRepo.ts).
+export interface TaskCommentAnexo {
+  id: string;
+  path: string;
+  nome: string;
+  tipo: string;
+  bytes: number;
+}
+
+// Comentário numa tarefa (ver taskCommentsRepo.ts e supabase/migrations/
+// 20261031120000_add_task_comments.sql). `autorNome`/`autorEmail` vêm do
+// perfil do Google de quem escreveu — hoje é sempre a mesma conta, mas o
+// campo já existe para quando a tarefa for delegada a outra pessoa.
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  texto: string;
+  autorNome: string | null;
+  autorEmail: string | null;
+  criadoEm: string;
+  anexos: TaskCommentAnexo[];
+}
+
 export interface Section {
   id: string;
   name: string;

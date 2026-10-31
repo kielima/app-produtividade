@@ -30,9 +30,10 @@ type Props = {
   tasks: Task[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
+  commentCounts?: Record<string, number>;
 };
 
-export function MyDayView({ uid, tasks, projectMap, ctx }: Props) {
+export function MyDayView({ uid, tasks, projectMap, ctx, commentCounts }: Props) {
   const childStatsMap = useMemo(() => buildChildStatsMap(tasks), [tasks]);
   const stored = useMemo(() => getMyDayTasks(tasks), [tasks]);
 
@@ -111,6 +112,7 @@ export function MyDayView({ uid, tasks, projectMap, ctx }: Props) {
         blocked={isTaskBlocked(task, ctx)}
         projectName={projectMap[task.section]?.name}
         childStats={childStatsMap[task.id]}
+        commentCount={commentCounts?.[task.id]}
       />
     );
   }

@@ -27,6 +27,7 @@ import { ParentPicker } from '../components/ParentPicker';
 import { Popover } from '../components/Popover';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { TagsEditor } from '../components/TagsEditor';
+import { TaskComments } from '../components/TaskComments';
 import TrashIcon from '../components/TrashIcon';
 import { MyDayButton } from '../components/MyDayButton';
 import { AiSubtasksError, generateSubtasks } from '../lib/aiSubtasks';
@@ -975,6 +976,8 @@ export function TaskDetailView({
             placeholder="(sem nota)"
           />
         </section>
+
+        <TaskComments uid={uid} taskId={task.id} />
       </div>
 
       {depModalOpen && (

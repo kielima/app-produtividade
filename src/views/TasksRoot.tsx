@@ -126,6 +126,7 @@ export function TasksRoot({
           projectMap={data.projectMap}
           ctx={data.ctx}
           hideZero={filters.hideZero}
+          commentCounts={data.commentCounts}
         />
       ) : filters.viewMode === 'gantt' ? (
         <GanttView tasks={filteredTasks} projectMap={data.projectMap} ctx={data.ctx} />
@@ -137,6 +138,7 @@ export function TasksRoot({
           ctx={data.ctx}
           hideZero={filters.hideZero}
           childStats={childStats}
+          commentCounts={data.commentCounts}
         />
       )}
       <NewTaskFab

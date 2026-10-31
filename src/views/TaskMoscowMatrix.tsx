@@ -40,12 +40,14 @@ export function TaskMoscowMatrix({
   projectMap,
   ctx,
   hideZero,
+  commentCounts,
 }: {
   uid: string;
   tasks: Task[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
   hideZero: boolean;
+  commentCounts?: Record<string, number>;
 }) {
   const [activeDragId, setActiveDragId] = useState<string | null>(null);
 
@@ -113,7 +115,13 @@ export function TaskMoscowMatrix({
         <DroppableSection id={`${DROP_PREFIX}${spec.key}`}>
           <div className="task-list moscow-quadrant-body">
             {list.map((t) => (
-              <DraggableTaskCard key={t.id} uid={uid} task={t} blocked={isTaskBlocked(t, ctx)} />
+              <DraggableTaskCard
+                key={t.id}
+                uid={uid}
+                task={t}
+                blocked={isTaskBlocked(t, ctx)}
+                commentCount={commentCounts?.[t.id]}
+              />
             ))}
             {list.length === 0 && (
               <p className="drop-hint muted">arraste tarefas aqui</p>

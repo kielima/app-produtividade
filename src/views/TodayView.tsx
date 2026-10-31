@@ -714,6 +714,7 @@ interface TodayViewProps {
   projects: Project[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
+  commentCounts?: Record<string, number>;
   onCreateEventNeedsAuth: () => void;
 }
 
@@ -723,6 +724,7 @@ export function TodayView({
   projects,
   projectMap,
   ctx,
+  commentCounts,
   onCreateEventNeedsAuth,
 }: TodayViewProps) {
   const { openProject, openProjectTasks } = useProjectNavigation();
@@ -956,6 +958,7 @@ export function TodayView({
                   blocked={isTaskBlocked(task, ctx)}
                   projectName={projectMap[task.section]?.name}
                   childStats={childStatsMap[task.id]}
+                  commentCount={commentCounts?.[task.id]}
                 />
               ) : (
                 <ArchivedTaskCard key={id} task={task} />
