@@ -14,10 +14,12 @@ export function CompletedTasksList({
   uid,
   tasks,
   projects,
+  commentCounts,
 }: {
   uid: string;
   tasks: Task[];
   projects: Project[];
+  commentCounts?: Record<string, number>;
 }) {
   const projectNameById = useMemo(() => {
     const m = new Map<string, string>();
@@ -61,6 +63,7 @@ export function CompletedTasksList({
                 task={task}
                 blocked={false}
                 projectName={resolveProjectName(task)}
+                commentCount={commentCounts?.[task.id]}
               />
             ))}
           </div>

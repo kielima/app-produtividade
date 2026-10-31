@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { patchProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks, updateTaskScores } from '../repositories/tasksRepo';
+import { subscribeToTaskCommentCounts } from '../repositories/taskCommentsRepo';
 import { computeBlockTransitions } from './projectBlocking';
 import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
@@ -12,6 +13,9 @@ export interface UserData {
   projects: Project[];
   projectMap: Record<string, Project>;
   ctx: ScoreContext;
+  // Quantos comentários cada tarefa tem, por `task.id` — alimenta o selinho
+  // no TaskCard. Tarefa sem comentário não entra no mapa (ver TaskCard).
+  commentCounts: Record<string, number>;
   // true até a primeira carga de tarefas e projetos chegar — evita que as
   // views mostrem "nenhum item" enquanto a busca inicial está em voo.
   loading: boolean;
@@ -29,6 +33,7 @@ export function useUserData(uid: string): UserData {
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
+  const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -50,9 +55,11 @@ export function useUserData(uid: string): UserData {
       },
       setError,
     );
+    const unsubCommentCounts = subscribeToTaskCommentCounts(uid, setCommentCounts, setError);
     return () => {
       unsubTasks();
       unsubProjects();
+      unsubCommentCounts();
     };
   }, [uid]);
 
@@ -103,5 +110,13 @@ export function useUserData(uid: string): UserData {
     });
   }, [tasks, projectMap, ctx, tasksLoaded, projectsLoaded]);
 
-  return { tasks, projects, projectMap, ctx, loading: !tasksLoaded || !projectsLoaded, error };
+  return {
+    tasks,
+    projects,
+    projectMap,
+    ctx,
+    commentCounts,
+    loading: !tasksLoaded || !projectsLoaded,
+    error,
+  };
 }

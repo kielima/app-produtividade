@@ -12,10 +12,12 @@ export function DraggableTaskCard({
   uid,
   task,
   blocked,
+  commentCount,
 }: {
   uid: string;
   task: Task;
   blocked: boolean;
+  commentCount?: number;
 }) {
   const { attributes, listeners, setNodeRef, transform, isDragging } = useDraggable({
     id: task.id,
@@ -40,7 +42,7 @@ export function DraggableTaskCard({
         ⋮⋮
       </button>
       <div className="draggable-content">
-        <TaskCard uid={uid} task={task} blocked={blocked} />
+        <TaskCard uid={uid} task={task} blocked={blocked} commentCount={commentCount} />
       </div>
     </div>
   );

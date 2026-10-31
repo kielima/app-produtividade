@@ -674,6 +674,7 @@ interface EstatisticasViewProps {
   tasksError: Error | null;
   projects: Project[];
   projectScoreMap: Record<string, number>;
+  commentCounts?: Record<string, number>;
   filters: StatsFiltersState;
 }
 
@@ -684,6 +685,7 @@ export function EstatisticasView({
   tasksError: error,
   projects,
   projectScoreMap,
+  commentCounts,
   filters,
 }: EstatisticasViewProps) {
   const { range, metric, dimension, projectFilter } = filters;
@@ -853,7 +855,12 @@ export function EstatisticasView({
         loading ? (
           <p className="muted">Carregando…</p>
         ) : (
-          <CompletedTasksList uid={uid} tasks={filteredTasks} projects={projects} />
+          <CompletedTasksList
+            uid={uid}
+            tasks={filteredTasks}
+            projects={projects}
+            commentCounts={commentCounts}
+          />
         )
       ) : (
       <>

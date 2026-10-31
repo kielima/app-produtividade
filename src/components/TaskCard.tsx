@@ -13,6 +13,7 @@ export function TaskCard({
   score,
   projectName,
   childStats,
+  commentCount,
 }: {
   uid: string;
   task: Task;
@@ -25,6 +26,9 @@ export function TaskCard({
   // Progresso das subtarefas (filhas) desta tarefa, quando houver. Usado para
   // mostrar o contador e travar a conclusão enquanto houver filhas abertas.
   childStats?: { total: number; done: number };
+  // Quantos comentários a tarefa tem — mostra o selinho 💬 quando > 0, igual
+  // ao sinal da aba Tarefas do painel da Sudeste.
+  commentCount?: number;
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
@@ -91,6 +95,11 @@ export function TaskCard({
             title={`Adiada até ${formatSnoozeUntil(task.snoozedUntil!)}`}
           >
             💤 {formatSnoozeUntil(task.snoozedUntil!)}
+          </span>
+        )}
+        {!!commentCount && (
+          <span className="task-comment-count" title={`${commentCount} ${commentCount === 1 ? 'comentário' : 'comentários'}`}>
+            💬 {commentCount}
           </span>
         )}
         <MyDayButton uid={uid} task={task} />

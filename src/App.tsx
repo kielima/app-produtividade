@@ -1187,6 +1187,7 @@ function AppShell({
             projects={data.projects}
             projectMap={data.projectMap}
             ctx={data.ctx}
+            commentCounts={data.commentCounts}
             onCreateEventNeedsAuth={() => setTab('countdown')}
           />
         )}
@@ -1196,6 +1197,7 @@ function AppShell({
             tasks={data.tasks}
             projectMap={data.projectMap}
             ctx={data.ctx}
+            commentCounts={data.commentCounts}
           />
         )}
         {tab === 'notes' && (
@@ -1250,6 +1252,7 @@ function AppShell({
             tasksError={data.error}
             projects={data.projects}
             projectScoreMap={data.ctx.projectScoreMap}
+            commentCounts={data.commentCounts}
             filters={statsFilters}
           />
         )}
