@@ -55,7 +55,13 @@ export function useUserData(uid: string): UserData {
       },
       setError,
     );
-    const unsubCommentCounts = subscribeToTaskCommentCounts(uid, setCommentCounts, setError);
+    // A contagem de comentários é só um selinho no card: se ela falhar (ex.:
+    // migration ainda não aplicada no banco), a lista de tarefas tem de
+    // continuar aparecendo — por isso o erro vai para o console, não para
+    // `setError`, que esconde a tela inteira.
+    const unsubCommentCounts = subscribeToTaskCommentCounts(uid, setCommentCounts, (err) =>
+      console.error('Falha ao carregar a contagem de comentários', err),
+    );
     return () => {
       unsubTasks();
       unsubProjects();
