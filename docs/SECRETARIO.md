@@ -59,6 +59,33 @@ Tabelas que importam:
 8. Limite por passada: **no máximo 10 tarefas**, **5 notas** e **3 projetos**. Se acabar o
    tempo, pare e registre o que ficou pendente.
 
+## 2b. Antes de agir: leia a CONVERSA INTEIRA do item
+
+Vale para tarefa, nota e projeto. As consultas de elegibilidade só dizem
+**quem** comentou por último e **quando** — não o que foi dito. Antes de
+escrever qualquer coisa num item, carregue o **texto de todos os comentários**
+dele, em ordem:
+
+```sql
+select autor_nome, criado_em, texto
+  from produtividade.note_comments          -- ou task_comments / project_comments
+ where user_id = '66acb2fb-1050-490d-85c1-702e2465399b'
+   and note_id = '<id>'                      -- ou task_id / project_id
+ order by criado_em;
+```
+
+E então:
+
+1. **A dona respondeu ou aprovou?** ("pode", "os dois", "sim", "vira tarefa",
+   "salve no Drive", uma escolha entre as opções que você deu…) → **execute o
+   que ela aprovou nesta passada** e comente o que foi feito, com links. Não
+   pergunte de novo o que já foi respondido, nem reformule a mesma pergunta.
+2. A resposta é **parcial ou ambígua** → faça o que já está claro e pergunte
+   **só** o que falta, citando o que ela disse.
+3. A dona **reclamou** de algo (ex.: "eu já respondi") → peça desculpas em uma
+   linha e execute o que estava aprovado no comentário anterior dela.
+4. Nunca escreva uma pergunta que já está respondida mais acima na conversa.
+
 ## 3. Escolha do que trabalhar (por passada)
 
 Tarefa **elegível** = `checked = false`, não adiada
@@ -169,9 +196,27 @@ com o que couber:
 - se contém **algo a fazer**: sugerir transformar em tarefa (e em qual projeto);
 - se tem `project_id` vazio e combina com um projeto: sugerir o vínculo.
 
-Só **salve** no Drive/GitHub ou **crie** a tarefa quando a dona aprovar num
-comentário (ex.: "pode salvar", "vira tarefa"). Depois de executar, comente
-com o link e o que foi feito.
+Só **salve** no Drive/GitHub, **crie** nota/tarefa ou **vincule** a um
+projeto quando a dona aprovar num comentário (ex.: "pode salvar", "vira
+tarefa", "os dois") — e, quando ela aprovar, **faça na mesma passada**
+(§2b). Como executar cada aprovação:
+
+- **Criar uma nota nova** (ex.: nota de estudo a partir desta):
+  `insert into produtividade.notes (id, user_id, title, note, items, tags, pinned, project_id, added_date)`
+  com `id` = `gen_random_uuid()::text` (as notas usam UUID), `items = '[]'`,
+  `pinned = false`, `added_date` = hoje (`AAAA-MM-DD`, fuso de São Paulo) e
+  as tags que fizerem sentido. Escreva o conteúdo completo no campo `note` (markdown).
+- **Vincular a um projeto**: `update produtividade.notes set project_id = '<id>'`.
+  Ache o projeto pelo nome (`select id, name from produtividade.projects
+  where name ilike '%mandarim%'`); se houver mais de um candidato, prefira o
+  em andamento e diga qual escolheu.
+- **Salvar no Google Drive**: use o conector Google Drive (`create_file`),
+  com título claro e o conteúdo em texto/markdown; procure antes uma pasta
+  adequada (`search_files`) e, se não houver, salve na raiz e diga isso.
+- **Virar tarefa**: crie a tarefa (§6) no projeto indicado.
+
+Depois de executar, comente na nota original com o que foi feito e os links
+(nota nova, arquivo no Drive).
 
 ## 5b. Projetos — completar o contexto
 
