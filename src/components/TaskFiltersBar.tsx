@@ -58,6 +58,9 @@ export interface TaskFiltersState {
   hideCompleted: boolean;
   hideSnoozed: boolean;
   onlyWithoutDeadline: boolean;
+  // Só tarefas (e notas) cujo último comentário é do Claude — ver
+  // src/lib/aguardaResposta.ts. Igual ao filtro do painel da Sudeste.
+  onlyAwaitingReply: boolean;
   projectFilter: string;
   // Ids de recursos aceitos (ou NO_RESPONSAVEL_FILTER). Vazio = todos.
   responsavelFilter: string[];
@@ -74,6 +77,7 @@ export function defaultFiltersState(): TaskFiltersState {
     hideCompleted: true,
     hideSnoozed: true,
     onlyWithoutDeadline: false,
+    onlyAwaitingReply: false,
     projectFilter: '',
     responsavelFilter: [],
     moscowFilter: new Set<MoSCoW>(MOSCOW_VALUES),
@@ -89,6 +93,7 @@ interface SerializedTaskFilters {
   hideCompleted: boolean;
   hideSnoozed: boolean;
   onlyWithoutDeadline: boolean;
+  onlyAwaitingReply?: boolean;
   projectFilter: string;
   responsavelFilter: string[];
   moscowFilter: MoSCoW[];
@@ -106,6 +111,7 @@ export function serializeFiltersState(
     hideCompleted: state.hideCompleted,
     hideSnoozed: state.hideSnoozed,
     onlyWithoutDeadline: state.onlyWithoutDeadline,
+    onlyAwaitingReply: state.onlyAwaitingReply,
     projectFilter: state.projectFilter,
     responsavelFilter: [...state.responsavelFilter],
     moscowFilter: [...state.moscowFilter],
@@ -137,6 +143,8 @@ export function deserializeFiltersState(raw: unknown): TaskFiltersState {
       typeof v.onlyWithoutDeadline === 'boolean'
         ? v.onlyWithoutDeadline
         : base.onlyWithoutDeadline,
+    onlyAwaitingReply:
+      typeof v.onlyAwaitingReply === 'boolean' ? v.onlyAwaitingReply : base.onlyAwaitingReply,
     projectFilter:
       typeof v.projectFilter === 'string' ? v.projectFilter : base.projectFilter,
     responsavelFilter: Array.isArray(v.responsavelFilter)
@@ -162,6 +170,7 @@ export function activeFilterCount(
     (state.hideCompleted ? 0 : 1) +
     (state.hideSnoozed ? 0 : 1) +
     (state.onlyWithoutDeadline ? 1 : 0) +
+    (state.onlyAwaitingReply ? 1 : 0) +
     (state.projectFilter ? 1 : 0) +
     (state.responsavelFilter.length > 0 ? 1 : 0) +
     (state.moscowFilter.size === MOSCOW_VALUES.length ? 0 : 1) +
@@ -180,6 +189,7 @@ export function TaskFiltersBar({
   searchQuery,
   onClearSearch,
   allTags = [],
+  awaitingCount,
 }: {
   state: TaskFiltersState;
   setState: (next: TaskFiltersState) => void;
@@ -189,6 +199,8 @@ export function TaskFiltersBar({
   searchQuery?: string;
   onClearSearch?: () => void;
   allTags?: string[];
+  // Quantas tarefas/notas esperam resposta agora — mostrado ao lado da opção.
+  awaitingCount?: { tarefas: number; notas: number };
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -339,6 +351,24 @@ export function TaskFiltersBar({
               </span>
             </button>
           )}
+
+          <fieldset>
+            <legend>Mostrar só</legend>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={state.onlyAwaitingReply}
+                onChange={(e) => setState({ ...state, onlyAwaitingReply: e.target.checked })}
+              />
+              &nbsp;💬 esperando minha resposta
+              {awaitingCount && (
+                <span className="muted">
+                  &nbsp;({awaitingCount.tarefas} {awaitingCount.tarefas === 1 ? 'tarefa' : 'tarefas'},{' '}
+                  {awaitingCount.notas} {awaitingCount.notas === 1 ? 'nota' : 'notas'})
+                </span>
+              )}
+            </label>
+          </fieldset>
 
           <fieldset>
             <legend>Ocultar</legend>

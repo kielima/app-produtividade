@@ -89,67 +89,6 @@ export function subscribeToTaskComments(
   };
 }
 
-/**
- * Assina só a CONTAGEM de comentários por tarefa (sem texto nem anexos) —
- * usada para o selinho no card de tarefa, que precisa saber de todas as
- * tarefas de uma vez sem baixar o conteúdo de cada comentário.
- */
-export function subscribeToTaskCommentCounts(
-  uid: string,
-  cb: (counts: Record<string, number>) => void,
-  onError?: (err: Error) => void,
-): Unsubscribe {
-  let cancelled = false;
-  const taskIdById = new Map<string, string>();
-
-  function emit() {
-    if (cancelled) return;
-    const counts: Record<string, number> = {};
-    for (const taskId of taskIdById.values()) counts[taskId] = (counts[taskId] ?? 0) + 1;
-    cb(counts);
-  }
-
-  void supabase
-    .from('task_comments')
-    .select('id, task_id')
-    .eq('user_id', uid)
-    .then(({ data, error }) => {
-      if (cancelled) return;
-      if (error) {
-        onError?.(new Error(error.message));
-        return;
-      }
-      taskIdById.clear();
-      for (const row of (data ?? []) as Array<{ id: string; task_id: string }>) {
-        taskIdById.set(row.id, row.task_id);
-      }
-      emit();
-    });
-
-  const channel = supabase
-    .channel(`rt:task_comments_count:${uid}:${Math.random().toString(36).slice(2)}`)
-    .on(
-      'postgres_changes',
-      { event: '*', schema: 'produtividade', table: 'task_comments', filter: `user_id=eq.${uid}` },
-      (payload) => {
-        if (payload.eventType === 'DELETE') {
-          const old = payload.old as Record<string, unknown>;
-          if (typeof old.id === 'string') taskIdById.delete(old.id);
-        } else {
-          const row = payload.new as CommentRow;
-          taskIdById.set(row.id, row.task_id);
-        }
-        emit();
-      },
-    )
-    .subscribe();
-
-  return () => {
-    cancelled = true;
-    void supabase.removeChannel(channel);
-  };
-}
-
 export interface ComentarAutor {
   email: string | null;
   nome: string | null;
