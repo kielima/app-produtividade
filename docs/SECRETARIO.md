@@ -28,7 +28,8 @@ Tabelas que importam:
   `parent_id`, `depends_on` (`{'#0619'}`), `responsavel_id`, `score`, `tags`.
 - `resources` — quem pode fazer tarefas (`nome`, `descricao` = o que sabe fazer).
 - `projects` — `name`, `status`, `objective`, `next_steps`, `github_repos` (`{'dono/repo'}`).
-- `task_comments` (+ `task_comment_anexos`) — conversa de cada tarefa.
+- `task_comments` — conversa de cada tarefa (só texto).
+- `task_anexos` — fotos/PDFs da tarefa (bucket privado `task-anexos`; `path` = `<uid>/<task_id>/<arquivo>`). Leia-os quando ajudarem a entender a tarefa; nunca apague.
 - `notes` — as "anotações do Keep" do app (título, `note`, `items` jsonb, `tags`, `project_id`, `pinned`).
 - `note_comments` — conversa de cada nota.
 - `secretario_execucoes` — histórico das suas passadas (§5).

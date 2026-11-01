@@ -99,15 +99,17 @@ export interface NoteComment {
   criadoEm: string;
 }
 
-// Anexo (foto ou arquivo) de um comentário de tarefa. O `path` é o caminho
-// dentro do bucket privado `task-comment-anexos` — nunca uma URL pública;
-// quem exibe pede uma signed URL (ver taskCommentsRepo.ts).
-export interface TaskCommentAnexo {
+// Anexo (foto ou arquivo) de uma tarefa. O `path` é o caminho dentro do
+// bucket privado `task-anexos` — nunca uma URL pública; quem exibe pede uma
+// signed URL (ver taskAnexosRepo.ts). Comentários são só texto.
+export interface TaskAnexo {
   id: string;
+  taskId: string;
   path: string;
   nome: string;
   tipo: string;
   bytes: number;
+  criadoEm: string;
 }
 
 // Comentário numa tarefa (ver taskCommentsRepo.ts e supabase/migrations/
@@ -121,7 +123,6 @@ export interface TaskComment {
   autorNome: string | null;
   autorEmail: string | null;
   criadoEm: string;
-  anexos: TaskCommentAnexo[];
 }
 
 export interface Section {

@@ -129,6 +129,19 @@ export async function upsertTask(uid: string, task: Task): Promise<void> {
 }
 
 export async function deleteTask(uid: string, task: Pick<Task, 'taskId' | 'id'>): Promise<void> {
+  // As linhas de anexo somem por cascade, mas os ARQUIVOS no Storage não:
+  // apaga-os antes (best-effort — falhar aqui não impede apagar a tarefa).
+  try {
+    const { data } = await supabase
+      .from('task_anexos')
+      .select('path')
+      .eq('user_id', uid)
+      .eq('task_id', taskDocId(task));
+    const paths = (data ?? []).map((r) => (r as { path: string }).path);
+    if (paths.length > 0) await supabase.storage.from('task-anexos').remove(paths);
+  } catch {
+    // arquivo órfão no bucket é inofensivo
+  }
   const { error } = await supabase
     .from('tasks')
     .delete()

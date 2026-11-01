@@ -20,6 +20,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-01T19:00:00-03:00',
+    title: 'Anexos na tarefa',
+    items: [
+      'Fotos e PDFs agora ficam na própria tarefa, numa seção "📎 Anexos" logo acima dos comentários, com miniaturas das fotos.',
+      'O envio começa assim que você escolhe o arquivo (ou cola uma imagem na seção), com prévia enquanto sobe.',
+      'Comentários voltaram a ser só texto.',
+    ],
+  },
+  {
     date: '2026-11-01T18:00:00-03:00',
     title: 'Responsáveis, repositórios e secretário',
     items: [
