@@ -62,6 +62,7 @@ import { ProjectDetailView } from './views/ProjectDetailView';
 import { ProjectDuelView } from './views/ProjectDuelView';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
+import { ResourcesProvider } from './lib/resources';
 import { TaskDetailView } from './views/TaskDetailView';
 import { NoteDetailView } from './views/NoteDetailView';
 import { NotesView } from './views/NotesView';
@@ -312,7 +313,7 @@ export function App() {
     );
   }
 
-  return <AppShell
+  return <ResourcesProvider uid={user.uid}><AppShell
     uid={user.uid}
     tab={tab}
     setTab={setTab}
@@ -326,7 +327,7 @@ export function App() {
     setProjectFilters={setProjectFilters}
     statsFilters={statsFilters}
     setStatsFilters={setStatsFilters}
-  />;
+  /></ResourcesProvider>;
 }
 
 function AppShell({

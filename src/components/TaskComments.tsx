@@ -8,6 +8,8 @@ import {
   uploadTaskCommentAnexo,
 } from '../repositories/taskCommentsRepo';
 import { useSupabaseUser } from '../lib/useSession';
+import { inferirTipo } from '../lib/imagens';
+import { useResources, resourcePhotoSrc } from '../lib/resources';
 import type { TaskComment, TaskCommentAnexo } from '../types';
 
 const FORMATO_DATA: Intl.DateTimeFormatOptions = { dateStyle: 'short', timeStyle: 'short' };
@@ -25,6 +27,18 @@ function nomeDoAutor(c: TaskComment): string {
 function inicialDoAutor(c: TaskComment): string {
   const nome = nomeDoAutor(c);
   return nome.charAt(0).toUpperCase();
+}
+
+export function AutorAvatar({ comment }: { comment: Pick<TaskComment, 'autorNome' | 'autorEmail'> }) {
+  const { resources } = useResources();
+  const nome = (comment.autorNome ?? '').trim().toLowerCase();
+  const recurso = nome ? resources.find((r) => r.nome.trim().toLowerCase() === nome) : undefined;
+  const src = resourcePhotoSrc(recurso?.foto);
+  return (
+    <span className="task-comment-avatar" aria-hidden="true">
+      {src ? <img src={src} alt="" /> : inicialDoAutor(comment as TaskComment)}
+    </span>
+  );
 }
 
 function ehImagem(tipo: string): boolean {
@@ -93,6 +107,17 @@ function Anexo({ anexo, onRemove }: { anexo: TaskCommentAnexo; onRemove?: () => 
   );
 }
 
+function PendingPreview({ file }: { file: File }) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    if (!inferirTipo(file).startsWith('image/')) return;
+    const u = URL.createObjectURL(file);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  return url ? <img src={url} alt="" className="task-comment-pendente-thumb" /> : <span aria-hidden="true">📎</span>;
+}
+
 /**
  * Comentários de uma tarefa — igual à aba Tarefas do painel da Sudeste
  * (kielima.com/sdt/tarefas): texto + autor + quando, com foto/PDF anexado.
@@ -129,7 +154,14 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
   );
 
   function addFiles(files: FileList | File[]) {
-    setPendingFiles((prev) => [...prev, ...Array.from(files)]);
+    // Copia para um array AGORA: o FileList do <input> é "vivo" e fica vazio
+    // assim que o input é limpo (`e.target.value = ''` logo abaixo). Antes,
+    // a cópia acontecia dentro do updater do setState — que roda depois da
+    // limpeza — e a foto escolhida simplesmente sumia, sem erro nenhum.
+    const lista = Array.from(files);
+    if (lista.length === 0) return;
+    setError(null);
+    setPendingFiles((prev) => [...prev, ...lista]);
   }
 
   function onPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
@@ -148,14 +180,15 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
       for (const file of pendingFiles) {
         try {
           await uploadTaskCommentAnexo(uid, comentario.id, file);
-        } catch {
-          falharam.push(file.name);
+        } catch (e) {
+          const motivo = e instanceof Error ? e.message : 'erro desconhecido';
+          falharam.push(`${file.name || 'arquivo'} — ${motivo}`);
         }
       }
       setTexto('');
       setPendingFiles([]);
       if (falharam.length > 0) {
-        window.alert(`Comentário salvo, mas estes anexos falharam: ${falharam.join(', ')}`);
+        setError(`Comentário salvo, mas estes anexos falharam:\n${falharam.join('\n')}`);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível salvar o comentário.');
@@ -188,7 +221,7 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
         <h3>Comentários{comments.length > 0 ? ` (${comments.length})` : ''}</h3>
       </div>
 
-      {error && <p className="error">{error}</p>}
+      {error && <p className="error" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
 
       {loading ? (
         <p className="muted">Carregando…</p>
@@ -196,9 +229,7 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
         <ul className="task-comments-lista">
           {comments.map((c) => (
             <li key={c.id} className="task-comment-item">
-              <span className="task-comment-avatar" aria-hidden="true">
-                {inicialDoAutor(c)}
-              </span>
+              <AutorAvatar comment={c} />
               <div className="task-comment-body">
                 <div className="task-comment-meta">
                   <strong>{nomeDoAutor(c)}</strong>
@@ -242,7 +273,8 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
           <div className="task-comment-pendentes">
             {pendingFiles.map((f, i) => (
               <span key={`${f.name}-${i}`} className="task-comment-pendente-chip">
-                📎 {f.name}
+                <PendingPreview file={f} />
+                {f.name || 'arquivo'}
                 <button
                   type="button"
                   onClick={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))}
@@ -258,7 +290,7 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
           <input
             ref={fileInputRef}
             type="file"
-            accept="image/png,image/jpeg,image/webp,image/gif,application/pdf"
+            accept="image/*,application/pdf"
             multiple
             hidden
             onChange={(e) => {

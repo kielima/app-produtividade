@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react';
 import { MyDayButton } from './MyDayButton';
+import { ResourceAvatar } from './ResourceAvatar';
+import { useResources } from '../lib/resources';
 import { getDisplayTitle } from '../lib/parser';
 import { formatSnoozeUntil, isSnoozed } from '../lib/snooze';
 import { patchTask } from '../lib/taskMutations';
@@ -32,6 +34,8 @@ export function TaskCard({
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
+  const { byId: resourcesById } = useResources();
+  const responsavel = task.responsavelId ? resourcesById[task.responsavelId] : undefined;
   const snoozed = !task.checked && isSnoozed(task);
   const hasOpenChildren = !!childStats && childStats.done < childStats.total;
   const childProgressPct =
@@ -101,6 +105,9 @@ export function TaskCard({
           <span className="task-comment-count" title={`${commentCount} ${commentCount === 1 ? 'comentário' : 'comentários'}`}>
             💬 {commentCount}
           </span>
+        )}
+        {responsavel && (
+          <ResourceAvatar resource={responsavel} size={22} title={`Responsável: ${responsavel.nome}`} />
         )}
         <MyDayButton uid={uid} task={task} />
         {score !== undefined && <span className="task-score">{score.toFixed(1)}</span>}

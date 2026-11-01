@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { NoteComments } from '../components/NoteComments';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
 import { ExportToDriveButton } from '../components/ExportToDriveButton';
 import { InlineEdit } from '../components/InlineEdit';
@@ -425,6 +426,8 @@ export function NoteDetailView({
             {converting ? 'Transformando…' : 'Transformar em tarefa'}
           </button>
         </div>
+
+        <NoteComments uid={uid} noteId={note.id} />
       </div>
     </section>
   );

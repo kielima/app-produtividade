@@ -69,6 +69,34 @@ export interface Task {
   score?: number | null;
   scoreBreakdown?: Record<string, unknown> | null;
   scoreUpdatedAt?: string | null;
+  // Quem vai executar a tarefa — id de um `Resource` (pessoa ou o Claude).
+  // Substitui o "Modo" na interface; `modo` continua no dado só por
+  // compatibilidade com o título serializado e o dashboard local.
+  // null/ausente = sem responsável.
+  responsavelId?: string | null;
+}
+
+// Quem pode receber tarefas: uma pessoa ou uma IA (o Claude). Cadastrado em
+// Configurações → Recursos. `foto` é uma data URL já reduzida ou o caminho de
+// um asset público (ex.: 'recursos/claude.svg') — ver resourcesRepo.ts.
+export interface Resource {
+  id: string;
+  nome: string;
+  foto: string | null;
+  descricao: string;
+  tipo: 'pessoa' | 'ia';
+  ordem: number | null;
+}
+
+// Comentário de uma anotação (só texto). Quem mais escreve aqui é o
+// secretário agendado (autor "Claude"), com perguntas e sugestões.
+export interface NoteComment {
+  id: string;
+  noteId: string;
+  texto: string;
+  autorNome: string | null;
+  autorEmail: string | null;
+  criadoEm: string;
 }
 
 // Anexo (foto ou arquivo) de um comentário de tarefa. O `path` é o caminho
@@ -140,6 +168,9 @@ export interface Project {
   // bloqueio é levantado, o status é restaurado a partir daqui e o campo
   // volta a null. Em projetos não bloqueados é null/undefined.
   statusBeforeBlock?: ProjectStatus | null;
+  // Repositórios do GitHub ("owner/repo") ligados a este projeto. Um projeto
+  // pode ter vários e o mesmo repositório pode estar em mais de um projeto.
+  githubRepos?: string[];
 }
 
 export interface Note {

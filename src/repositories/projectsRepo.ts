@@ -22,6 +22,7 @@ interface ProjectRow {
   notes: string | null;
   order: number | null;
   status_before_block: string | null;
+  github_repos: string[] | null;
 }
 
 export function rowToProject(row: ProjectRow): Project {
@@ -41,6 +42,7 @@ export function rowToProject(row: ProjectRow): Project {
     dependsOn: row.depends_on ?? null,
     notes: row.notes ?? '',
     ...(row.order != null ? { order: row.order } : {}),
+    githubRepos: Array.isArray(row.github_repos) ? row.github_repos : [],
     ...(row.status_before_block ? { statusBeforeBlock: row.status_before_block as Project['status'] } : {}),
   };
   return merged;
@@ -65,6 +67,7 @@ export function projectToRow(uid: string, project: Project): ProjectRow {
     notes: project.notes,
     order: project.order ?? null,
     status_before_block: project.statusBeforeBlock ?? null,
+    github_repos: project.githubRepos ?? [],
   };
 }
 
@@ -108,6 +111,7 @@ export async function patchProject(
   if (patch.notes !== undefined) row.notes = patch.notes;
   if (patch.order !== undefined) row.order = patch.order;
   if (patch.statusBeforeBlock !== undefined) row.status_before_block = patch.statusBeforeBlock;
+  if (patch.githubRepos !== undefined) row.github_repos = patch.githubRepos;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase.from('projects').update(row).eq('user_id', uid).eq('id', projectId);
   if (error) throw new Error(error.message);

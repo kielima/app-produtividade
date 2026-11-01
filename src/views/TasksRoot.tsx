@@ -3,8 +3,8 @@ import { NewTaskFab } from '../components/NewTaskFab';
 import type { TaskFiltersState } from '../components/TaskFiltersBar';
 import {
   ESFORCO_VALUES,
-  MODO_VALUES,
   MOSCOW_VALUES,
+  NO_RESPONSAVEL_FILTER,
   STATUS_VALUES,
 } from '../components/TaskFiltersBar';
 import { normalizeForSearch } from '../lib/searchNormalize';
@@ -31,7 +31,8 @@ function applyFilters(
   const applyHideCompleted = filters.hideCompleted;
   const applyHideSnoozed = filters.hideSnoozed;
   const applyOnlyWithoutDeadline = filters.onlyWithoutDeadline;
-  const applyModo = filters.modoFilter.size !== MODO_VALUES.length;
+  const applyResponsavel = filters.responsavelFilter.length > 0;
+  const responsaveis = new Set(filters.responsavelFilter);
   const applyMoscow = filters.moscowFilter.size !== MOSCOW_VALUES.length;
   const applyEsforco = filters.esforcoFilter.size !== ESFORCO_VALUES.length;
   const applyStatus = filters.statusFilter.size !== STATUS_VALUES.length;
@@ -45,7 +46,7 @@ function applyFilters(
     !applyHideCompleted &&
     !applyHideSnoozed &&
     !applyOnlyWithoutDeadline &&
-    !applyModo &&
+    !applyResponsavel &&
     !applyMoscow &&
     !applyEsforco &&
     !applyStatus &&
@@ -62,7 +63,7 @@ function applyFilters(
     if (applyHideSnoozed && !t.checked && isSnoozed(t)) return false;
     if (applyOnlyWithoutDeadline && t.deadline) return false;
     if (applyProject && t.section !== filters.projectFilter) return false;
-    if (applyModo && !filters.modoFilter.has(t.modo)) return false;
+    if (applyResponsavel && !responsaveis.has(t.responsavelId || NO_RESPONSAVEL_FILTER)) return false;
     if (applyMoscow && !filters.moscowFilter.has(t.moscow)) return false;
     if (applyEsforco && !filters.esforcoFilter.has(t.esforco)) return false;
     if (applyStatus) {
