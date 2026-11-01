@@ -1,5 +1,5 @@
 // Diálogo apresentado quando o utilizador partilha uma imagem para o app.
-// Mostra um spinner enquanto o Gemini transcreve, depois pergunta se quer
+// Mostra um spinner enquanto o Claude transcreve, depois pergunta se quer
 // criar uma tarefa ou uma anotação a partir do texto extraído.
 
 export type ShareTargetDialogState =
@@ -37,7 +37,7 @@ export function ShareTargetDialog({
           <>
             <h2 id="share-dialog-title">Transcrevendo imagem…</h2>
             <p className="muted">
-              A enviar para o Gemini para extrair o texto.
+              Enviando ao Claude para extrair o texto.
             </p>
             <div className="share-dialog-spinner" aria-hidden="true" />
           </>

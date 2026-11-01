@@ -3,7 +3,7 @@ import type { Annotation } from '../types';
 import { inkStrokeBounds, inkStrokeToSvgPath } from './ink';
 
 // Rasteriza a região de um traço de tinta (com a própria tinta desenhada por
-// cima) para uma imagem PNG base64 — entrada para o OCR (Gemini) ao converter
+// cima) para uma imagem PNG base64 — entrada para o OCR (Claude) ao converter
 // uma anotação manuscrita em nota/tarefa.
 export async function rasterizeInkRegion(
   doc: PDFDocumentProxy,

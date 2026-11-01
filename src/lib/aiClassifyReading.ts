@@ -1,14 +1,12 @@
 // Classifica automaticamente um item da estante de leitura (artigo/livro/
-// outro) com base no conteúdo das primeiras páginas do PDF, via Gemini
-// (mesmo modelo configurado em `aiSubtasks.ts`; a chave vive no Secret
-// Manager, ver `geminiClient.ts`). Não depende de DOI: tenta o texto
-// extraído primeiro; se vier curto demais (PDF escaneado sem camada de
-// texto), manda a imagem da 1ª página para o Gemini analisar visualmente —
-// mesmo padrão de `aiTranscribe.ts`.
+// outro) com base no conteúdo das primeiras páginas do PDF, via Claude (ver
+// `claudeClient.ts`). Não depende de DOI: tenta o texto extraído primeiro; se
+// vier curto demais (PDF escaneado sem camada de texto), manda a imagem da 1ª
+// página para o Claude analisar visualmente — mesmo padrão de
+// `aiTranscribe.ts`.
 
 import type { PDFDocumentProxy } from './pdf';
-import { getGeminiModel } from './aiSubtasks';
-import { callGemini } from './geminiClient';
+import { callClaude, imagePart, type ClaudePart } from './claudeClient';
 
 export class AiClassifyError extends Error {}
 
@@ -64,53 +62,30 @@ export async function classifyReadingItem(
   doc: PDFDocumentProxy,
 ): Promise<ClassifyResult> {
   const text = await extractFirstPagesText(doc, 3);
-  const parts: Array<Record<string, unknown>> = [];
+  const parts: ClaudePart[] = [];
   if (text.length < MIN_TEXT_LENGTH) {
     const { imageBase64, mimeType } = await renderPageToImage(doc, 1);
-    parts.push({ inline_data: { mime_type: mimeType, data: imageBase64 } });
+    parts.push(await imagePart(imageBase64, mimeType));
   }
   parts.push({
-    text: text
-      ? `${PROMPT}\n\n## Texto extraído\n${text.slice(0, MAX_TEXT_CHARS)}`
-      : PROMPT,
+    type: 'text',
+    text: text ? `${PROMPT}\n\n## Texto extraído\n${text.slice(0, MAX_TEXT_CHARS)}` : PROMPT,
   });
-
-  const body = {
-    contents: [{ parts }],
-    generationConfig: {
-      temperature: 0.1,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          itemType: { type: 'string', enum: ['article', 'book', 'other'] },
-        },
-        required: ['itemType'],
-      },
-    },
-  };
-
-  let json;
-  try {
-    json = await callGemini(getGeminiModel(), body);
-  } catch (e) {
-    throw new AiClassifyError(e instanceof Error ? e.message : String(e));
-  }
-
-  if (json.promptFeedback?.blockReason) {
-    throw new AiClassifyError(`Prompt bloqueado: ${json.promptFeedback.blockReason}`);
-  }
-
-  const responseText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!responseText) {
-    throw new AiClassifyError('Resposta do Gemini sem conteúdo.');
-  }
 
   let parsed: { itemType?: unknown };
   try {
-    parsed = JSON.parse(responseText);
-  } catch {
-    throw new AiClassifyError('JSON inválido na resposta do Gemini.');
+    parsed = await callClaude<{ itemType?: unknown }>({
+      content: parts,
+      maxTokens: 1024,
+      schema: {
+        type: 'object',
+        properties: { itemType: { type: 'string', enum: ['article', 'book', 'other'] } },
+        required: ['itemType'],
+        additionalProperties: false,
+      },
+    });
+  } catch (e) {
+    throw new AiClassifyError(e instanceof Error ? e.message : String(e));
   }
 
   const itemType = parsed.itemType;

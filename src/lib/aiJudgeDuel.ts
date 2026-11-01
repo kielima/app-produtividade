@@ -1,12 +1,11 @@
-// Julgamento automático de um duelo (aba Projetos → Duelo) via Gemini, com
+// Julgamento automático de um duelo (aba Projetos → Duelo) via Claude, com
 // base nos objetivos/descrições dos dois projetos. Mesmo modelo/proxy que o
-// resto das features de IA do app (ver `geminiClient.ts`); só a decisão de
+// resto das features de IA do app (ver `claudeClient.ts`); só a decisão de
 // qual escolher muda — a aplicação do resultado continua em `ProjectDuelView`
 // (chama `handlePick`), pra reaproveitar undo/histórico/persistência do
 // Glicko-2 já existentes.
 
-import { getGeminiModel } from './aiSubtasks';
-import { callGemini } from './geminiClient';
+import { callClaude } from './claudeClient';
 import type { Project } from '../types';
 
 export class AiJudgeDuelError extends Error {}
@@ -40,7 +39,7 @@ const PROMPT_INTRO = [
   'alto.',
 ].join('\n');
 
-/** Pede ao Gemini pra escolher o vencedor do duelo entre `a` e `b`. */
+/** Pede ao Claude pra escolher o vencedor do duelo entre `a` e `b`. */
 export async function judgeDuel(a: Project, b: Project): Promise<DuelVerdict> {
   const prompt = [
     PROMPT_INTRO,
@@ -52,43 +51,23 @@ export async function judgeDuel(a: Project, b: Project): Promise<DuelVerdict> {
     describeProject(b),
   ].join('\n');
 
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.2,
-      responseMimeType: 'application/json',
-      responseSchema: {
+  let parsed: { winner?: unknown; reasoning?: unknown };
+  try {
+    parsed = await callClaude<{ winner?: unknown; reasoning?: unknown }>({
+      content: [{ type: 'text', text: prompt }],
+      maxTokens: 2048,
+      schema: {
         type: 'object',
         properties: {
           winner: { type: 'string', enum: ['a', 'b'] },
           reasoning: { type: 'string' },
         },
         required: ['winner', 'reasoning'],
+        additionalProperties: false,
       },
-    },
-  };
-
-  let json;
-  try {
-    json = await callGemini(getGeminiModel(), body);
+    });
   } catch (e) {
     throw new AiJudgeDuelError(e instanceof Error ? e.message : String(e));
-  }
-
-  if (json.promptFeedback?.blockReason) {
-    throw new AiJudgeDuelError(`Prompt bloqueado: ${json.promptFeedback.blockReason}`);
-  }
-
-  const responseText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!responseText) {
-    throw new AiJudgeDuelError('Resposta do Gemini sem conteúdo.');
-  }
-
-  let parsed: { winner?: unknown; reasoning?: unknown };
-  try {
-    parsed = JSON.parse(responseText);
-  } catch {
-    throw new AiJudgeDuelError('JSON inválido na resposta do Gemini.');
   }
 
   if (parsed.winner !== 'a' && parsed.winner !== 'b') {

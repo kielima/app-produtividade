@@ -1,9 +1,7 @@
-// Cliente Gemini para extrair texto de uma imagem partilhada via Web Share
-// Target. Reutiliza o mesmo modelo configurado em `aiSubtasks.ts` e a chave
-// guardada no Secret Manager do Firebase (ver src/lib/geminiClient.ts).
+// Extrai texto de uma imagem (compartilhada de outro app ou desenhada à mão)
+// via Claude — ver src/lib/claudeClient.ts.
 
-import { getGeminiModel } from './aiSubtasks';
-import { callGemini } from './geminiClient';
+import { callClaude, imagePart } from './claudeClient';
 
 export class AiTranscribeError extends Error {}
 
@@ -25,57 +23,20 @@ export async function transcribeImage(args: {
   imageBase64: string;
   mimeType: string;
 }): Promise<TranscribedContent> {
-  const body = {
-    contents: [
-      {
-        parts: [
-          {
-            inline_data: {
-              mime_type: args.mimeType,
-              data: args.imageBase64,
-            },
-          },
-          { text: PROMPT },
-        ],
-      },
-    ],
-    generationConfig: {
-      temperature: 0.2,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          title: { type: 'string' },
-          text: { type: 'string' },
-        },
-        required: ['title', 'text'],
-      },
-    },
-  };
-
-  let json;
-  try {
-    json = await callGemini(getGeminiModel(), body);
-  } catch (e) {
-    throw new AiTranscribeError(e instanceof Error ? e.message : String(e));
-  }
-
-  if (json.promptFeedback?.blockReason) {
-    throw new AiTranscribeError(
-      `Prompt bloqueado: ${json.promptFeedback.blockReason}`,
-    );
-  }
-
-  const responseText = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!responseText) {
-    throw new AiTranscribeError('Resposta do Gemini sem conteúdo.');
-  }
-
   let parsed: { title?: unknown; text?: unknown };
   try {
-    parsed = JSON.parse(responseText);
-  } catch {
-    throw new AiTranscribeError('JSON inválido na resposta do Gemini.');
+    parsed = await callClaude<{ title?: unknown; text?: unknown }>({
+      content: [await imagePart(args.imageBase64, args.mimeType), { type: 'text', text: PROMPT }],
+      maxTokens: 8000,
+      schema: {
+        type: 'object',
+        properties: { title: { type: 'string' }, text: { type: 'string' } },
+        required: ['title', 'text'],
+        additionalProperties: false,
+      },
+    });
+  } catch (e) {
+    throw new AiTranscribeError(e instanceof Error ? e.message : String(e));
   }
 
   return {
