@@ -88,11 +88,12 @@ export interface Resource {
   ordem: number | null;
 }
 
-// Comentário de uma anotação (só texto). Quem mais escreve aqui é o
-// secretário agendado (autor "Claude"), com perguntas e sugestões.
-export interface NoteComment {
+// Comentário de uma anotação ou de um projeto (só texto). Quem mais escreve
+// aqui é o secretário agendado (autor "Claude"), com perguntas e sugestões.
+// `alvoId` é o id da nota ou do projeto (ver commentThreadRepo.ts).
+export interface ThreadComment {
   id: string;
-  noteId: string;
+  alvoId: string;
   texto: string;
   autorNome: string | null;
   autorEmail: string | null;

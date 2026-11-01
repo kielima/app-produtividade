@@ -1,8 +1,13 @@
 import { useEffect, useState } from 'react';
 import { AutorAvatar } from './TaskComments';
 import { useSupabaseUser } from '../lib/useSession';
-import { addNoteComment, deleteNoteComment, subscribeToNoteComments } from '../repositories/noteCommentsRepo';
-import type { NoteComment } from '../types';
+import {
+  addThreadComment,
+  deleteThreadComment,
+  subscribeToThread,
+  type TipoDeAlvo,
+} from '../repositories/commentThreadRepo';
+import type { ThreadComment } from '../types';
 
 function formatarQuando(iso: string): string {
   const d = new Date(iso);
@@ -11,13 +16,23 @@ function formatarQuando(iso: string): string {
 }
 
 /**
- * Comentários de uma anotação (só texto) — onde o secretário agendado deixa
- * perguntas para melhorar o contexto e sugestões (salvar no Drive/GitHub,
- * virar tarefa). Responda aqui mesmo; ele lê na próxima passada.
+ * Comentários (só texto) de uma anotação ou de um projeto — onde o
+ * secretário agendado deixa perguntas para melhorar o contexto e sugestões.
+ * Responda aqui mesmo; ele lê na próxima passada.
  */
-export function NoteComments({ uid, noteId }: { uid: string; noteId: string }) {
+export function CommentThread({
+  uid,
+  tipo,
+  alvoId,
+  placeholder = 'Escreva um comentário…',
+}: {
+  uid: string;
+  tipo: TipoDeAlvo;
+  alvoId: string;
+  placeholder?: string;
+}) {
   const [user] = useSupabaseUser();
-  const [comments, setComments] = useState<NoteComment[]>([]);
+  const [comments, setComments] = useState<ThreadComment[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
@@ -25,9 +40,10 @@ export function NoteComments({ uid, noteId }: { uid: string; noteId: string }) {
 
   useEffect(() => {
     setLoading(true);
-    return subscribeToNoteComments(
+    return subscribeToThread(
+      tipo,
       uid,
-      noteId,
+      alvoId,
       (next) => {
         setComments(next);
         setLoading(false);
@@ -37,14 +53,14 @@ export function NoteComments({ uid, noteId }: { uid: string; noteId: string }) {
         setLoading(false);
       },
     );
-  }, [uid, noteId]);
+  }, [tipo, uid, alvoId]);
 
   async function submit() {
     if (!texto.trim()) return;
     setSending(true);
     setError(null);
     try {
-      await addNoteComment(uid, noteId, texto, {
+      await addThreadComment(tipo, uid, alvoId, texto, {
         nome: user?.displayName ?? null,
         email: user?.email ?? null,
       });
@@ -59,7 +75,7 @@ export function NoteComments({ uid, noteId }: { uid: string; noteId: string }) {
   async function remover(id: string) {
     if (!window.confirm('Apagar este comentário?')) return;
     try {
-      await deleteNoteComment(uid, id);
+      await deleteThreadComment(tipo, uid, id);
       setComments((prev) => prev.filter((c) => c.id !== id));
     } catch (e) {
       window.alert(e instanceof Error ? e.message : 'Não foi possível apagar o comentário.');
@@ -105,7 +121,7 @@ export function NoteComments({ uid, noteId }: { uid: string; noteId: string }) {
           className="task-comment-input"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          placeholder="Escreva um comentário…"
+          placeholder={placeholder}
           rows={2}
           disabled={sending}
         />

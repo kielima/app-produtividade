@@ -4,6 +4,7 @@ import { Popover } from '../components/Popover';
 import { ProjectDepPicker } from '../components/ProjectDepPicker';
 import { TagsEditor } from '../components/TagsEditor';
 import { GithubReposEditor } from '../components/GithubReposEditor';
+import { CommentThread } from '../components/CommentThread';
 import TrashIcon from '../components/TrashIcon';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import {
@@ -328,6 +329,13 @@ export function ProjectDetailView({
             </ul>
           </section>
         )}
+
+        <CommentThread
+          uid={uid}
+          tipo="projeto"
+          alvoId={project.id}
+          placeholder="Comente ou responda ao Claude sobre este projeto…"
+        />
       </div>
 
       {depPickerOpen && (

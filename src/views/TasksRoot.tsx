@@ -14,6 +14,7 @@ import { buildChildStatsMap, isTopLevel } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
 import type { Note, Task } from '../types';
 import { useNoteNavigation } from '../lib/noteNavigation';
+import { useProjectNavigation } from '../lib/projectNavigation';
 import { GanttView } from './GanttView';
 import { PrioridadeView } from './PrioridadeView';
 import { TaskMoscowMatrix } from './TaskMoscowMatrix';
@@ -109,6 +110,7 @@ export function TasksRoot({
   notes?: Note[];
 }) {
   const { openNote } = useNoteNavigation();
+  const { openProject } = useProjectNavigation();
   // Subtarefas (filhas) ficam ocultas da lista principal — só aparecem dentro
   // da página do pai. Mantemos `data.tasks` completo para calcular o progresso
   // das filhas via `childStats`. Tarefas com `parentId` órfão (pai apagado sem
@@ -134,6 +136,15 @@ export function TasksRoot({
         : [],
     [filters.onlyAwaitingReply, notes, data.aguardandoNotas],
   );
+  const projetosAguardando = useMemo(
+    () =>
+      filters.onlyAwaitingReply
+        ? data.projects
+            .filter((p) => data.aguardandoProjetos.has(p.id))
+            .sort((a, b) => a.name.localeCompare(b.name, 'pt-BR'))
+        : [],
+    [filters.onlyAwaitingReply, data.projects, data.aguardandoProjetos],
+  );
 
   if (data.error) return <p className="error">Erro: {data.error.message}</p>;
 
@@ -143,9 +154,21 @@ export function TasksRoot({
         <section className="aguardando-resposta">
           <p className="aguardando-resposta-titulo">
             💬 Esperando sua resposta: {filteredTasks.length}{' '}
-            {filteredTasks.length === 1 ? 'tarefa' : 'tarefas'} e {notasAguardando.length}{' '}
-            {notasAguardando.length === 1 ? 'nota' : 'notas'}. Responda no comentário da tarefa ou da nota.
+            {filteredTasks.length === 1 ? 'tarefa' : 'tarefas'}, {projetosAguardando.length}{' '}
+            {projetosAguardando.length === 1 ? 'projeto' : 'projetos'} e {notasAguardando.length}{' '}
+            {notasAguardando.length === 1 ? 'nota' : 'notas'}. Responda nos comentários de cada um.
           </p>
+          {projetosAguardando.length > 0 && (
+            <ul className="aguardando-notas">
+              {projetosAguardando.map((p) => (
+                <li key={p.id}>
+                  <button type="button" className="aguardando-nota" onClick={() => openProject(p.id)}>
+                    📁 {p.name}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
           {notasAguardando.length > 0 && (
             <ul className="aguardando-notas">
               {notasAguardando.map((n) => (

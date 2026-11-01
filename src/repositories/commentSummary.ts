@@ -24,8 +24,8 @@ interface Row {
  * resposta".
  */
 export function subscribeToCommentSummary(
-  table: 'task_comments' | 'note_comments',
-  targetColumn: 'task_id' | 'note_id',
+  table: 'task_comments' | 'note_comments' | 'project_comments',
+  targetColumn: 'task_id' | 'note_id' | 'project_id',
   uid: string,
   cb: (summary: CommentSummary) => void,
   onError?: (err: Error) => void,

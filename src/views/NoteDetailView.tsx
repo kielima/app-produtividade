@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { NoteComments } from '../components/NoteComments';
+import { CommentThread } from '../components/CommentThread';
 import { CopyMarkdownButton } from '../components/CopyMarkdownButton';
 import { ExportToDriveButton } from '../components/ExportToDriveButton';
 import { InlineEdit } from '../components/InlineEdit';
@@ -427,7 +427,7 @@ export function NoteDetailView({
           </button>
         </div>
 
-        <NoteComments uid={uid} noteId={note.id} />
+        <CommentThread uid={uid} tipo="nota" alvoId={note.id} />
       </div>
     </section>
   );
