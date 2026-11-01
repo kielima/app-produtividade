@@ -12,7 +12,8 @@ import { NO_TAG_FILTER } from '../lib/tags';
 import { isSnoozed } from '../lib/snooze';
 import { buildChildStatsMap, isTopLevel } from '../lib/taskHierarchy';
 import type { UserData } from '../lib/useUserData';
-import type { Task } from '../types';
+import type { Note, Task } from '../types';
+import { useNoteNavigation } from '../lib/noteNavigation';
 import { GanttView } from './GanttView';
 import { PrioridadeView } from './PrioridadeView';
 import { TaskMoscowMatrix } from './TaskMoscowMatrix';
@@ -27,7 +28,9 @@ function applyFilters(
   tasks: Task[],
   filters: TaskFiltersState,
   searchQuery: string,
+  aguardando: ReadonlySet<string>,
 ): Task[] {
+  const applyAwaiting = filters.onlyAwaitingReply;
   const applyHideCompleted = filters.hideCompleted;
   const applyHideSnoozed = filters.hideSnoozed;
   const applyOnlyWithoutDeadline = filters.onlyWithoutDeadline;
@@ -47,6 +50,7 @@ function applyFilters(
     !applyHideSnoozed &&
     !applyOnlyWithoutDeadline &&
     !applyResponsavel &&
+    !applyAwaiting &&
     !applyMoscow &&
     !applyEsforco &&
     !applyStatus &&
@@ -57,6 +61,7 @@ function applyFilters(
     return tasks;
 
   return tasks.filter((t) => {
+    if (applyAwaiting && !aguardando.has(t.id)) return false;
     if (applyHideCompleted && t.checked) return false;
     // Tarefas adiadas só somem se ainda não concluídas — uma tarefa adiada
     // que foi concluída deve continuar visível ao desligar "concluídas".
@@ -94,32 +99,66 @@ export function TasksRoot({
   data,
   filters,
   searchQuery,
+  notes = [],
 }: {
   uid: string;
   data: UserData;
   filters: TaskFiltersState;
   searchQuery: string;
+  // Para o filtro "esperando minha resposta", que mostra também as notas.
+  notes?: Note[];
 }) {
+  const { openNote } = useNoteNavigation();
   // Subtarefas (filhas) ficam ocultas da lista principal — só aparecem dentro
   // da página do pai. Mantemos `data.tasks` completo para calcular o progresso
   // das filhas via `childStats`. Tarefas com `parentId` órfão (pai apagado sem
   // desvincular as filhas) voltam a ser tratadas como de topo, senão ficariam
   // escondidas para sempre.
   const childStats = useMemo(() => buildChildStatsMap(data.tasks), [data.tasks]);
+  // Com "esperando minha resposta", subtarefas também entram: a pergunta do
+  // secretário pode estar numa filha, e escondê-la sumiria com a pergunta.
   const filteredTasks = useMemo(
     () =>
       applyFilters(
-        data.tasks.filter((t) => isTopLevel(t, data.tasks)),
+        filters.onlyAwaitingReply ? data.tasks : data.tasks.filter((t) => isTopLevel(t, data.tasks)),
         filters,
         searchQuery,
+        data.aguardandoTarefas,
       ),
-    [data.tasks, filters, searchQuery],
+    [data.tasks, filters, searchQuery, data.aguardandoTarefas],
+  );
+  const notasAguardando = useMemo(
+    () =>
+      filters.onlyAwaitingReply
+        ? notes.filter((n) => data.aguardandoNotas.has(n.id)).sort((a, b) => a.title.localeCompare(b.title, 'pt-BR'))
+        : [],
+    [filters.onlyAwaitingReply, notes, data.aguardandoNotas],
   );
 
   if (data.error) return <p className="error">Erro: {data.error.message}</p>;
 
   return (
     <>
+      {filters.onlyAwaitingReply && (
+        <section className="aguardando-resposta">
+          <p className="aguardando-resposta-titulo">
+            💬 Esperando sua resposta: {filteredTasks.length}{' '}
+            {filteredTasks.length === 1 ? 'tarefa' : 'tarefas'} e {notasAguardando.length}{' '}
+            {notasAguardando.length === 1 ? 'nota' : 'notas'}. Responda no comentário da tarefa ou da nota.
+          </p>
+          {notasAguardando.length > 0 && (
+            <ul className="aguardando-notas">
+              {notasAguardando.map((n) => (
+                <li key={n.id}>
+                  <button type="button" className="aguardando-nota" onClick={() => openNote(n.id)}>
+                    🗒️ {n.title || '(nota sem título)'}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
       {filters.viewMode === 'matrix' ? (
         <TaskMoscowMatrix
           uid={uid}

@@ -26,6 +26,7 @@ export const CHANGELOG: ChangelogEntry[] = [
       'Fotos e PDFs agora ficam na própria tarefa, numa seção "📎 Anexos" logo acima dos comentários, com miniaturas das fotos.',
       'O envio começa assim que você escolhe o arquivo (ou cola uma imagem na seção), com prévia enquanto sobe.',
       'Comentários voltaram a ser só texto.',
+      'Novo filtro de tarefas "💬 esperando minha resposta" (como no painel da Sudeste): mostra só as tarefas e as notas cujo último comentário é do Claude — ou seja, que ainda esperam você responder. As notas aparecem num quadro acima da lista; toque para abrir. Responder no comentário tira o item do filtro.',
     ],
   },
   {

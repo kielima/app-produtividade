@@ -1050,6 +1050,10 @@ function AppShell({
               searchQuery={taskSearchQuery}
               onClearSearch={() => setTaskSearchQuery('')}
               allTags={allTaskTags}
+              awaitingCount={{
+                tarefas: data.tasks.filter((t) => data.aguardandoTarefas.has(t.id)).length,
+                notas: notes.filter((n) => data.aguardandoNotas.has(n.id)).length,
+              }}
             />
           </>
         )}
@@ -1234,6 +1238,7 @@ function AppShell({
             data={data}
             filters={filters}
             searchQuery={taskSearchQuery}
+            notes={notes}
           />
         )}
         {tab === 'projects' && (

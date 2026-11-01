@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { patchProject, subscribeToProjects } from '../repositories/projectsRepo';
 import { subscribeToTasks, updateTaskScores } from '../repositories/tasksRepo';
-import { subscribeToTaskCommentCounts } from '../repositories/taskCommentsRepo';
+import { subscribeToCommentSummary } from '../repositories/commentSummary';
 import { computeBlockTransitions } from './projectBlocking';
 import { buildProjectScoreMap } from './projectRankScore';
 import { buildDependencyMap } from './score';
@@ -16,6 +16,10 @@ export interface UserData {
   // Quantos comentários cada tarefa tem, por `task.id` — alimenta o selinho
   // no TaskCard. Tarefa sem comentário não entra no mapa (ver TaskCard).
   commentCounts: Record<string, number>;
+  // Tarefas e notas cujo último comentário é do Claude — o filtro "esperando
+  // minha resposta" (ver src/lib/aguardaResposta.ts).
+  aguardandoTarefas: Set<string>;
+  aguardandoNotas: Set<string>;
   // true até a primeira carga de tarefas e projetos chegar — evita que as
   // views mostrem "nenhum item" enquanto a busca inicial está em voo.
   loading: boolean;
@@ -34,6 +38,8 @@ export function useUserData(uid: string): UserData {
   const [tasksLoaded, setTasksLoaded] = useState(false);
   const [projectsLoaded, setProjectsLoaded] = useState(false);
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
+  const [aguardandoTarefas, setAguardandoTarefas] = useState<Set<string>>(() => new Set());
+  const [aguardandoNotas, setAguardandoNotas] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -59,13 +65,28 @@ export function useUserData(uid: string): UserData {
     // migration ainda não aplicada no banco), a lista de tarefas tem de
     // continuar aparecendo — por isso o erro vai para o console, não para
     // `setError`, que esconde a tela inteira.
-    const unsubCommentCounts = subscribeToTaskCommentCounts(uid, setCommentCounts, (err) =>
-      console.error('Falha ao carregar a contagem de comentários', err),
+    const unsubCommentCounts = subscribeToCommentSummary(
+      'task_comments',
+      'task_id',
+      uid,
+      (s) => {
+        setCommentCounts(s.counts);
+        setAguardandoTarefas(s.aguardando);
+      },
+      (err) => console.error('Falha ao carregar a contagem de comentários', err),
+    );
+    const unsubNoteComments = subscribeToCommentSummary(
+      'note_comments',
+      'note_id',
+      uid,
+      (s) => setAguardandoNotas(s.aguardando),
+      (err) => console.error('Falha ao carregar os comentários das notas', err),
     );
     return () => {
       unsubTasks();
       unsubProjects();
       unsubCommentCounts();
+      unsubNoteComments();
     };
   }, [uid]);
 
@@ -122,6 +143,8 @@ export function useUserData(uid: string): UserData {
     projectMap,
     ctx,
     commentCounts,
+    aguardandoTarefas,
+    aguardandoNotas,
     loading: !tasksLoaded || !projectsLoaded,
     error,
   };
