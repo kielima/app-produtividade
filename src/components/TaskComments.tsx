@@ -1,16 +1,12 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   addTaskComment,
   deleteTaskComment,
-  deleteTaskCommentAnexo,
-  signedUrlForAnexo,
   subscribeToTaskComments,
-  uploadTaskCommentAnexo,
 } from '../repositories/taskCommentsRepo';
 import { useSupabaseUser } from '../lib/useSession';
-import { inferirTipo } from '../lib/imagens';
 import { useResources, resourcePhotoSrc } from '../lib/resources';
-import type { TaskComment, TaskCommentAnexo } from '../types';
+import type { TaskComment } from '../types';
 
 const FORMATO_DATA: Intl.DateTimeFormatOptions = { dateStyle: 'short', timeStyle: 'short' };
 
@@ -20,15 +16,14 @@ function formatarQuando(iso: string): string {
   return d.toLocaleString('pt-BR', FORMATO_DATA);
 }
 
-function nomeDoAutor(c: TaskComment): string {
+function nomeDoAutor(c: Pick<TaskComment, 'autorNome' | 'autorEmail'>): string {
   return c.autorNome || c.autorEmail || 'alguém';
 }
 
-function inicialDoAutor(c: TaskComment): string {
-  const nome = nomeDoAutor(c);
-  return nome.charAt(0).toUpperCase();
-}
-
+/**
+ * Avatar do autor de um comentário: a foto do recurso com o mesmo nome (ex.:
+ * "Claude", quando quem comenta é o secretário agendado) ou a inicial.
+ */
 export function AutorAvatar({ comment }: { comment: Pick<TaskComment, 'autorNome' | 'autorEmail'> }) {
   const { resources } = useResources();
   const nome = (comment.autorNome ?? '').trim().toLowerCase();
@@ -36,94 +31,16 @@ export function AutorAvatar({ comment }: { comment: Pick<TaskComment, 'autorNome
   const src = resourcePhotoSrc(recurso?.foto);
   return (
     <span className="task-comment-avatar" aria-hidden="true">
-      {src ? <img src={src} alt="" /> : inicialDoAutor(comment as TaskComment)}
+      {src ? <img src={src} alt="" /> : nomeDoAutor(comment).charAt(0).toUpperCase()}
     </span>
   );
-}
-
-function ehImagem(tipo: string): boolean {
-  return tipo.startsWith('image/');
-}
-
-function formatarBytes(bytes: number): string {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
-  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
-}
-
-function Anexo({ anexo, onRemove }: { anexo: TaskCommentAnexo; onRemove?: () => void }) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [erro, setErro] = useState(false);
-
-  useEffect(() => {
-    let cancelled = false;
-    setUrl(null);
-    setErro(false);
-    signedUrlForAnexo(anexo.path)
-      .then((u) => {
-        if (!cancelled) setUrl(u);
-      })
-      .catch(() => {
-        if (!cancelled) setErro(true);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [anexo.path]);
-
-  return (
-    <span className="task-comment-anexo">
-      {ehImagem(anexo.tipo) ? (
-        url ? (
-          <a href={url} target="_blank" rel="noreferrer" title={anexo.nome}>
-            <img src={url} alt={anexo.nome} className="task-comment-anexo-img" />
-          </a>
-        ) : (
-          <span className="task-comment-anexo-loading muted">{erro ? '⚠️' : '…'}</span>
-        )
-      ) : (
-        <a
-          href={url ?? undefined}
-          target="_blank"
-          rel="noreferrer"
-          className="task-comment-anexo-arquivo"
-          aria-disabled={!url}
-        >
-          📎 {anexo.nome} <small className="muted">({formatarBytes(anexo.bytes)})</small>
-        </a>
-      )}
-      {onRemove && (
-        <button
-          type="button"
-          className="task-comment-anexo-remover"
-          onClick={onRemove}
-          aria-label={`remover anexo ${anexo.nome}`}
-          title="remover anexo"
-        >
-          ×
-        </button>
-      )}
-    </span>
-  );
-}
-
-function PendingPreview({ file }: { file: File }) {
-  const [url, setUrl] = useState<string | null>(null);
-  useEffect(() => {
-    if (!inferirTipo(file).startsWith('image/')) return;
-    const u = URL.createObjectURL(file);
-    setUrl(u);
-    return () => URL.revokeObjectURL(u);
-  }, [file]);
-  return url ? <img src={url} alt="" className="task-comment-pendente-thumb" /> : <span aria-hidden="true">📎</span>;
 }
 
 /**
- * Comentários de uma tarefa — igual à aba Tarefas do painel da Sudeste
- * (kielima.com/sdt/tarefas): texto + autor + quando, com foto/PDF anexado.
+ * Comentários de uma tarefa: só texto + autor + quando. Fotos e arquivos são
+ * da própria tarefa (seção Anexos, ver TaskAnexos.tsx), não da conversa.
  * RLS isola por `user_id` como o resto do app; `autorNome`/`autorEmail` são
- * só exibição — hoje sempre a mesma conta, mas já valem para quando a tarefa
- * for delegada a outra pessoa.
+ * só exibição.
  */
 export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
   const [user] = useSupabaseUser();
@@ -131,9 +48,7 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [texto, setTexto] = useState('');
-  const [pendingFiles, setPendingFiles] = useState<File[]>([]);
   const [sending, setSending] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -143,7 +58,13 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
         setComments(next);
         setLoading(false);
       },
-      { taskId, onError: (e) => setError(e.message) },
+      {
+        taskId,
+        onError: (e) => {
+          setError(e.message);
+          setLoading(false);
+        },
+      },
     );
     return unsub;
   }, [uid, taskId]);
@@ -153,43 +74,13 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
     [user?.email, user?.displayName],
   );
 
-  function addFiles(files: FileList | File[]) {
-    // Copia para um array AGORA: o FileList do <input> é "vivo" e fica vazio
-    // assim que o input é limpo (`e.target.value = ''` logo abaixo). Antes,
-    // a cópia acontecia dentro do updater do setState — que roda depois da
-    // limpeza — e a foto escolhida simplesmente sumia, sem erro nenhum.
-    const lista = Array.from(files);
-    if (lista.length === 0) return;
-    setError(null);
-    setPendingFiles((prev) => [...prev, ...lista]);
-  }
-
-  function onPaste(e: React.ClipboardEvent<HTMLTextAreaElement>) {
-    const files = Array.from(e.clipboardData.files);
-    if (files.length > 0) addFiles(files);
-  }
-
   async function submit() {
-    const corpo = texto.trim();
-    if (!corpo && pendingFiles.length === 0) return;
+    if (!texto.trim()) return;
     setSending(true);
     setError(null);
     try {
-      const comentario = await addTaskComment(uid, taskId, corpo || '📎', autor);
-      const falharam: string[] = [];
-      for (const file of pendingFiles) {
-        try {
-          await uploadTaskCommentAnexo(uid, comentario.id, file);
-        } catch (e) {
-          const motivo = e instanceof Error ? e.message : 'erro desconhecido';
-          falharam.push(`${file.name || 'arquivo'} — ${motivo}`);
-        }
-      }
+      await addTaskComment(uid, taskId, texto, autor);
       setTexto('');
-      setPendingFiles([]);
-      if (falharam.length > 0) {
-        setError(`Comentário salvo, mas estes anexos falharam:\n${falharam.join('\n')}`);
-      }
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Não foi possível salvar o comentário.');
     } finally {
@@ -206,22 +97,13 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
     }
   }
 
-  async function removerAnexo(anexo: TaskCommentAnexo) {
-    if (!window.confirm('Apagar este anexo?')) return;
-    try {
-      await deleteTaskCommentAnexo(uid, anexo);
-    } catch (e) {
-      window.alert(e instanceof Error ? e.message : 'Não foi possível apagar o anexo.');
-    }
-  }
-
   return (
     <section className="task-detail-section task-comments">
       <div className="task-detail-section-header">
         <h3>Comentários{comments.length > 0 ? ` (${comments.length})` : ''}</h3>
       </div>
 
-      {error && <p className="error" style={{ whiteSpace: 'pre-line' }}>{error}</p>}
+      {error && <p className="error">{error}</p>}
 
       {loading ? (
         <p className="muted">Carregando…</p>
@@ -245,13 +127,6 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
                   </button>
                 </div>
                 {c.texto && <p className="task-comment-texto">{c.texto}</p>}
-                {c.anexos.length > 0 && (
-                  <div className="task-comment-anexos">
-                    {c.anexos.map((a) => (
-                      <Anexo key={a.id} anexo={a} onRemove={() => removerAnexo(a)} />
-                    ))}
-                  </div>
-                )}
               </div>
             </li>
           ))}
@@ -264,47 +139,15 @@ export function TaskComments({ uid, taskId }: { uid: string; taskId: string }) {
           className="task-comment-input"
           value={texto}
           onChange={(e) => setTexto(e.target.value)}
-          onPaste={onPaste}
-          placeholder="Escreva um comentário… (dá para colar uma imagem)"
+          placeholder="Escreva um comentário…"
           rows={2}
           disabled={sending}
         />
-        {pendingFiles.length > 0 && (
-          <div className="task-comment-pendentes">
-            {pendingFiles.map((f, i) => (
-              <span key={`${f.name}-${i}`} className="task-comment-pendente-chip">
-                <PendingPreview file={f} />
-                {f.name || 'arquivo'}
-                <button
-                  type="button"
-                  onClick={() => setPendingFiles((prev) => prev.filter((_, idx) => idx !== i))}
-                  aria-label={`remover ${f.name} antes de enviar`}
-                >
-                  ×
-                </button>
-              </span>
-            ))}
-          </div>
-        )}
         <div className="task-comment-compositor-actions">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept="image/*,application/pdf"
-            multiple
-            hidden
-            onChange={(e) => {
-              if (e.target.files) addFiles(e.target.files);
-              e.target.value = '';
-            }}
-          />
-          <button type="button" className="btn-secondary" onClick={() => fileInputRef.current?.click()}>
-            📎 anexar
-          </button>
           <button
             type="button"
             className="btn-secondary task-comment-enviar"
-            disabled={sending || (!texto.trim() && pendingFiles.length === 0)}
+            disabled={sending || !texto.trim()}
             onClick={submit}
           >
             {sending ? 'enviando…' : 'comentar'}

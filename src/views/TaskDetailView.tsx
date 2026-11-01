@@ -28,6 +28,7 @@ import { Popover } from '../components/Popover';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { TagsEditor } from '../components/TagsEditor';
 import { TaskComments } from '../components/TaskComments';
+import { TaskAnexos } from '../components/TaskAnexos';
 import { ResourceAvatar } from '../components/ResourceAvatar';
 import { useResources } from '../lib/resources';
 import TrashIcon from '../components/TrashIcon';
@@ -995,6 +996,7 @@ export function TaskDetailView({
           />
         </section>
 
+        <TaskAnexos uid={uid} taskId={task.id} />
         <TaskComments uid={uid} taskId={task.id} />
       </div>
 
