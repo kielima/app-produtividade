@@ -20,6 +20,17 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-01T18:00:00-03:00',
+    title: 'Responsáveis, repositórios e secretário',
+    items: [
+      'Nova aba Configurações → Recursos: cadastre pessoas (nome, foto e o que cada uma pode fazer) para delegar tarefas. O Claude já vem cadastrado.',
+      'Toda tarefa agora tem um Responsável, no lugar do antigo "Modo". O avatar do responsável aparece no card, e o filtro de tarefas filtra por responsável. Tarefas que estavam em Chat/Code/Cowork/Design/Colaborar/Escrever/Pesquisar foram atribuídas ao Claude; as Manuais, a você; as de "Delegar" ficaram sem responsável.',
+      'Projetos ganharam o campo "Repositórios do GitHub": vincule um ou mais repositórios (o mesmo repositório pode ir para mais de um projeto). Todos os seus repositórios já foram vinculados, e os que não tinham projeto ganharam um.',
+      'Anotações agora têm comentários — é onde o secretário automático deixa perguntas e sugestões.',
+      'Corrigido: anexar foto ou PDF num comentário de tarefa não fazia nada. Agora a foto aparece antes de enviar, fotos grandes são reduzidas automaticamente e, se algo falhar, o motivo aparece na tela.',
+    ],
+  },
+  {
     date: '2026-10-19T12:00:00-03:00',
     title: 'Meu dia',
     items: [

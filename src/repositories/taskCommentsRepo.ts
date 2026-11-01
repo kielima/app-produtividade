@@ -1,5 +1,6 @@
 import { supabase } from '../lib/supabase';
 import type { TaskComment, TaskCommentAnexo } from '../types';
+import { inferirTipo, reduzirFoto } from '../lib/imagens';
 
 export type Unsubscribe = () => void;
 
@@ -272,17 +273,23 @@ function extensaoDoTipo(tipo: string): string {
 export async function uploadTaskCommentAnexo(
   uid: string,
   commentId: string,
-  file: File,
+  original: File,
 ): Promise<TaskCommentAnexo> {
-  if (!TIPOS_ACEITOS.includes(file.type)) {
-    throw new Error('Formato não aceito: só foto (PNG, JPEG, WebP, GIF) ou PDF.');
+  // Foto grande da câmera vira um JPEG menor antes de subir (ver imagens.ts).
+  const file = await reduzirFoto(original);
+  const tipo = inferirTipo(file);
+  if (tipo === 'image/heic' || tipo === 'image/heif') {
+    throw new Error('Foto em HEIC não é aceita — mude a câmera para JPEG ou envie um print.');
+  }
+  if (!TIPOS_ACEITOS.includes(tipo)) {
+    throw new Error(`Formato não aceito (${tipo || 'desconhecido'}): só foto (PNG, JPEG, WebP, GIF) ou PDF.`);
   }
   if (file.size > MAX_ANEXO_BYTES) {
     throw new Error(`O arquivo passou de ${Math.round(MAX_ANEXO_BYTES / 1048576)} MB.`);
   }
-  const path = `${uid}/${commentId}/${crypto.randomUUID()}.${extensaoDoTipo(file.type)}`;
+  const path = `${uid}/${commentId}/${crypto.randomUUID()}.${extensaoDoTipo(tipo)}`;
   const { error: uploadError } = await supabase.storage.from(BUCKET).upload(path, file, {
-    contentType: file.type,
+    contentType: tipo,
   });
   if (uploadError) throw new Error(uploadError.message);
   const { data, error } = await supabase
@@ -292,7 +299,7 @@ export async function uploadTaskCommentAnexo(
       comment_id: commentId,
       path,
       nome: file.name || 'arquivo',
-      tipo: file.type,
+      tipo,
       bytes: file.size,
     })
     .select('*')

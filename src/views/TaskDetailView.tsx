@@ -28,6 +28,8 @@ import { Popover } from '../components/Popover';
 import { ProjectPicker } from '../components/ProjectPicker';
 import { TagsEditor } from '../components/TagsEditor';
 import { TaskComments } from '../components/TaskComments';
+import { ResourceAvatar } from '../components/ResourceAvatar';
+import { useResources } from '../lib/resources';
 import TrashIcon from '../components/TrashIcon';
 import { MyDayButton } from '../components/MyDayButton';
 import { AiSubtasksError, generateSubtasks } from '../lib/aiSubtasks';
@@ -58,7 +60,6 @@ import { useReadingNavigation } from '../lib/readingNavigation';
 import { deleteTask } from '../repositories/tasksRepo';
 import type {
   Esforco,
-  Modo,
   MoSCoW,
   Project,
   ScoreContext,
@@ -71,15 +72,6 @@ const MOSCOW_LABEL: Record<MoSCoW, string> = {
   could: 'Could',
   wont: "Won't",
   '': 'Sem MoSCoW',
-};
-
-const MODO_LABEL: Record<Modo, string> = {
-  manual: 'Manual',
-  delegar: 'Delegar',
-  cowork: 'Cowork',
-  design: 'Design',
-  code: 'Code',
-  chat: 'Chat',
 };
 
 const ESFORCO_LABEL: Record<Esforco, string> = {
@@ -99,7 +91,6 @@ const STATUS_LABEL: Record<KanbanStatus, string> = {
 
 const STATUS_OPTS: KanbanStatus[] = ['todo', 'doing', 'done'];
 const MOSCOW_OPTS: MoSCoW[] = ['must', 'should', 'could', 'wont', ''];
-const MODO_OPTS: Modo[] = ['manual', 'delegar', 'cowork', 'design', 'code', 'chat'];
 const ESFORCO_OPTS: Esforco[] = ['rapido', 'medio', 'longo', ''];
 
 function taskStatus(task: Task): KanbanStatus {
@@ -135,6 +126,7 @@ export function TaskDetailView({
 }) {
   const display = getDisplayTitle(task.title);
   const { openTask } = useTaskNavigation();
+  const { resources, byId: resourcesById } = useResources();
   const readingNav = useReadingNavigation();
   const [depModalOpen, setDepModalOpen] = useState(false);
   const [parentModalOpen, setParentModalOpen] = useState(false);
@@ -404,10 +396,9 @@ export function TaskDetailView({
 
   const status = taskStatus(task);
   const currentMoscow: MoSCoW = task.moscow;
-  const currentModo: Modo = task.modo;
   const currentEsforco: Esforco = task.esforco;
   const moscowClass = currentMoscow ? `moscow-${currentMoscow}` : 'moscow-none';
-  const modoClass = `modo-${currentModo}`;
+  const responsavel = task.responsavelId ? resourcesById[task.responsavelId] : undefined;
   const esforcoClass = currentEsforco ? `esforco-${currentEsforco}` : 'esforco-none';
 
   if (scoreDetailOpen) {
@@ -612,29 +603,56 @@ export function TaskDetailView({
             trigger={(open, isOpen) => (
               <button
                 type="button"
-                className={`badge ${modoClass}${isOpen ? ' open' : ''}`}
+                className={`badge badge-responsavel${responsavel ? '' : ' badge-responsavel-vazio'}${isOpen ? ' open' : ''}`}
                 onClick={open}
+                aria-label="escolher responsável"
               >
-                {MODO_LABEL[currentModo]}
+                {responsavel ? (
+                  <>
+                    <ResourceAvatar resource={responsavel} size={18} />
+                    {responsavel.nome}
+                  </>
+                ) : (
+                  'Sem responsável'
+                )}
               </button>
             )}
           >
             {(close) => (
               <ul className="picker-list">
-                {MODO_OPTS.map((v) => (
-                  <li key={v}>
+                {resources.map((r) => (
+                  <li key={r.id}>
                     <button
                       type="button"
-                      className={v === currentModo ? 'active' : ''}
+                      className={`picker-responsavel${r.id === task.responsavelId ? ' active' : ''}`}
                       onClick={() => {
-                        setField('modo', v);
+                        void setField('responsavelId', r.id);
                         close();
                       }}
+                      title={r.descricao}
                     >
-                      {MODO_LABEL[v]}
+                      <ResourceAvatar resource={r} size={20} />
+                      {r.nome}
                     </button>
                   </li>
                 ))}
+                <li>
+                  <button
+                    type="button"
+                    className={!task.responsavelId ? 'active' : ''}
+                    onClick={() => {
+                      void setField('responsavelId', null);
+                      close();
+                    }}
+                  >
+                    Sem responsável
+                  </button>
+                </li>
+                {resources.length === 0 && (
+                  <li className="muted" style={{ padding: '0.4rem 0.6rem' }}>
+                    Cadastre recursos em Configurações → Recursos.
+                  </li>
+                )}
               </ul>
             )}
           </Popover>

@@ -23,6 +23,7 @@ import {
   getLatestChangelogEntry,
 } from '../lib/changelog';
 import { ChangelogDialog } from '../components/ChangelogDialog';
+import { ResourcesSettings } from '../components/ResourcesSettings';
 import {
   buildIdentificavel,
   podeInstalarApk,
@@ -46,8 +47,28 @@ const IMPORT_STAT_LABELS: Record<keyof ImportStats, string> = {
   deleted: 'docs apagados',
 };
 
+type SettingsTab = 'geral' | 'recursos';
+const ABA_KEY = 'settings:aba';
+
+function lerAba(): SettingsTab {
+  try {
+    return localStorage.getItem(ABA_KEY) === 'recursos' ? 'recursos' : 'geral';
+  } catch {
+    return 'geral';
+  }
+}
+
 export function SettingsView({ uid }: { uid: string }) {
   const [user] = useSupabaseUser();
+  const [aba, setAba] = useState<SettingsTab>(() => lerAba());
+  function trocarAba(next: SettingsTab) {
+    setAba(next);
+    try {
+      localStorage.setItem(ABA_KEY, next);
+    } catch {
+      // armazenamento indisponível: só não lembra a aba
+    }
+  }
   const [loading, setLoading] = useState(false);
   const [preview, setPreview] = useState<ExportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -208,6 +229,31 @@ export function SettingsView({ uid }: { uid: string }) {
   return (
     <section className="settings-view">
       <h2>Configurações</h2>
+
+      <div className="settings-tabs" role="tablist" aria-label="seções das configurações">
+        {(
+          [
+            ['geral', 'Geral'],
+            ['recursos', 'Recursos'],
+          ] as const
+        ).map(([key, label]) => (
+          <button
+            key={key}
+            type="button"
+            role="tab"
+            aria-selected={aba === key}
+            className={`chip${aba === key ? ' active' : ''}`}
+            onClick={() => trocarAba(key)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {aba === 'recursos' ? (
+        <ResourcesSettings uid={uid} />
+      ) : (
+      <>
 
       {latestEntry && (
         <article className="settings-card">
@@ -556,6 +602,9 @@ export function SettingsView({ uid }: { uid: string }) {
           .
         </p>
       </article>
+
+      </>
+      )}
 
       {changelogOpen && (
         <ChangelogDialog onClose={() => setChangelogOpen(false)} />

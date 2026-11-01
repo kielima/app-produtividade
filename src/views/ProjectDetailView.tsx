@@ -3,6 +3,7 @@ import { InlineEdit } from '../components/InlineEdit';
 import { Popover } from '../components/Popover';
 import { ProjectDepPicker } from '../components/ProjectDepPicker';
 import { TagsEditor } from '../components/TagsEditor';
+import { GithubReposEditor } from '../components/GithubReposEditor';
 import TrashIcon from '../components/TrashIcon';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import {
@@ -56,6 +57,12 @@ export function ProjectDetailView({
   onClose: () => void;
 }) {
   const { openNote } = useNoteNavigation();
+  // Sugestões do campo de repositórios: tudo que já está ligado a algum
+  // projeto — o mesmo repositório pode ir para mais de um projeto.
+  const todosRepos = useMemo(
+    () => [...new Set(allProjects.flatMap((p) => p.githubRepos ?? []))].sort((a, b) => a.localeCompare(b)),
+    [allProjects],
+  );
   const deadlineInputRef = useRef<HTMLInputElement>(null);
   const [depPickerOpen, setDepPickerOpen] = useState(false);
 
@@ -271,6 +278,15 @@ export function ProjectDetailView({
             </dd>
           </div>
         </dl>
+
+        <section className="task-detail-section">
+          <h3>🐙 Repositórios do GitHub</h3>
+          <GithubReposEditor
+            repos={project.githubRepos ?? []}
+            sugestoes={todosRepos}
+            onChange={(next) => patchProject(uid, project.id, { githubRepos: next })}
+          />
+        </section>
 
         <section className="task-detail-section">
           <h3>📝 Notas</h3>

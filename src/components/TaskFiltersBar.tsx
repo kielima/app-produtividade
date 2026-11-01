@@ -1,20 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { normalizeForSearch } from '../lib/searchNormalize';
 import { NO_TAG_FILTER } from '../lib/tags';
-import type { Esforco, Modo, MoSCoW, Project } from '../types';
+import { ResourceAvatar } from './ResourceAvatar';
+import { useResources } from '../lib/resources';
+import type { Esforco, MoSCoW, Project } from '../types';
 
 export { NO_TAG_FILTER };
 
-const MODO_LABEL: Record<Modo, string> = {
-  manual: 'Manual',
-  delegar: 'Delegar',
-  cowork: 'Cowork',
-  design: 'Design',
-  code: 'Code',
-  chat: 'Chat',
-};
-
-export const MODO_VALUES: Modo[] = ['manual', 'delegar', 'cowork', 'design', 'code', 'chat'];
+// Valor especial do filtro de responsável: tarefas sem ninguém atribuído.
+export const NO_RESPONSAVEL_FILTER = '__sem_responsavel__';
 
 const MOSCOW_LABEL: Record<MoSCoW, string> = {
   must: 'Must',
@@ -65,7 +59,8 @@ export interface TaskFiltersState {
   hideSnoozed: boolean;
   onlyWithoutDeadline: boolean;
   projectFilter: string;
-  modoFilter: Set<Modo>;
+  // Ids de recursos aceitos (ou NO_RESPONSAVEL_FILTER). Vazio = todos.
+  responsavelFilter: string[];
   moscowFilter: Set<MoSCoW>;
   esforcoFilter: Set<Esforco>;
   statusFilter: Set<StatusKey>;
@@ -80,7 +75,7 @@ export function defaultFiltersState(): TaskFiltersState {
     hideSnoozed: true,
     onlyWithoutDeadline: false,
     projectFilter: '',
-    modoFilter: new Set<Modo>(MODO_VALUES),
+    responsavelFilter: [],
     moscowFilter: new Set<MoSCoW>(MOSCOW_VALUES),
     esforcoFilter: new Set<Esforco>(ESFORCO_VALUES),
     statusFilter: new Set<StatusKey>(STATUS_VALUES),
@@ -95,7 +90,7 @@ interface SerializedTaskFilters {
   hideSnoozed: boolean;
   onlyWithoutDeadline: boolean;
   projectFilter: string;
-  modoFilter: Modo[];
+  responsavelFilter: string[];
   moscowFilter: MoSCoW[];
   esforcoFilter: Esforco[];
   statusFilter: StatusKey[];
@@ -112,7 +107,7 @@ export function serializeFiltersState(
     hideSnoozed: state.hideSnoozed,
     onlyWithoutDeadline: state.onlyWithoutDeadline,
     projectFilter: state.projectFilter,
-    modoFilter: [...state.modoFilter],
+    responsavelFilter: [...state.responsavelFilter],
     moscowFilter: [...state.moscowFilter],
     esforcoFilter: [...state.esforcoFilter],
     statusFilter: [...state.statusFilter],
@@ -144,7 +139,9 @@ export function deserializeFiltersState(raw: unknown): TaskFiltersState {
         : base.onlyWithoutDeadline,
     projectFilter:
       typeof v.projectFilter === 'string' ? v.projectFilter : base.projectFilter,
-    modoFilter: allowed(v.modoFilter, MODO_VALUES),
+    responsavelFilter: Array.isArray(v.responsavelFilter)
+      ? v.responsavelFilter.filter((t): t is string => typeof t === 'string')
+      : base.responsavelFilter,
     moscowFilter: allowed(v.moscowFilter, MOSCOW_VALUES),
     esforcoFilter: allowed(v.esforcoFilter, ESFORCO_VALUES),
     statusFilter: allowed(v.statusFilter, STATUS_VALUES),
@@ -166,7 +163,7 @@ export function activeFilterCount(
     (state.hideSnoozed ? 0 : 1) +
     (state.onlyWithoutDeadline ? 1 : 0) +
     (state.projectFilter ? 1 : 0) +
-    (state.modoFilter.size === MODO_VALUES.length ? 0 : 1) +
+    (state.responsavelFilter.length > 0 ? 1 : 0) +
     (state.moscowFilter.size === MOSCOW_VALUES.length ? 0 : 1) +
     (state.esforcoFilter.size === ESFORCO_VALUES.length ? 0 : 1) +
     (state.statusFilter.size === STATUS_VALUES.length ? 0 : 1) +
@@ -214,11 +211,15 @@ export function TaskFiltersBar({
     };
   }, [open]);
 
-  function toggleModo(m: Modo) {
-    const next = new Set(state.modoFilter);
-    if (next.has(m)) next.delete(m);
-    else next.add(m);
-    setState({ ...state, modoFilter: next });
+  const { resources } = useResources();
+
+  function toggleResponsavel(id: string) {
+    setState({
+      ...state,
+      responsavelFilter: state.responsavelFilter.includes(id)
+        ? state.responsavelFilter.filter((r) => r !== id)
+        : [...state.responsavelFilter, id],
+    });
   }
 
   function toggleMoscow(m: MoSCoW) {
@@ -406,19 +407,31 @@ export function TaskFiltersBar({
           </fieldset>
 
           <fieldset>
-            <legend>Modo</legend>
+            <legend>Responsável</legend>
             <div className="chip-group">
-              {MODO_VALUES.map((m) => (
-                <button
-                  key={m}
-                  type="button"
-                  className={`chip${state.modoFilter.has(m) ? ' active' : ''}`}
-                  onClick={() => toggleModo(m)}
-                  aria-pressed={state.modoFilter.has(m)}
-                >
-                  {MODO_LABEL[m]}
-                </button>
-              ))}
+              {resources.map((r) => {
+                const active = state.responsavelFilter.includes(r.id);
+                return (
+                  <button
+                    key={r.id}
+                    type="button"
+                    className={`chip chip-responsavel${active ? ' active' : ''}`}
+                    onClick={() => toggleResponsavel(r.id)}
+                    aria-pressed={active}
+                  >
+                    <ResourceAvatar resource={r} size={16} />
+                    {r.nome}
+                  </button>
+                );
+              })}
+              <button
+                type="button"
+                className={`chip${state.responsavelFilter.includes(NO_RESPONSAVEL_FILTER) ? ' active' : ''}`}
+                onClick={() => toggleResponsavel(NO_RESPONSAVEL_FILTER)}
+                aria-pressed={state.responsavelFilter.includes(NO_RESPONSAVEL_FILTER)}
+              >
+                Sem responsável
+              </button>
             </div>
           </fieldset>
 

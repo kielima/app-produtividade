@@ -30,6 +30,7 @@ interface TaskRow {
   score: number | null;
   score_breakdown: Record<string, unknown> | null;
   score_updated_at: string | null;
+  responsavel_id: string | null;
 }
 
 // As colunas `moscow`/`modo`/`esforco` são `text` livre e guardam também
@@ -65,6 +66,7 @@ export function rowToTask(row: TaskRow): Task {
     score: row.score,
     scoreBreakdown: row.score_breakdown,
     scoreUpdatedAt: row.score_updated_at,
+    responsavelId: row.responsavel_id ?? null,
   };
 }
 
@@ -100,6 +102,7 @@ export function taskToRow(uid: string, task: Task): Omit<TaskRow, 'user_id'> & {
     score: task.score ?? null,
     score_breakdown: task.scoreBreakdown ?? null,
     score_updated_at: task.scoreUpdatedAt ?? null,
+    responsavel_id: task.responsavelId ?? null,
   };
 }
 
