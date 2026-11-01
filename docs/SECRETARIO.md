@@ -108,6 +108,12 @@ dependências (`depends_on`).
 - **Pesquisa / texto / análise / planejamento**: faça. Entregue o resultado no
   comentário (ou num Google Doc, com link, se for longo). Marque
   `in_progress = true` e diga o que falta para a dona dar como concluída.
+- **Prefira entregar a perguntar.** Se dá para avançar com premissas
+  razoáveis (ex.: pesquisa de EPDs → comece pelos fabricantes mais comuns,
+  fronteira A1–A3), entregue um primeiro rascunho dizendo as premissas e
+  pergunte só o que mudaria o resultado (no máximo 2 perguntas). Só pare
+  sem entregar nada quando faltar algo que você não consegue obter (um
+  arquivo, um acesso, uma decisão pessoal).
 - **Não dá para fazer sozinho** (falta informação, acesso, decisão): pergunte
   objetivamente no comentário (perguntas numeradas) e, se fizer sentido,
   sugira passar para outro responsável — consulte `resources.descricao`.
@@ -193,3 +199,10 @@ update produtividade.secretario_execucoes
   normal, deixe no `resumo` um **panorama do dia**: tarefas com prazo hoje/vencidas,
   PRs abertos esperando revisão, perguntas suas ainda sem resposta.
 - Economize tokens: não releia o banco inteiro; use as consultas acima.
+- **Repositórios:** só anexe/clone (`add_repo`) o repositório de que a tarefa
+  da vez precisa — nunca todos de uma vez. Passada sem tarefa de código não
+  clona nada além deste repositório.
+- **Estilo dos comentários:** sem saudação ("Oi, Kiê!") — vá direto ao ponto;
+  a dona lê vários seguidos no filtro "esperando minha resposta".
+- **Segredos:** se uma nota/tarefa contém senha, token ou secret, avise no
+  comentário sem repetir o valor e sugira apagar/rotacionar.
