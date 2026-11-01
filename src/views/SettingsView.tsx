@@ -1,9 +1,10 @@
 import { useRef, useState } from 'react';
 import {
-  getDefaultGeminiModel,
-  getGeminiModel,
-  setGeminiModel,
-} from '../lib/aiSubtasks';
+  CLAUDE_MODELS,
+  getClaudeModel,
+  setClaudeModel,
+  type ClaudeModel,
+} from '../lib/claudeClient';
 import { useSupabaseUser } from '../lib/useSession';
 import {
   defaultFilename,
@@ -73,8 +74,8 @@ export function SettingsView({ uid }: { uid: string }) {
   const [preview, setPreview] = useState<ExportPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const [geminiModel, setGeminiModelState] = useState(() => getGeminiModel());
-  const [geminiModelSaved, setGeminiModelSaved] = useState(false);
+  const [claudeModel, setClaudeModelState] = useState<ClaudeModel>(() => getClaudeModel());
+  const [claudeModelSaved, setClaudeModelSaved] = useState(false);
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [importPayload, setImportPayload] = useState<ExportPayload | null>(null);
@@ -209,10 +210,11 @@ export function SettingsView({ uid }: { uid: string }) {
     }
   }
 
-  function handleSaveGeminiModel() {
-    setGeminiModel(geminiModel);
-    setGeminiModelSaved(true);
-    window.setTimeout(() => setGeminiModelSaved(false), 2000);
+  function handleChangeClaudeModel(next: ClaudeModel) {
+    setClaudeModelState(next);
+    setClaudeModel(next);
+    setClaudeModelSaved(true);
+    window.setTimeout(() => setClaudeModelSaved(false), 2000);
   }
 
   function resetImport() {
@@ -296,52 +298,42 @@ export function SettingsView({ uid }: { uid: string }) {
       <article className="settings-card">
         <h3>Inteligência Artificial</h3>
         <p className="muted">
-          Recursos de IA (subtarefas, transcrição de imagem compartilhada,
-          classificação de itens da Leitura) usam o Google Gemini. A chave de
-          API fica guardada no Secret Manager do Firebase — não precisa
-          configurar nada aqui, e ela nunca chega ao navegador. Só o modelo é
-          ajustável por dispositivo.
+          Os recursos de IA (subtarefas, transcrição de imagem, classificação
+          de itens da Leitura e o juiz do Duelo) usam o Claude, da Anthropic.
+          A chave da API fica guardada como secret no repositório do GitHub e
+          é copiada para o servidor (Supabase) — nunca chega ao app nem ao
+          navegador. Só o modelo é ajustável por dispositivo.
         </p>
 
         <div
           className="settings-actions"
           style={{ flexDirection: 'column', alignItems: 'stretch', gap: '0.5rem' }}
         >
-          <label style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
-            Modelo (padrão: <code>{getDefaultGeminiModel()}</code>)
+          <label htmlFor="claude-model" style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+            Modelo
           </label>
-          <input
-            type="text"
-            value={geminiModel}
-            onChange={(e) => {
-              setGeminiModelState(e.target.value);
-              setGeminiModelSaved(false);
-            }}
-            placeholder={getDefaultGeminiModel()}
-            spellCheck={false}
-            autoComplete="off"
+          <select
+            id="claude-model"
+            value={claudeModel}
+            onChange={(e) => handleChangeClaudeModel(e.target.value as ClaudeModel)}
             style={{
               padding: '0.5rem 0.7rem',
               border: '1px solid var(--border)',
               borderRadius: 4,
               background: 'var(--surface)',
               color: 'var(--fg)',
-              fontFamily: 'ui-monospace, SFMono-Regular, Menlo, monospace',
-              fontSize: '0.85rem',
+              fontSize: '0.9rem',
             }}
-          />
-          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <button
-              type="button"
-              className="btn-primary"
-              onClick={handleSaveGeminiModel}
-            >
-              Salvar modelo
-            </button>
-          </div>
-          {geminiModelSaved && (
+          >
+            {CLAUDE_MODELS.map((m) => (
+              <option key={m.id} value={m.id}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          {claudeModelSaved && (
             <p className="muted" style={{ margin: 0 }}>
-              ✓ Modelo salvo neste navegador.
+              ✓ Modelo salvo neste dispositivo.
             </p>
           )}
         </div>

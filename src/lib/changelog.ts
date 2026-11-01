@@ -20,6 +20,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-01T22:00:00-03:00',
+    title: 'IA agora é o Claude',
+    items: [
+      'Todas as funções de IA (subtarefas, transcrição de imagem, classificação da Leitura e o "IA decide" do Duelo) passaram do Google Gemini para o Claude, da Anthropic.',
+      'A chave da API fica guardada como secret no repositório do GitHub e é copiada para o servidor — nunca chega ao app.',
+      'Em Configurações → Inteligência Artificial você escolhe o modelo: Opus 5.5 (padrão), Sonnet 5.5 ou Haiku 5.5.',
+    ],
+  },
+  {
     date: '2026-11-01T21:00:00-03:00',
     title: 'Comentários nos projetos',
     items: [

@@ -560,7 +560,7 @@ function AppShell({
         return;
       }
 
-      // Caminho 1: imagem — transcreve com Gemini e mostra escolha.
+      // Caminho 1: imagem — transcreve com Claude e mostra escolha.
       if (payload.image) {
         setShareDialog({ status: 'loading' });
         try {

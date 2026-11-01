@@ -8,7 +8,7 @@ import type { Project, Task } from '../types';
 // com a conversão de anotações da aba Leitura (marca-texto/comentário/tinta).
 
 // Nome do projeto onde as tarefas criadas sem escolha explícita devem
-// aterrissar (ex.: tarefa criada a partir da transcrição do Gemini ao
+// aterrissar (ex.: tarefa criada a partir da transcrição do Claude ao
 // compartilhar uma imagem). Mantido em sincronia com
 // DEFAULT_CONVERT_PROJECT_NAME em NoteDetailView.tsx.
 const DEFAULT_PROJECT_NAME = 'Tarefas sem projeto';

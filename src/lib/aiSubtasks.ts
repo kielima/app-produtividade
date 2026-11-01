@@ -1,35 +1,8 @@
-// Cliente Gemini para gerar subtarefas a partir do título + nota de uma tarefa.
-//
-// A chave de API vive no Secret Manager do Firebase — a chamada real ao
-// Gemini acontece na Cloud Function `callGemini` (ver src/lib/geminiClient.ts
-// e functions/src/index.ts). Aqui só montamos o prompt/schema (não sigilosos)
-// e escolhemos o modelo.
+// Gera subtarefas a partir do título + nota de uma tarefa, via Claude. A
+// chamada real acontece na Edge Function `call-claude` (ver
+// src/lib/claudeClient.ts); aqui só se monta o prompt e o schema.
 
-import { callGemini } from './geminiClient';
-
-const MODEL_STORAGE = 'app-produtividade:gemini-model';
-const DEFAULT_GEMINI_MODEL = 'gemini-2.5-flash';
-
-export function getGeminiModel(): string {
-  try {
-    return localStorage.getItem(MODEL_STORAGE) || DEFAULT_GEMINI_MODEL;
-  } catch {
-    return DEFAULT_GEMINI_MODEL;
-  }
-}
-
-export function setGeminiModel(model: string): void {
-  const trimmed = model.trim();
-  if (trimmed && trimmed !== DEFAULT_GEMINI_MODEL) {
-    localStorage.setItem(MODEL_STORAGE, trimmed);
-  } else {
-    localStorage.removeItem(MODEL_STORAGE);
-  }
-}
-
-export function getDefaultGeminiModel(): string {
-  return DEFAULT_GEMINI_MODEL;
-}
+import { callClaude } from './claudeClient';
 
 export class AiSubtasksError extends Error {}
 
@@ -62,47 +35,19 @@ export async function generateSubtasks(args: {
 }): Promise<string[]> {
   const prompt = buildPrompt(args.title, args.note, args.existingSubtasks);
 
-  const body = {
-    contents: [{ parts: [{ text: prompt }] }],
-    generationConfig: {
-      temperature: 0.5,
-      responseMimeType: 'application/json',
-      responseSchema: {
-        type: 'object',
-        properties: {
-          subtasks: {
-            type: 'array',
-            items: { type: 'string' },
-          },
-        },
-        required: ['subtasks'],
-      },
-    },
-  };
-
-  let json;
-  try {
-    json = await callGemini(getGeminiModel(), body);
-  } catch (e) {
-    throw new AiSubtasksError(e instanceof Error ? e.message : String(e));
-  }
-
-  if (json.promptFeedback?.blockReason) {
-    throw new AiSubtasksError(
-      `Prompt bloqueado: ${json.promptFeedback.blockReason}`,
-    );
-  }
-
-  const text = json.candidates?.[0]?.content?.parts?.[0]?.text;
-  if (!text) {
-    throw new AiSubtasksError('Resposta do Gemini sem conteúdo.');
-  }
-
   let parsed: { subtasks?: unknown };
   try {
-    parsed = JSON.parse(text);
-  } catch {
-    throw new AiSubtasksError('JSON inválido na resposta do Gemini.');
+    parsed = await callClaude<{ subtasks?: unknown }>({
+      content: [{ type: 'text', text: prompt }],
+      schema: {
+        type: 'object',
+        properties: { subtasks: { type: 'array', items: { type: 'string' } } },
+        required: ['subtasks'],
+        additionalProperties: false,
+      },
+    });
+  } catch (e) {
+    throw new AiSubtasksError(e instanceof Error ? e.message : String(e));
   }
 
   if (!Array.isArray(parsed.subtasks)) {
