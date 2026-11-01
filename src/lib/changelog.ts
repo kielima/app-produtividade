@@ -20,6 +20,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-01T21:00:00-03:00',
+    title: 'Comentários nos projetos',
+    items: [
+      'Projetos agora têm comentários, no fim da página do projeto — como as tarefas e as notas.',
+      'O secretário automático passa pelos projetos ativos com informação faltando (objetivo, status atual, próximos passos, prazo, prioridade, MoSCoW): procura nos repositórios, preenche o que for fato e pergunta o resto nos comentários.',
+      'O filtro "💬 esperando minha resposta" passou a mostrar também os projetos com pergunta do Claude sem resposta.',
+    ],
+  },
+  {
     date: '2026-11-01T19:30:00-03:00',
     title: 'Esperando minha resposta',
     items: [

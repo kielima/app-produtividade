@@ -20,6 +20,7 @@ export interface UserData {
   // minha resposta" (ver src/lib/aguardaResposta.ts).
   aguardandoTarefas: Set<string>;
   aguardandoNotas: Set<string>;
+  aguardandoProjetos: Set<string>;
   // true até a primeira carga de tarefas e projetos chegar — evita que as
   // views mostrem "nenhum item" enquanto a busca inicial está em voo.
   loading: boolean;
@@ -40,6 +41,7 @@ export function useUserData(uid: string): UserData {
   const [commentCounts, setCommentCounts] = useState<Record<string, number>>({});
   const [aguardandoTarefas, setAguardandoTarefas] = useState<Set<string>>(() => new Set());
   const [aguardandoNotas, setAguardandoNotas] = useState<Set<string>>(() => new Set());
+  const [aguardandoProjetos, setAguardandoProjetos] = useState<Set<string>>(() => new Set());
   const [error, setError] = useState<Error | null>(null);
 
   useEffect(() => {
@@ -82,11 +84,19 @@ export function useUserData(uid: string): UserData {
       (s) => setAguardandoNotas(s.aguardando),
       (err) => console.error('Falha ao carregar os comentários das notas', err),
     );
+    const unsubProjectComments = subscribeToCommentSummary(
+      'project_comments',
+      'project_id',
+      uid,
+      (s) => setAguardandoProjetos(s.aguardando),
+      (err) => console.error('Falha ao carregar os comentários dos projetos', err),
+    );
     return () => {
       unsubTasks();
       unsubProjects();
       unsubCommentCounts();
       unsubNoteComments();
+      unsubProjectComments();
     };
   }, [uid]);
 
@@ -145,6 +155,7 @@ export function useUserData(uid: string): UserData {
     commentCounts,
     aguardandoTarefas,
     aguardandoNotas,
+    aguardandoProjetos,
     loading: !tasksLoaded || !projectsLoaded,
     error,
   };

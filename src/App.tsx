@@ -1052,6 +1052,7 @@ function AppShell({
               allTags={allTaskTags}
               awaitingCount={{
                 tarefas: data.tasks.filter((t) => data.aguardandoTarefas.has(t.id)).length,
+                projetos: data.projects.filter((p) => data.aguardandoProjetos.has(p.id)).length,
                 notas: notes.filter((n) => data.aguardandoNotas.has(n.id)).length,
               }}
             />

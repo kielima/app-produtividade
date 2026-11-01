@@ -200,7 +200,7 @@ export function TaskFiltersBar({
   onClearSearch?: () => void;
   allTags?: string[];
   // Quantas tarefas/notas esperam resposta agora — mostrado ao lado da opção.
-  awaitingCount?: { tarefas: number; notas: number };
+  awaitingCount?: { tarefas: number; projetos: number; notas: number };
 }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef<HTMLDivElement | null>(null);
@@ -364,6 +364,7 @@ export function TaskFiltersBar({
               {awaitingCount && (
                 <span className="muted">
                   &nbsp;({awaitingCount.tarefas} {awaitingCount.tarefas === 1 ? 'tarefa' : 'tarefas'},{' '}
+                  {awaitingCount.projetos} {awaitingCount.projetos === 1 ? 'projeto' : 'projetos'},{' '}
                   {awaitingCount.notas} {awaitingCount.notas === 1 ? 'nota' : 'notas'})
                 </span>
               )}
