@@ -6,7 +6,8 @@ agendada só aponta para cá: para mudar o comportamento, edite este arquivo
 (no branch `main`) — não precisa recriar a tarefa.
 
 > Quem lê isto é o Claude, numa sessão nova a cada hora. Tudo abaixo é
-> instrução para essa sessão.
+> instrução para essa sessão. Você é o **orquestrador**: quem executa cada
+> item é um subagente, e você julga o resultado antes de gravar (§2c).
 
 ---
 
@@ -91,6 +92,66 @@ E então:
 3. A dona **reclamou** de algo (ex.: "eu já respondi") → peça desculpas em uma
    linha e execute o que estava aprovado no comentário anterior dela.
 4. Nunca escreva uma pergunta que já está respondida mais acima na conversa.
+
+## 2c. Como trabalhar: você orquestra e julga, subagentes executam
+
+Você **não executa as tarefas diretamente**. Seu papel na passada é:
+escolher os itens (§3), montar um briefing para cada um, entregá-lo a um
+**subagente** (ferramenta `Agent`) com o modelo adequado, **julgar** o que
+voltou e só então gravar no banco. Toda escrita no Supabase (comentários,
+campos, tarefas novas) e todo PR são feitos **por você**, depois do
+julgamento — nunca pelo subagente.
+
+### Escolha do modelo (parâmetro `model` do `Agent`)
+
+| Modelo | Quando usar |
+|---|---|
+| `haiku` | Item simples e curto: comentário de nota, classificar, sugerir vínculo/tag, resumir algo pequeno, uma pergunta objetiva. |
+| `sonnet` | O padrão: pesquisa, rascunho de texto (e-mail, parágrafo, pauta), quebra em subtarefas, completar contexto de projeto, código pequeno (um arquivo, ajuste localizado). |
+| `opus` | Complexo ou de alto risco: código em vários arquivos, texto acadêmico da dissertação/artigo, análise longa com muitas fontes, ou depois que `sonnet` falhou. |
+
+**Nunca use `fable`** — nem como primeira escolha, nem em nova tentativa.
+
+### O briefing (o subagente só sabe o que você escrever)
+
+Inclua: o item (id, título, nota completa), a **conversa inteira** do item
+(§2b), o projeto (objetivo, status, próximos passos, `github_repos`), as
+tarefas relacionadas (pai, filhas, dependências), o que exatamente entregar
+e as regras que se aplicam (§2: nada de concluir, apagar, enviar e-mail ou
+fazer merge; português do Brasil; sem saudação; no máximo ~1500 caracteres
+por comentário). Peça que o subagente **devolva** o resultado — texto do
+comentário, valores de campos, tarefas a criar, ou, em código, o resumo do
+diff e o branch — **sem gravar nada no Supabase**.
+
+- **Código:** use `isolation: "worktree"` para cada subagente que mexe em
+  repositório (vários em paralelo não se atropelam). Ele cria o branch, faz
+  a mudança e roda as checagens do repo; quem abre o PR é você, depois de
+  revisar o diff.
+- **Paralelismo:** itens independentes podem ir para subagentes em paralelo
+  (numa mesma resposta). Não mande dois subagentes no mesmo item.
+
+### Julgamento (antes de gravar qualquer coisa)
+
+Aprove só se o resultado:
+
+1. responde ao que foi pedido **e** ao que a dona disse na conversa — sem
+   repetir pergunta já respondida e executando o que ela aprovou;
+2. entrega algo útil (rascunho, análise, ação), não só perguntas, quando
+   dava para avançar (§4a);
+3. está correto: fatos conferíveis, números batendo, código passando nas
+   checagens do repo;
+4. respeita as regras da §2 e o formato (tamanho, idioma, sem saudação).
+
+**Insatisfatório?** Escreva em 1–2 linhas o que faltou e tente de novo com
+o **modelo acima** (`haiku` → `sonnet` → `opus`), mandando o briefing + a
+tentativa anterior + a sua crítica. No máximo **2 novas tentativas** por
+item. Se `opus` também não resolver, não grave o resultado ruim: comente no
+item só o que falta para avançar (a informação, o acesso ou a decisão) e
+siga para o próximo.
+
+No `resumo` da passada, registre por item o modelo usado e se houve nova
+tentativa (ex.: `#1279 sonnet ✓`, `#0039 sonnet ✗ → opus ✓`) — é assim que
+a dona acompanha custo e qualidade.
 
 ## 3. Escolha do que trabalhar (por passada)
 
