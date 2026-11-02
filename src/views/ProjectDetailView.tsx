@@ -5,6 +5,7 @@ import { ProjectDepPicker } from '../components/ProjectDepPicker';
 import { TagsEditor } from '../components/TagsEditor';
 import { GithubReposEditor } from '../components/GithubReposEditor';
 import { CommentThread } from '../components/CommentThread';
+import { usePortfolios } from '../lib/usePortfolios';
 import TrashIcon from '../components/TrashIcon';
 import { useNoteNavigation } from '../lib/noteNavigation';
 import {
@@ -58,6 +59,7 @@ export function ProjectDetailView({
   onClose: () => void;
 }) {
   const { openNote } = useNoteNavigation();
+  const { portfolios } = usePortfolios(uid);
   // Sugestões do campo de repositórios: tudo que já está ligado a algum
   // projeto — o mesmo repositório pode ir para mais de um projeto.
   const todosRepos = useMemo(
@@ -216,7 +218,31 @@ export function ProjectDetailView({
           </span>
         </div>
 
+        {project.status === 'Pausado' && project.pausaMotivo && (
+          <p className="project-pausa-aviso">
+            ⏸ Pausado pelo secretário: {project.pausaMotivo}
+          </p>
+        )}
+
         <dl className="task-detail-fields">
+          <div className="task-detail-field">
+            <dt>🗂️ Portfólio</dt>
+            <dd>
+              <select
+                className="project-portfolio-select"
+                value={project.portfolioId ?? ''}
+                onChange={(e) => patchProject(uid, project.id, { portfolioId: e.target.value || null })}
+                aria-label="portfólio"
+              >
+                <option value="">(sem portfólio)</option>
+                {portfolios.map((pf) => (
+                  <option key={pf.id} value={pf.id}>
+                    {pf.nome}
+                  </option>
+                ))}
+              </select>
+            </dd>
+          </div>
           <div className="task-detail-field">
             <dt>🧭 Tipo</dt>
             <dd>

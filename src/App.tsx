@@ -62,6 +62,7 @@ import { ProjectDetailView } from './views/ProjectDetailView';
 import { ProjectDuelView } from './views/ProjectDuelView';
 import { ProjectsView } from './views/ProjectsView';
 import { SettingsView } from './views/SettingsView';
+import { PortfoliosView } from './views/PortfoliosView';
 import { ResourcesProvider } from './lib/resources';
 import { TaskDetailView } from './views/TaskDetailView';
 import { NoteDetailView } from './views/NoteDetailView';
@@ -148,6 +149,7 @@ type Tab =
   | 'grafos'
   | 'tasks'
   | 'projects'
+  | 'portfolios'
   | 'countdown'
   | 'stats'
   | 'settings';
@@ -160,6 +162,7 @@ const TABS: Array<{ key: Tab; label: string }> = [
   { key: 'grafos', label: 'Files' },
   { key: 'tasks', label: 'Tasks' },
   { key: 'projects', label: 'Projetos' },
+  { key: 'portfolios', label: 'Portfólios' },
   { key: 'countdown', label: 'Agenda' },
   { key: 'stats', label: 'Estatísticas' },
   { key: 'settings', label: 'Configurações' },
@@ -1250,6 +1253,7 @@ function AppShell({
             searchQuery={projectSearchQuery}
           />
         )}
+        {tab === 'portfolios' && <PortfoliosView uid={uid} data={data} />}
         {tab === 'countdown' && <CountdownView uid={uid} />}
         {tab === 'stats' && (
           <EstatisticasView

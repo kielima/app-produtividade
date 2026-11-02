@@ -20,6 +20,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-02T10:00:00-03:00',
+    title: 'Portfólios',
+    items: [
+      'Nova aba Portfólios (conceito do PMI): projetos e processos agrupados sob um objetivo estratégico, com contagem de ativos, em andamento, pausados e processos.',
+      'Cada projeto tem o campo Portfólio na própria página. Já criamos 7 portfólios e distribuímos os projetos; edite, crie ou apague à vontade.',
+      'O secretário gere os portfólios: distribui projetos novos, escreve um panorama ("Gestão do secretário") em cada portfólio e decide sozinho quando pausar ou despausar, com o motivo visível na página do projeto.',
+    ],
+  },
+  {
     date: '2026-11-02T09:00:00-03:00',
     title: 'Projeto ou processo',
     items: [
