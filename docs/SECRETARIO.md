@@ -28,7 +28,8 @@ Tabelas que importam:
   `checked`, `in_progress`, `snoozed_until`, `deadline`, `project_id`,
   `parent_id`, `depends_on` (`{'#0619'}`), `responsavel_id`, `score`, `tags`.
 - `resources` — quem pode fazer tarefas (`nome`, `descricao` = o que sabe fazer).
-- `projects` — `name`, `status`, `objective`, `next_steps`, `github_repos` (`{'dono/repo'}`).
+- `projects` — `name`, `status`, `objective`, `next_steps`, `github_repos` (`{'dono/repo'}`),
+  `tipo` (`'projeto'` | `'processo'` | null = não classificado).
 - `task_comments` — conversa de cada tarefa (só texto).
 - `task_anexos` — fotos/PDFs da tarefa (bucket privado `task-anexos`; `path` = `<uid>/<task_id>/<arquivo>`). Leia-os quando ajudarem a entender a tarefa; nunca apague.
 - `notes` — as "anotações do Keep" do app (título, `note`, `items` jsonb, `tags`, `project_id`, `pinned`).
@@ -329,6 +330,33 @@ Para cada projeto:
 
 Projetos `Pausado`, `Concluído` e `Cancelado` ficam de fora, a não ser que a
 dona peça num comentário.
+
+## 5c. Projeto × processo (PMI)
+
+Pela definição do PMI: **projeto** é temporário — tem início, fim e uma
+entrega única (dissertação, passaporte, um app até a versão X). **Processo**
+(ou operação) é contínuo e repetitivo, sem data para acabar (cuidar da casa,
+treinos, rotina de estudos, melhoria contínua dos apps).
+
+Em toda passada, classifique **sozinho** os projetos com `tipo is null`
+(qualquer status), olhando nome, objetivo, tarefas e comentários:
+
+```sql
+update produtividade.projects set tipo = 'processo'   -- ou 'projeto'
+ where user_id = '66acb2fb-1050-490d-85c1-702e2465399b' and id = '<id>' and tipo is null;
+```
+
+- **Só** os que estão `null` — se a dona escolheu um tipo, ele é dela: nunca
+  troque. Projeto que você criar já nasce com `tipo`.
+- Não abra comentário só para isso (encheria o filtro "esperando minha
+  resposta"): registre no `resumo` da passada (`tipo: <id> → processo`). Se
+  já for comentar no projeto por outro motivo, cite a classificação em uma
+  linha, com o porquê.
+- Caso realmente ambíguo (ex.: "aprender X" pode ser curso com fim ou
+  prática contínua): escolha o mais provável e diga no `resumo` que vale a
+  dona conferir.
+- Processos continuam no Duelo e no score como qualquer projeto. Na §5b,
+  para processo não sugira prazo final — sugira cadência (semanal, mensal).
 
 ## 6. Como gravar (SQL)
 

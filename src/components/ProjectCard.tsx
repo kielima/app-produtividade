@@ -72,6 +72,11 @@ export function ProjectCard({
         >
           {project.name}
         </button>
+        {project.tipo === 'processo' && (
+          <span className="project-tipo-badge" title="Processo (contínuo), não projeto">
+            🔁 processo
+          </span>
+        )}
         {!compact && volatility && confidence && (
           <span className="project-glicko-badges">
             <span

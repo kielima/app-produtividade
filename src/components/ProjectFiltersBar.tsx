@@ -35,8 +35,19 @@ export const PROJECT_VIEW_LABEL: Record<ProjectViewMode, string> = {
   matrix: 'Matriz MoSCoW',
 };
 
+// Projeto × processo (PMI). 'todos' = sem filtro. Não classificado conta
+// como projeto.
+export type ProjectTipoFilter = 'todos' | 'projeto' | 'processo';
+
+export const PROJECT_TIPO_LABEL: Record<ProjectTipoFilter, string> = {
+  todos: 'Todos',
+  projeto: 'Projetos',
+  processo: 'Processos',
+};
+
 export interface ProjectFiltersState {
   statusFilter: Set<ProjectStatusKey>;
+  tipoFilter: ProjectTipoFilter;
   sortMode: ProjectSortMode;
   viewMode: ProjectViewMode;
 }
@@ -44,6 +55,7 @@ export interface ProjectFiltersState {
 export function defaultProjectFiltersState(): ProjectFiltersState {
   return {
     statusFilter: new Set<ProjectStatusKey>(PROJECT_STATUS_VALUES),
+    tipoFilter: 'todos',
     sortMode: 'score',
     viewMode: 'list',
   };
@@ -51,6 +63,7 @@ export function defaultProjectFiltersState(): ProjectFiltersState {
 
 interface SerializedProjectFilters {
   statusFilter: ProjectStatusKey[];
+  tipoFilter?: ProjectTipoFilter;
   sortMode: ProjectSortMode;
   viewMode: ProjectViewMode;
 }
@@ -60,6 +73,7 @@ export function serializeProjectFiltersState(
 ): SerializedProjectFilters {
   return {
     statusFilter: [...state.statusFilter],
+    tipoFilter: state.tipoFilter,
     sortMode: state.sortMode,
     viewMode: state.viewMode,
   };
@@ -77,17 +91,22 @@ export function deserializeProjectFiltersState(
     v.viewMode === 'category' || v.viewMode === 'list' || v.viewMode === 'matrix'
       ? v.viewMode
       : base.viewMode;
+  const tipoFilter: ProjectTipoFilter =
+    v.tipoFilter === 'projeto' || v.tipoFilter === 'processo' ? v.tipoFilter : 'todos';
   if (!Array.isArray(v.statusFilter)) {
-    return { ...base, sortMode, viewMode };
+    return { ...base, tipoFilter, sortMode, viewMode };
   }
   const filtered = v.statusFilter.filter((x): x is ProjectStatusKey =>
     (PROJECT_STATUS_VALUES as readonly string[]).includes(x as string),
   );
-  return { statusFilter: new Set(filtered), sortMode, viewMode };
+  return { statusFilter: new Set(filtered), tipoFilter, sortMode, viewMode };
 }
 
 export function activeProjectFilterCount(state: ProjectFiltersState): number {
-  return state.statusFilter.size === PROJECT_STATUS_VALUES.length ? 0 : 1;
+  return (
+    (state.statusFilter.size === PROJECT_STATUS_VALUES.length ? 0 : 1) +
+    (state.tipoFilter === 'todos' ? 0 : 1)
+  );
 }
 
 export function isAllProjectStatuses(state: ProjectFiltersState): boolean {
@@ -234,6 +253,23 @@ export function ProjectFiltersBar({
                   aria-pressed={state.viewMode === m}
                 >
                   {PROJECT_VIEW_LABEL[m]}
+                </button>
+              ))}
+            </div>
+          </fieldset>
+
+          <fieldset>
+            <legend>Tipo</legend>
+            <div className="chip-group">
+              {(Object.keys(PROJECT_TIPO_LABEL) as ProjectTipoFilter[]).map((t) => (
+                <button
+                  key={t}
+                  type="button"
+                  className={`chip${state.tipoFilter === t ? ' active' : ''}`}
+                  onClick={() => setState({ ...state, tipoFilter: t })}
+                  aria-pressed={state.tipoFilter === t}
+                >
+                  {PROJECT_TIPO_LABEL[t]}
                 </button>
               ))}
             </div>

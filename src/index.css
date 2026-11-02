@@ -7196,3 +7196,14 @@ button.badge.score.score-button:focus-visible { outline: 2px solid var(--accent)
   cursor: pointer;
   overflow-wrap: anywhere;
 }
+
+/* ---- Projeto × processo ---------------------------------------------------- */
+.project-tipo-badge {
+  flex: 0 0 auto;
+  font-size: 0.7rem;
+  padding: 0.05rem 0.4rem;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  white-space: nowrap;
+}

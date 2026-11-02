@@ -173,6 +173,10 @@ export interface Project {
   // Repositórios do GitHub ("owner/repo") ligados a este projeto. Um projeto
   // pode ter vários e o mesmo repositório pode estar em mais de um projeto.
   githubRepos?: string[];
+  // Projeto (temporário, com fim e entrega única) ou processo (contínuo,
+  // repetitivo), pela definição do PMI. null/ausente = não classificado,
+  // tratado como projeto.
+  tipo?: 'projeto' | 'processo' | null;
 }
 
 export interface Note {

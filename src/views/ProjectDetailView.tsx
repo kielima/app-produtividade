@@ -217,6 +217,35 @@ export function ProjectDetailView({
         </div>
 
         <dl className="task-detail-fields">
+          <div className="task-detail-field">
+            <dt>🧭 Tipo</dt>
+            <dd>
+              <div className="chip-group" role="radiogroup" aria-label="tipo">
+                {(
+                  [
+                    ['projeto', '📦 Projeto', 'Temporário: tem início, fim e uma entrega única'],
+                    ['processo', '🔁 Processo', 'Contínuo e repetitivo, sem data para acabar'],
+                  ] as const
+                ).map(([valor, rotulo, dica]) => {
+                  const ativo = (project.tipo ?? null) === valor;
+                  return (
+                    <button
+                      key={valor}
+                      type="button"
+                      role="radio"
+                      aria-checked={ativo}
+                      className={`chip${ativo ? ' active' : ''}`}
+                      title={dica}
+                      onClick={() => patchProject(uid, project.id, { tipo: ativo ? null : valor })}
+                    >
+                      {rotulo}
+                    </button>
+                  );
+                })}
+                {!project.tipo && <span className="muted">(não classificado)</span>}
+              </div>
+            </dd>
+          </div>
           <Field
             label="Área"
             value={project.area}
