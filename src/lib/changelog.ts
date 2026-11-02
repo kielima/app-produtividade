@@ -20,6 +20,15 @@ export type ChangelogEntry = {
 
 export const CHANGELOG: ChangelogEntry[] = [
   {
+    date: '2026-11-02T09:00:00-03:00',
+    title: 'Projeto ou processo',
+    items: [
+      'Cada projeto agora tem um Tipo, pela definição do PMI: 📦 Projeto (temporário, com fim e uma entrega única) ou 🔁 Processo (contínuo, sem data para acabar). Escolha na página do projeto.',
+      'Processos aparecem com o selo 🔁 na lista, e o filtro de Projetos ganhou "Tipo" para ver só projetos ou só processos.',
+      'Os projetos já foram classificados; o secretário classifica os novos sozinho. Processos continuam no Duelo normalmente.',
+    ],
+  },
+  {
     date: '2026-11-01T22:00:00-03:00',
     title: 'IA agora é o Claude',
     items: [

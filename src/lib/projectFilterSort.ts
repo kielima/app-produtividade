@@ -32,6 +32,9 @@ export function filterAndSortProjects(
   const q = normalizeForSearch(searchQuery.trim());
   const list = projects.filter((p) => {
     if (!filters.statusFilter.has(p.status)) return false;
+    if (filters.tipoFilter && filters.tipoFilter !== 'todos' && (p.tipo ?? 'projeto') !== filters.tipoFilter) {
+      return false;
+    }
     if (q) {
       const haystack = normalizeForSearch([p.name, ...p.categories].join('\n'));
       if (!haystack.includes(q)) return false;

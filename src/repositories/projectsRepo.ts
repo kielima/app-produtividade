@@ -23,6 +23,7 @@ interface ProjectRow {
   order: number | null;
   status_before_block: string | null;
   github_repos: string[] | null;
+  tipo: string | null;
 }
 
 export function rowToProject(row: ProjectRow): Project {
@@ -43,6 +44,7 @@ export function rowToProject(row: ProjectRow): Project {
     notes: row.notes ?? '',
     ...(row.order != null ? { order: row.order } : {}),
     githubRepos: Array.isArray(row.github_repos) ? row.github_repos : [],
+    tipo: row.tipo === 'processo' || row.tipo === 'projeto' ? row.tipo : null,
     ...(row.status_before_block ? { statusBeforeBlock: row.status_before_block as Project['status'] } : {}),
   };
   return merged;
@@ -68,6 +70,7 @@ export function projectToRow(uid: string, project: Project): ProjectRow {
     order: project.order ?? null,
     status_before_block: project.statusBeforeBlock ?? null,
     github_repos: project.githubRepos ?? [],
+    tipo: project.tipo ?? null,
   };
 }
 
@@ -112,6 +115,7 @@ export async function patchProject(
   if (patch.order !== undefined) row.order = patch.order;
   if (patch.statusBeforeBlock !== undefined) row.status_before_block = patch.statusBeforeBlock;
   if (patch.githubRepos !== undefined) row.github_repos = patch.githubRepos;
+  if (patch.tipo !== undefined) row.tipo = patch.tipo;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase.from('projects').update(row).eq('user_id', uid).eq('id', projectId);
   if (error) throw new Error(error.message);
