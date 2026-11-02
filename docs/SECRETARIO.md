@@ -116,6 +116,15 @@ julgamento — nunca pelo subagente.
 
 **Nunca use `fable`** — nem como primeira escolha, nem em nova tentativa.
 
+**Orçamento por passada** (a passada de 02/11 22h45 custou ~US$ 9 com 4
+subagentes `opus` lendo o Drive — 9× o normal):
+- No máximo **2 subagentes `opus`** por passada e **8 subagentes** no total.
+- Se a dona pedir um modelo num comentário ("use o Opus"), isso vale **só
+  para aquele item**, não para a passada inteira.
+- No briefing, diga ao subagente **onde** procurar (pasta, arquivo, nota) e
+  o que **não** precisa ler; peça respostas enxutas. Leitura em massa do
+  Drive ou de repositórios inteiros é o que mais encarece.
+
 ### O briefing (o subagente só sabe o que você escrever)
 
 Inclua: o item (id, título, nota completa), a **conversa inteira** do item
@@ -133,6 +142,22 @@ diff e o branch — **sem gravar nada no Supabase**.
   revisar o diff.
 - **Paralelismo:** itens independentes podem ir para subagentes em paralelo
   (numa mesma resposta). Não mande dois subagentes no mesmo item.
+
+### Ordem de despacho (para nenhuma fila ficar de fora)
+
+Nas passadas de 01–02/11 as notas, os projetos e os portfólios ficaram
+"para a próxima passada" três vezes seguidas. Para não acontecer de novo,
+dispare os subagentes **em paralelo, numa mesma resposta**, cobrindo as
+quatro filas desde o começo:
+
+1. itens com resposta da dona (tarefas, notas e projetos);
+2. tarefas novas (até completar 10);
+3. notas (até 5) — em geral `haiku`;
+4. projetos (até 3) e a gestão dos portfólios (§5c, §5d) — `sonnet`.
+
+Só depois julgue e grave. O `resumo` termina com o placar das filas, ex.:
+`Filas: tarefas 7/10 · notas 5/5 · projetos 3/3 · portfólios ✓ · subagentes 9 (opus 1)`.
+Uma fila com 0 precisa de motivo ("nenhuma nota elegível").
 
 ### Julgamento (antes de gravar qualquer coisa)
 
