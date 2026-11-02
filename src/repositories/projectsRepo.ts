@@ -24,6 +24,9 @@ interface ProjectRow {
   status_before_block: string | null;
   github_repos: string[] | null;
   tipo: string | null;
+  portfolio_id: string | null;
+  pausa_motivo: string | null;
+  status_antes_pausa: string | null;
 }
 
 export function rowToProject(row: ProjectRow): Project {
@@ -45,6 +48,9 @@ export function rowToProject(row: ProjectRow): Project {
     ...(row.order != null ? { order: row.order } : {}),
     githubRepos: Array.isArray(row.github_repos) ? row.github_repos : [],
     tipo: row.tipo === 'processo' || row.tipo === 'projeto' ? row.tipo : null,
+    portfolioId: row.portfolio_id ?? null,
+    pausaMotivo: row.pausa_motivo ?? null,
+    statusAntesPausa: row.status_antes_pausa ?? null,
     ...(row.status_before_block ? { statusBeforeBlock: row.status_before_block as Project['status'] } : {}),
   };
   return merged;
@@ -71,6 +77,9 @@ export function projectToRow(uid: string, project: Project): ProjectRow {
     status_before_block: project.statusBeforeBlock ?? null,
     github_repos: project.githubRepos ?? [],
     tipo: project.tipo ?? null,
+    portfolio_id: project.portfolioId ?? null,
+    pausa_motivo: project.pausaMotivo ?? null,
+    status_antes_pausa: project.statusAntesPausa ?? null,
   };
 }
 
@@ -116,6 +125,9 @@ export async function patchProject(
   if (patch.statusBeforeBlock !== undefined) row.status_before_block = patch.statusBeforeBlock;
   if (patch.githubRepos !== undefined) row.github_repos = patch.githubRepos;
   if (patch.tipo !== undefined) row.tipo = patch.tipo;
+  if (patch.portfolioId !== undefined) row.portfolio_id = patch.portfolioId;
+  if (patch.pausaMotivo !== undefined) row.pausa_motivo = patch.pausaMotivo;
+  if (patch.statusAntesPausa !== undefined) row.status_antes_pausa = patch.statusAntesPausa;
   if (Object.keys(row).length === 0) return;
   const { error } = await supabase.from('projects').update(row).eq('user_id', uid).eq('id', projectId);
   if (error) throw new Error(error.message);

@@ -177,6 +177,23 @@ export interface Project {
   // repetitivo), pela definição do PMI. null/ausente = não classificado,
   // tratado como projeto.
   tipo?: 'projeto' | 'processo' | null;
+  // Portfólio (PMI) ao qual o projeto/processo pertence. null = sem portfólio.
+  portfolioId?: string | null;
+  // Preenchidos quando o secretário pausa o projeto (§5d do manual): o motivo
+  // aparece na página do projeto e o status anterior volta ao despausar.
+  pausaMotivo?: string | null;
+  statusAntesPausa?: string | null;
+}
+
+// Portfólio (conceito do PMI): agrupa projetos e processos sob um objetivo
+// estratégico. `gestao` é o panorama escrito pelo secretário agendado.
+export interface Portfolio {
+  id: string;
+  nome: string;
+  objetivo: string;
+  ordem: number | null;
+  gestao: string;
+  gestaoAtualizadaEm: string | null;
 }
 
 export interface Note {
